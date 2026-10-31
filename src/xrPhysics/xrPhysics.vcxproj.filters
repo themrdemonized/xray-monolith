@@ -315,6 +315,15 @@
     <ClCompile Include="ActorCameraCollision.cpp">
       <Filter>physics\camera_collision</Filter>
     </ClCompile>
+    <ClCompile Include="ActorCameraCollisionCommon.cpp">
+      <Filter>physics\camera_collision</Filter>
+    </ClCompile>
+    <ClCompile Include="ActorCameraCollisionPushOut.cpp">
+      <Filter>physics\camera_collision</Filter>
+    </ClCompile>
+    <ClCompile Include="ActorCameraCollisionAnchoredSweep.cpp">
+      <Filter>physics\camera_collision</Filter>
+    </ClCompile>
     <ClCompile Include="collisiondamagereceiver.cpp">
       <Filter>physics\damage_receiver</Filter>
     </ClCompile>
@@ -588,6 +597,18 @@
       <Filter>physics\Base\Debug</Filter>
     </ClInclude>
     <ClInclude Include="ActorCameraCollision.h">
+      <Filter>physics\camera_collision</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorCameraCollisionCommon.h">
+      <Filter>physics\camera_collision</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorCameraCollisionInternal.h">
+      <Filter>physics\camera_collision</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorCameraCollisionPushOut.h">
+      <Filter>physics\camera_collision</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorCameraCollisionAnchoredSweep.h">
       <Filter>physics\camera_collision</Filter>
     </ClInclude>
     <ClInclude Include="icollisiondamagereceiver.h">

@@ -14,7 +14,7 @@
 
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "PHDebug.h"
 #endif
 
@@ -335,7 +335,7 @@ bool CIKFoot::GetFootStepMatrix(ik_goal_matrix& m, const Fmatrix& g_anim, const 
 	Fvector foot_normal;
 	FootNormal(foot_normal);
 	global_anim.transform_dir(foot_normal);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	//if( ph_dbg_draw_mask.test( phDbgDrawIKGoal ) )
 	//{
 	//	DBG_DrawLine( global_point, Fvector().add( global_point, foot_normal ), D3DCOLOR_XRGB( 0, 255, 255) );
@@ -348,7 +348,7 @@ bool CIKFoot::GetFootStepMatrix(ik_goal_matrix& m, const Fmatrix& g_anim, const 
 		Fvector heel;
 		HeelPosition(heel);
 		foot.transform_tiny(global_point, heel);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if( ph_dbg_draw_mask.test( phDbgDrawIKGoal ) )
 			DBG_DrawPoint( global_point, 0.01, D3DCOLOR_XRGB( 0, 255, 255));
 #endif
@@ -389,7 +389,7 @@ bool CIKFoot::GetFootStepMatrix(ik_goal_matrix& m, const Fmatrix& g_anim, const 
 
 	VERIFY(_valid( xm ));
 	m.set(xm, cl_state);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test( phDbgDrawIKGoal ))
 	{
 		DBG_DrawPoint( global_point, 0.03f, D3DCOLOR_RGBA( 255, 0, 0, 255 ) );

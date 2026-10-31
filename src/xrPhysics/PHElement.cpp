@@ -14,7 +14,7 @@
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "../3rd party/ode/ode/src/util.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_output.h"
 //#	include "objectdump.h"
 #endif // DEBUG
@@ -417,7 +417,7 @@ void CPHElement::PhDataUpdate(dReal step)
 	///////////////skip for disabled elements////////////////////////////////////////////////////////////
 	//b_enabled_onstep=!!dBodyIsEnabled(m_body);
 	//VERIFY_BOUNDARIES2(cast_fv(dBodyGetPosition(m_body)),phBoundaries,PhysicsRefObject(),"PhDataUpdate begin, body position");
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgDrawMassCenters))
 	{
 		debug_output().DBG_DrawPoint(cast_fv(dBodyGetPosition(m_body)),0.03f,D3DCOLOR_XRGB(255,0,0));
@@ -617,7 +617,7 @@ void CPHElement::applyImpulseVsMC(const Fvector& pos, const Fvector& dir, float 
 	val /= fixed_step;
 	impulse.set(dir);
 	impulse.mul(val);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_ph_force_apply )
 	{
 		Fvector draw_pos; draw_pos.add( cast_fv( dBodyGetPosition( m_body ) ), pos ); 
@@ -637,7 +637,7 @@ void CPHElement::applyImpulseVsGF(const Fvector& pos, const Fvector& dir, float 
 	if (!isActive() || m_flags.test(flFixed)) return;
 	if (!dBodyIsEnabled(m_body)) dBodyEnable(m_body);
 	/////////////////////////////////////////////////////////////////////////
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_ph_force_apply )
 	{
 		debug_output().DBG_OpenCashedDraw();
@@ -688,7 +688,7 @@ void CPHElement::applyImpulseTrace(const Fvector& pos, const Fvector& dir, float
 	{
 		body_pos.set(0.f, 0.f, 0.f);
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phHitApplicationPoints))
 	{
 		debug_output().DBG_OpenCashedDraw();
@@ -1781,7 +1781,7 @@ void CPHElement::SetScale(float scale)
     }
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 void CPHElement::dbg_draw_velocity	( float scale, u32 color )
 {

@@ -23,6 +23,8 @@
 #include "PHMovementControl.h"
 #include "../xrphysics/ielevatorstate.h"
 #include "../xrphysics/actorcameracollision.h"
+#include "../xrphysics/ActorCameraCollisionAnchoredSweep.h"
+#include "../xrphysics/ActorCameraCollisionPushOut.h"
 #include "IKLimbsController.h"
 #include "GamePersistent.h"
 #include "player_hud.h"
@@ -398,8 +400,100 @@ IC void get_cam_oob(Fvector& bd, Fmatrix& mat, const Fmatrix& xform, const SRota
 	mat.c.set(bc);
 }
 
+extern float g_fov;
+
+// FOV used to size camera collision volumes (modes 1 and 2): the unzoomed FOV, so aiming down sights
+// does not shrink the volume and leaving ADS next to a wall does not shove the view.
+static float camera_collision_fov()
+{
+	return _max(g_fov, Device.fFOV);
+}
+
+// Anchored sweep camera collision: sphere radius that covers the near plane but never exceeds the movement
+// capsule, so the capsule axis (the sweep anchor) is always a valid starting point.
+static float anchored_sweep_camera_radius(CActor* actor)
+{
+	Fvector box;
+	actor->character_physics_support()->movement()->Box().getsize(box);
+	const float capsule_radius = _min(box.x, box.z) * 0.5f;
+	const float max_radius = _max(capsule_radius - 0.02f, 0.05f);
+	const float fov = camera_collision_fov();
+	const float corner_factor = camera_near_plane_corner_factor(fov);
+	const float wanted = VIEWPORT_NEAR * corner_factor + g_cam_anchored_sweep_margin;
+
+	//if (wanted > max_radius)
+	//{
+	//	static float warned_near = -1.f;
+	//	static float warned_fov = -1.f;
+	//	if (!fsimilar(warned_near, VIEWPORT_NEAR) || !fsimilar(warned_fov, fov, 0.5f))
+	//	{
+	//		warned_near = VIEWPORT_NEAR;
+	//		warned_fov = fov;
+	//		Msg("! [camera collision] near plane (viewport_near %.3f, fov %.1f) does not fit inside the actor "
+	//		    "capsule (r=%.3f), walls may clip when hugged; viewport_near <= %.3f fits",
+	//		    VIEWPORT_NEAR, fov, capsule_radius, _max(0.f, (max_radius - g_cam_anchored_sweep_margin) / corner_factor));
+	//	}
+	//}
+	return _min(wanted, max_radius);
+}
+
+struct SLookoutPath
+{
+	Fmatrix xform;
+	float radius;
+	float alpha;
+};
+
+static void lookout_path(float t, Fvector& out, const void* ctx)
+{
+	const SLookoutPath& p = *static_cast<const SLookoutPath*>(ctx);
+	calc_point(out, p.radius, 0.f, p.alpha * t);
+	p.xform.transform_tiny(out);
+}
+
 void CActor::cam_Lookout(const Fmatrix& xform, float camera_height)
 {
+	if (!fis_zero(r_torso_tgt_roll) && g_actor_camera_collision_mode == eActorCamCollisionNearPlanePushOut)
+	{
+		// Near-plane push-out lean (legacy box test, fixed): the box is the real near-plane volume, the
+		// search goes towards the requested side (legacy used the sign of last frame's roll), the result is
+		// the last *free* angle (legacy kept the first colliding one), and march + bisection replaces
+		// PI/1000 stepping.
+		const float alpha = r_torso_tgt_roll / 2.f;
+		Fmatrix33 mat3;
+		get_box_mat(mat3, alpha, r_torso);
+		Fmatrix orientation = Fidentity;
+		orientation.i.set(mat3.i);
+		orientation.j.set(mat3.j);
+		orientation.k.set(mat3.k);
+
+		SLookoutPath path;
+		path.xform.set(xform);
+		path.radius = camera_height * 0.5f;
+		path.alpha = alpha;
+		const float arc_length = path.radius * _abs(alpha);
+		const float t = sweep_camera_pushout_box(lookout_path, &path, arc_length, orientation, camera_collision_fov(),
+		                                       VIEWPORT_NEAR, this);
+		r_torso.roll = alpha * t * 2.f;
+		r_torso_tgt_roll = r_torso.roll;
+		return;
+	}
+
+	if (!fis_zero(r_torso_tgt_roll) && g_actor_camera_collision_mode == eActorCamCollisionAnchoredSweep)
+	{
+		// Sweep the eye along the lean arc starting from the upright pose (always free). Lean stops where
+		// the sphere first touches; the movement code's angle inertia eases it back out afterwards.
+		SLookoutPath path;
+		path.xform.set(xform);
+		path.radius = camera_height * 0.5f;
+		path.alpha = r_torso_tgt_roll / 2.f;
+		const float arc_length = path.radius * _abs(path.alpha);
+		const float t = sweep_camera_sphere(lookout_path, &path, arc_length, anchored_sweep_camera_radius(this), this);
+		r_torso.roll = path.alpha * t * 2.f;
+		r_torso_tgt_roll = r_torso.roll;
+		return;
+	}
+
 	if (!fis_zero(r_torso_tgt_roll))
 	{
 		float w, h;
@@ -545,6 +639,7 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 
 	Fvector point = {0, CurrentHeight + current_ik_cam_shift, 0};
+	float anchor_y = point.y; // eye height on the capsule axis, before lean (anchored sweep camera collision)
 	Fvector dangle = {0, 0, 0};
 	Fmatrix xform;
 	xform.setXYZ(0, r_torso.yaw, 0);
@@ -575,6 +670,7 @@ void CActor::cam_Update(float dt, float fFOV)
 		if (flCurrentPlayerY - fPrevCamPos > 0.2f)
 			fPrevCamPos = flCurrentPlayerY - 0.2f;
 		point.y += fPrevCamPos - flCurrentPlayerY;
+		anchor_y += fPrevCamPos - flCurrentPlayerY;
 	}
 	else
 	{
@@ -584,6 +680,8 @@ void CActor::cam_Update(float dt, float fFOV)
 	float _viewport_near = VIEWPORT_NEAR;
 	// calc point
 	xform.transform_tiny(point);
+	Fvector anchor = {0, anchor_y, 0};
+	xform.transform_tiny(anchor);
 
 	CCameraBase* C = cam_Active();
 
@@ -597,7 +695,18 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 	if (Level().CurrentEntity() == this)
 	{
-		collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+		switch (g_actor_camera_collision_mode)
+		{
+		case eActorCamCollisionAnchoredSweep:
+			collide_camera_anchored_sweep(*cameras[eacFirstEye], anchor, anchored_sweep_camera_radius(this), dt, this);
+			break;
+		case eActorCamCollisionNearPlanePushOut:
+			collide_camera_pushout(*cameras[eacFirstEye], _viewport_near, camera_collision_fov(), dt, this);
+			break;
+		default:
+			collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+			break;
+		}
 	}
 
     static bool firstPersonDeathDied = false;
@@ -735,7 +844,7 @@ void CActor::update_camera(CCameraShotEffector* effector)
 }
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void dbg_draw_frustum (float FOV, float _FAR, float A, Fvector &P, Fvector &D, Fvector &U);
 extern	Flags32	dbg_net_Draw_Flags;
 extern	BOOL g_bDrawBulletHit;
@@ -755,6 +864,6 @@ void CActor::OnRender	()
 
 	OnRender_Network();
 
-	inherited::OnRender();
+	//inherited::OnRender();
 }
 #endif

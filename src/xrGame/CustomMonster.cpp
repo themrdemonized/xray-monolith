@@ -53,7 +53,7 @@
 #include "debug_text_tree.h"
 #include "../xrPhysics/IPHWorld.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #   include "animation_movement_controller.h"
 #endif // DEBUG
@@ -65,7 +65,7 @@
 void SetActorVisibility(u16 who, float value);
 extern int g_AI_inactive_time;
 
-#ifndef MASTER_GOLD
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(MASTER_GOLD)
 	Flags32		psAI_Flags	= {aiObstaclesAvoiding | aiUseSmartCovers};
 #endif // MASTER_GOLD
 
@@ -835,7 +835,7 @@ BOOL CCustomMonster::net_Spawn(CSE_Abstract* DC)
 	return TRUE;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CCustomMonster::OnHUDDraw(CCustomHUD *hud)
 {
 }
@@ -1156,10 +1156,24 @@ bool CCustomMonster::update_critical_wounded(const u16& bone_id, const float& po
 	return (false);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 extern void dbg_draw_frustum (float FOV, float _FAR, float A, Fvector &P, Fvector &D, Fvector &U);
 void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::rq_results& rq_storage);
+
+void CCustomMonster::dbg_draw_frustum_self()
+{
+	float new_range = eye_range, new_fov = eye_fov;
+
+	if (g_Alive())
+		update_range_fov(new_range, new_fov, memory().visual().current_state().m_max_view_distance * eye_range, eye_fov);
+
+	// dbg_draw_frustum re-normalizes D/U through references, so pass copies
+	Fvector position = eye_matrix.c;
+	Fvector direction = eye_matrix.k;
+	Fvector up = eye_matrix.j;
+	dbg_draw_frustum(new_fov, new_range, 1, position, direction, up);
+}
 
 void CCustomMonster::OnRender()
 {
@@ -1172,7 +1186,7 @@ void CCustomMonster::OnRender()
 		xr_vector<u32>::const_iterator i		= path.begin();
 		xr_vector<u32>::const_iterator const e	= path.end();
 		for ( ; i != e; ++i )
-			Level().debug_renderer().draw_aabb	( ai().level_graph().vertex_position(*i), radius, radius, radius, D3DCOLOR_XRGB(255,22,255) );
+			Level().debug_renderer().draw_aabb	( ai().level_graph().vertex_position(*i), radius, radius, radius, D3DCOLOR_XRGB(255,22,255), false);
 	}
 
 	for (int i=0; i<1; ++i) {
@@ -1189,11 +1203,11 @@ void CCustomMonster::OnRender()
 				const DetailPathManager::STravelPathPoint&	N1 = path[I-1];	Fvector	P1; P1.set(N1.position); P1.y+=0.1f;
 				const DetailPathManager::STravelPathPoint&	N2 = path[I];	Fvector	P2; P2.set(N2.position); P2.y+=0.1f;
 				if (!fis_zero(P1.distance_to_sqr(P2),EPS_L))
-					Level().debug_renderer().draw_line			(Fidentity,P1,P2,color0);
+					Level().debug_renderer().draw_line			(Fidentity,P1,P2,color0, false);
 				if ((path.size() - 1) == I) // песледний box?
-					Level().debug_renderer().draw_aabb			(P1,radius0,radius0,radius0,color1);
+					Level().debug_renderer().draw_aabb			(P1,radius0,radius0,radius0,color1, false);
 				else 
-					Level().debug_renderer().draw_aabb			(P1,radius0,radius0,radius0,color2);
+					Level().debug_renderer().draw_aabb			(P1,radius0,radius0,radius0,color2, false);
 			}
 
 			for (u32 I=1; I<keys.size(); ++I) {
@@ -1209,8 +1223,8 @@ void CCustomMonster::OnRender()
 				P2.y		+= 0.1f;
 
 				if (!fis_zero(P1.distance_to_sqr(P2),EPS_L))
-					Level().debug_renderer().draw_line		(Fidentity,P1,P2,color1);
-				Level().debug_renderer().draw_aabb			(P1,radius1,radius1,radius1,color3);
+					Level().debug_renderer().draw_line		(Fidentity,P1,P2,color1, false);
+				Level().debug_renderer().draw_aabb			(P1,radius1,radius1,radius1,color3, false);
 			}
 		}
 	}
@@ -1220,30 +1234,23 @@ void CCustomMonster::OnRender()
 
 		Fvector				P1 = ai().level_graph().vertex_position(node);
 		P1.y				+= 1.f;
-		Level().debug_renderer().draw_aabb	(P1,.5f,1.f,.5f,D3DCOLOR_XRGB(255,0,0));
+		Level().debug_renderer().draw_aabb	(P1,.5f,1.f,.5f,D3DCOLOR_XRGB(255,0,0), false);
 	}
 	if (g_Alive()) {
 		if (memory().enemy().selected()) {
 			Fvector				P1 = memory().memory(memory().enemy().selected()).m_object_params.m_position;
 			P1.y				+= 1.f;
-			Level().debug_renderer().draw_aabb	(P1,1.f,1.f,1.f,D3DCOLOR_XRGB(0,0,0));
+			Level().debug_renderer().draw_aabb	(P1,1.f,1.f,1.f,D3DCOLOR_XRGB(0,0,0), false);
 		}
 
 		if (memory().danger().selected()) {
 			Fvector				P1 = memory().danger().selected()->position();
 			P1.y				+= 1.f;
-			Level().debug_renderer().draw_aabb	(P1,1.f,1.f,1.f,D3DCOLOR_XRGB(0,0,0));
+			Level().debug_renderer().draw_aabb	(P1,1.f,1.f,1.f,D3DCOLOR_XRGB(0,0,0), false);
 		}
 	}
 
-	if (psAI_Flags.test(aiFrustum)) {
-		float					new_range = eye_range, new_fov = eye_fov;
-		
-		if (g_Alive())
-			update_range_fov	(new_range, new_fov, memory().visual().current_state().m_max_view_distance*eye_range, eye_fov);
-
-		dbg_draw_frustum		(new_fov,new_range,1,eye_matrix.c,eye_matrix.k,eye_matrix.j);
-	}
+	// aiFrustum is drawn from CLevel::OnRender via dbg_draw_frustum_self()
 
 	if (psAI_Flags.test(aiMotion)) 
 		if (character_physics_support())
@@ -1321,11 +1328,11 @@ void CCustomMonster::OnRender()
 										  (- pick.x_axis * pick.sizes.x * 0.5f) - (pick.y_axis * pick.sizes.y * 0.5f), };
 
 		Fvector const z_normal		=	- pick.z_axis * 0.1 * inv_nz;
-		Level().debug_renderer().draw_line	(Fidentity,traj_start,traj_start + z_normal,D3DCOLOR_XRGB(128,255,128));
-		Level().debug_renderer().draw_line	(Fidentity,traj_end,traj_end - z_normal,D3DCOLOR_XRGB(128,255,128));
+		Level().debug_renderer().draw_line	(Fidentity,traj_start,traj_start + z_normal,D3DCOLOR_XRGB(128,255,128), false);
+		Level().debug_renderer().draw_line	(Fidentity,traj_end,traj_end - z_normal,D3DCOLOR_XRGB(128,255,128), false);
 
 		for ( u32 i=0; i<sizeof(z_offs)/sizeof(z_offs[0]); ++i )
-			Level().debug_renderer().draw_line	(Fidentity,traj_start + z_offs[i],traj_end+ z_offs[i],D3DCOLOR_XRGB(255,255,128));
+			Level().debug_renderer().draw_line	(Fidentity,traj_start + z_offs[i],traj_end+ z_offs[i],D3DCOLOR_XRGB(255,255,128), false);
 
 		Fvector const hor_start		=	pick.center	- pick.x_axis * pick.sizes.x * 0.5f * inv_x;
 		Fvector const hor_end		=	pick.center	+ pick.x_axis * pick.sizes.x * 0.5f * inv_x;
@@ -1336,11 +1343,11 @@ void CCustomMonster::OnRender()
 										  (- pick.y_axis * pick.sizes.y * 0.5f) - (pick.z_axis * pick.sizes.z * 0.5f), };
 
 		Fvector const x_normal		=	- pick.x_axis * 0.1 * inv_nx;
-		Level().debug_renderer().draw_line	(Fidentity,hor_start,hor_start + x_normal,D3DCOLOR_XRGB(128,255,128));
-		Level().debug_renderer().draw_line	(Fidentity,hor_end,hor_end - x_normal,D3DCOLOR_XRGB(128,255,128));
+		Level().debug_renderer().draw_line	(Fidentity,hor_start,hor_start + x_normal,D3DCOLOR_XRGB(128,255,128), false);
+		Level().debug_renderer().draw_line	(Fidentity,hor_end,hor_end - x_normal,D3DCOLOR_XRGB(128,255,128), false);
 
 		for ( u32 i=0; i<sizeof(x_offs)/sizeof(x_offs[0]); ++i )
-			Level().debug_renderer().draw_line	(Fidentity,hor_start + x_offs[i],hor_end+ x_offs[i],D3DCOLOR_XRGB(255,255,128));
+			Level().debug_renderer().draw_line	(Fidentity,hor_start + x_offs[i],hor_end+ x_offs[i],D3DCOLOR_XRGB(255,255,128), false);
 
 		Fvector const ver_start		=	pick.center	- pick.y_axis * pick.sizes.y * 0.5f * inv_y;
 		Fvector const ver_end		=	pick.center	+ pick.y_axis * pick.sizes.y * 0.5f * inv_y;
@@ -1351,13 +1358,13 @@ void CCustomMonster::OnRender()
 										  (- pick.x_axis * pick.sizes.x * 0.5f) - (pick.z_axis * pick.sizes.z * 0.5f), };
 
 		Fvector const y_normal		=	- pick.y_axis * 0.1 * inv_ny;
-		Level().debug_renderer().draw_line	(Fidentity,ver_start,ver_start + y_normal,D3DCOLOR_XRGB(128,255,128));
-		Level().debug_renderer().draw_line	(Fidentity,ver_end,ver_end - y_normal,D3DCOLOR_XRGB(128,255,128));
+		Level().debug_renderer().draw_line	(Fidentity,ver_start,ver_start + y_normal,D3DCOLOR_XRGB(128,255,128), false);
+		Level().debug_renderer().draw_line	(Fidentity,ver_end,ver_end - y_normal,D3DCOLOR_XRGB(128,255,128), false);
 
 		for ( u32 i=0; i<sizeof(y_offs)/sizeof(y_offs[0]); ++i )
-			Level().debug_renderer().draw_line	(Fidentity,ver_start + y_offs[i],ver_end+ y_offs[i],D3DCOLOR_XRGB(255,255,128));
+			Level().debug_renderer().draw_line	(Fidentity,ver_start + y_offs[i],ver_end+ y_offs[i],D3DCOLOR_XRGB(255,255,128), false);
 
-		Level().debug_renderer().draw_line	(Fidentity,traj_start,traj_end,D3DCOLOR_XRGB(255,0,0));
+		Level().debug_renderer().draw_line	(Fidentity,traj_start,traj_end,D3DCOLOR_XRGB(255,0,0), false);
 	}
 
 	for ( u32 i=0; i<m_jump_collide_tris.size(); i+=3 )
@@ -1369,9 +1376,9 @@ void CCustomMonster::OnRender()
 		Fmatrix unit;
 		unit.identity			();
 
-		Level().debug_renderer().draw_line(unit, v1, v2, D3DCOLOR_XRGB(255,255,255));
-		Level().debug_renderer().draw_line(unit, v1, v3, D3DCOLOR_XRGB(255,255,255));
-		Level().debug_renderer().draw_line(unit, v2, v3, D3DCOLOR_XRGB(255,255,255));
+		Level().debug_renderer().draw_line(unit, v1, v2, D3DCOLOR_XRGB(255,255,255), false);
+		Level().debug_renderer().draw_line(unit, v1, v3, D3DCOLOR_XRGB(255,255,255), false);
+		Level().debug_renderer().draw_line(unit, v2, v3, D3DCOLOR_XRGB(255,255,255), false);
 	}
 }
 #endif // DEBUG

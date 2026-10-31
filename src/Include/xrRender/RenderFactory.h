@@ -4,7 +4,7 @@
 
 class IWallMarkArray;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	class IObjectSpaceRender;
 #endif // DEBUG
 
@@ -26,7 +26,7 @@ class IConsoleRender;
 class IUIShader;
 class IUISequenceVideoItem;
 
-/*
+
 #define RENDER_FACTORY_INTERFACE(Class) \
 virtual I##Class* Create##Class() = 0; \
 virtual void Destroy##Class(I##Class *pObject) = 0;
@@ -44,7 +44,7 @@ public:
 	RENDER_FACTORY_INTERFACE(StatGraphRender)
 	RENDER_FACTORY_INTERFACE(ConsoleRender)
 	RENDER_FACTORY_INTERFACE(RenderDeviceRender)
-#	ifdef DEBUG
+    #if defined(DEBUG) || defined(DEBUG_DRAW)
 		RENDER_FACTORY_INTERFACE(ObjectSpaceRender)
 #	endif // DEBUG
 	RENDER_FACTORY_INTERFACE(ApplicationRender)
@@ -67,6 +67,6 @@ protected:
 	//virtual IEnvDescriptorRender *CreateEnvDescriptorRender() = 0;
 	//virtual void DestroyEnvDescriptorRender(IEnvDescriptorRender *pObject) = 0;
 };
-*/
+
 
 #endif	//	RenderFactory_included

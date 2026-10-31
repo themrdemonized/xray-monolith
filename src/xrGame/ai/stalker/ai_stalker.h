@@ -14,7 +14,7 @@
 #include "../../step_manager.h"
 #include "../../../xrServerEntities/script_export_space.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	template <typename _object_type>
 	class CActionBase;
 
@@ -105,7 +105,7 @@ private:
 	CSightManager* m_sight_manager;
 	stalker_movement_manager_smart_cover* m_movement_manager;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	const script_planner			*m_debug_planner;
 #endif
 
@@ -236,7 +236,7 @@ public:
 	void LookAtActorSoftReset(CBoneInstance* headBone);
 	bool LookAtActorLuaResult = true;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void						OnHUDDraw							(CCustomHUD* hud);
 	virtual void						OnRender							();
 			void						debug_text							();
@@ -450,7 +450,7 @@ public:
 	virtual bool can_attach(const CInventoryItem* inventory_item) const;
 	// because we don't want to use this feature for stalkers
 	virtual bool use_simplified_visual() const { return false; } //(already_dead());};
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 			void						debug_planner					(const script_planner *planner);
 #endif
 
@@ -755,7 +755,7 @@ public:
 	void on_throw_completed();
 	IC const u32& last_throw_time() const;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 public:
 			void						dbg_draw_vision						();
 			void						dbg_draw_visibility_rays			();

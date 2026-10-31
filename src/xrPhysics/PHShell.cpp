@@ -1882,7 +1882,7 @@ void CPHShell::SetScale(float scale)
 }
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 void        CPHShell::      dbg_draw_velocity               ( float scale, u32 color )
 {

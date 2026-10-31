@@ -9,7 +9,7 @@ CFryupZone::~CFryupZone()
 {
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CFryupZone::OnRender()
 {
 }

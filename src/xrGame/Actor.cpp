@@ -1,9 +1,8 @@
 #include "pch_script.h"
 #include "Actor_Flags.h"
 #include "hudmanager.h"
-#ifdef DEBUG
-
-#	include "PHDebug.h"
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    #include "PHDebug.h"
 #endif // DEBUG
 #include "alife_space.h"
 #include "hit.h"
@@ -564,7 +563,7 @@ void CActor::Hit(SHit* pHDS)
 		xr_sprintf(err, "Unknown/unregistered hit type [%d]", HDS.hit_type);
 		R_ASSERT2(0, err);
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     if(ph_dbg_draw_mask.test(phDbgCharacterControl)) {
         DBG_OpenCashedDraw();
         Fvector to;to.add(Position(),Fvector().mul(HDS.dir,HDS.phys_impulse()));
@@ -1475,6 +1474,8 @@ void CActor::RPC_UpdateReputation()
 }
 
 #include "../xrphysics/actorcameracollision.h"
+#include "../xrphysics/ActorCameraCollisionAnchoredSweep.h"
+#include "../xrphysics/ActorCameraCollisionPushOut.h"
 
 #ifdef HOLDERCUSTOM_NEW
 bool CActor::use_HolderEx(CHolderCustom *object, bool bForce)
@@ -1512,6 +1513,8 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 
 			if (actor_camera_shell)
 				destroy_physics_shell(actor_camera_shell);
+			destroy_actor_camera_probe_shell(NULL);
+			destroy_actor_camera_pushout_shell(NULL);
 
 			IKinematics *K = smart_cast<IKinematics *>(Visual());
 			K->LL_GetBoneInstance(K->LL_BoneID("bip01_spine")).reset_callback();
@@ -1692,6 +1695,8 @@ bool CActor::use_HolderEx(CHolderCustom* object, bool bForce)
 
 				if (actor_camera_shell)
 					destroy_physics_shell(actor_camera_shell);
+				destroy_actor_camera_probe_shell(NULL);
+				destroy_actor_camera_pushout_shell(NULL);
 
 				IKinematics* pK = smart_cast<IKinematics*>(Visual());
 				u16 head_bone = pK->LL_BoneID("bip01_head");

@@ -26,7 +26,7 @@ public:
 private:
 	float shift(float time_global) const;
 	float delta_shift(float delta_time) const;
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 public:
 	void	dbg_draw			( const Fmatrix	&current_pos, const extrapolation::points &predict , const Fvector& start ) const;
 private:

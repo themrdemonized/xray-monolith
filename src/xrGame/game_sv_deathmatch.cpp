@@ -2192,7 +2192,7 @@ void game_sv_Deathmatch::OnPlayerFire(ClientID id_who, NET_Packet& P)
 	};
 };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 xr_vector<u32> xPath;
 void game_sv_Deathmatch::OnRender				()
 {

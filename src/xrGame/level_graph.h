@@ -254,7 +254,7 @@ public:
 	IC CVertex* vertices() { return m_nodes; }
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	ifndef AI_COMPILER
 private:
 	//ref_shader			sh_debug;
@@ -298,7 +298,7 @@ IC bool operator<(const u32& vertex_xz, const CLevelGraph::CVertex& vertex);
 IC bool operator>(const u32& vertex_xz, const CLevelGraph::CVertex& vertex);
 IC bool operator==(const u32& vertex_xz, const CLevelGraph::CVertex& vertex);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	ifndef AI_COMPILER
 		extern BOOL	g_bDebugNode;
 		extern u32	g_dwDebugNodeSource;

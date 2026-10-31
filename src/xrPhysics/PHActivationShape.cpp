@@ -13,7 +13,7 @@
 #include "PHWorld.h"
 #include "../3rd party/ode/ode/src/util.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_output.h"
 #endif // DEBUG
 
@@ -225,7 +225,7 @@ void CPHActivationShape::Destroy()
 bool CPHActivationShape::Activate(const Fvector need_size, u16 steps, float max_displacement, float max_rotation,
                                   bool un_freeze_later/*	=false*/)
 {
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgDrawDeathActivationBox))
 	{
 		debug_output().DBG_OpenCashedDraw();
@@ -313,7 +313,7 @@ bool CPHActivationShape::Activate(const Fvector need_size, u16 steps, float max_
 	RestoreVelocityState(temp_state);
 	CHECK_POS(Position(), "pos after RestoreVelocityState(temp_state);", true);
 	if (!un_freeze_later)ph_world->UnFreeze();
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgDrawDeathActivationBox))
 	{
 		debug_output().DBG_OpenCashedDraw();
@@ -382,7 +382,7 @@ void CPHActivationShape::set_rotation(const Fmatrix& sof)
 }
 
 
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 IPhysicsShellHolder* CPHActivationShape::ref_object	()
 {
 	VERIFY(m_geom);

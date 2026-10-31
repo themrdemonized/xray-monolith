@@ -34,7 +34,7 @@ CStalkerPlanner::~CStalkerPlanner()
 {
 }
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 LPCSTR CStalkerPlanner::action2string	(const _action_id_type &action_id)
 {
 	return					(inherited::action2string(action_id));
@@ -54,7 +54,7 @@ LPCSTR CStalkerPlanner::object_name		() const
 
 void CStalkerPlanner::setup(CAI_Stalker* object)
 {
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	set_use_log					(!!psAI_Flags.test(aiGOAP));
 #endif
 
@@ -73,7 +73,7 @@ void CStalkerPlanner::setup(CAI_Stalker* object)
 
 void CStalkerPlanner::update(u32 time_delta)
 {
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	if ((psAI_Flags.test(aiGOAP) && !m_use_log) || (!psAI_Flags.test(aiGOAP) && m_use_log))
 		set_use_log			(!!psAI_Flags.test(aiGOAP));
 #endif

@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 //#include "physics.h"
 //#include "MathUtils.h"
 #include "../xrEngine/StatGraph.h"
@@ -55,11 +55,12 @@ PHABS_DBG_V	dbg_draw_simple;
 
 enum		EDBGPHDrawMode
 {
-	dmSecondaryThread,
-	dmCashed,
-	dmCashedSecondary,
-	dmSimple
-} dbg_ph_draw_mode=dmSecondaryThread;
+    dmSecondaryThread,
+    dmCashed,
+    dmCashedSecondary,
+    dmSimple
+};
+EDBGPHDrawMode dbg_ph_draw_mode = dmSecondaryThread;
 u32			cash_draw_remove_time=u32(-1);
 
 struct SPHObjDBGDraw:public SPHDBGDrawAbsract
@@ -72,7 +73,7 @@ struct SPHObjDBGDraw:public SPHDBGDrawAbsract
 	}
 	void render		( )
 	{
-			Level().debug_renderer().draw_aabb(AABB_center,AABB.x,AABB.y,AABB.z,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_aabb(AABB_center,AABB.x,AABB.y,AABB.z,D3DCOLOR_XRGB(255,0,0), false);
 	}
 	Fvector AABB;
 	Fvector AABB_center;
@@ -109,12 +110,12 @@ struct SPHContactDBGDraw :public SPHDBGDrawAbsract
 	void render		( )
 	{
 			//bool is_cyl= (geomClass==dCylinderClassUser);
-			Level().debug_renderer().draw_aabb			(pos,.01f,.01f,.01f,D3DCOLOR_XRGB(255*is_cyl,0,255*!is_cyl));
+			Level().debug_renderer().draw_aabb			(pos,.01f,.01f,.01f,D3DCOLOR_XRGB(255*is_cyl,0,255*!is_cyl), false);
 			Fvector dir;
 			dir.set(norm);
 			dir.mul(depth*100.f);
 			dir.add(pos);
-			Level().debug_renderer().draw_line(Fidentity,pos,dir,D3DCOLOR_XRGB(255*is_cyl,0,255*!is_cyl));
+			Level().debug_renderer().draw_line(Fidentity,pos,dir,D3DCOLOR_XRGB(255*is_cyl,0,255*!is_cyl), false);
 	}
 };
 
@@ -158,9 +159,9 @@ struct SPHDBGDrawTri :public SPHDBGDrawAbsract
 			DRender->dbg_DrawTRI	(Fidentity, v[0], v[1], v[2], c );
 			DRender->dbg_DrawTRI	(Fidentity, v[2], v[1], v[0], c );
 		} else {
-			Level().debug_renderer().draw_line(Fidentity,v[0],v[1],c);
-			Level().debug_renderer().draw_line(Fidentity,v[1],v[2],c);
-			Level().debug_renderer().draw_line(Fidentity,v[2],v[0],c);
+			Level().debug_renderer().draw_line(Fidentity,v[0],v[1],c, false);
+			Level().debug_renderer().draw_line(Fidentity,v[1],v[2],c, false);
+			Level().debug_renderer().draw_line(Fidentity,v[2],v[0],c, false);
 		}
 	}
 };
@@ -198,7 +199,7 @@ struct SPHDBGDrawLine : public SPHDBGDrawAbsract
 	}
 	virtual void render()
 	{
-		Level().debug_renderer().draw_line(Fidentity,p[0],p[1],c);
+		Level().debug_renderer().draw_line(Fidentity,p[0],p[1],c, false);
 	}
 };
 
@@ -285,7 +286,7 @@ struct SPHDBGDrawAABB :public SPHDBGDrawAbsract
 	}
 	virtual void render()
 	{
-		Level().debug_renderer().draw_aabb			(p[0],p[1].x,p[1].y,p[1].z,c);
+		Level().debug_renderer().draw_aabb			(p[0],p[1].x,p[1].y,p[1].z,c, false);
 	}
 };
 
@@ -303,7 +304,7 @@ struct SPHDBGDrawOBB: public SPHDBGDrawAbsract
 	}
 	virtual void render()
 	{
-		Level().debug_renderer().draw_obb(m,h,c);
+		Level().debug_renderer().draw_obb(m,h,c, false);
 	}
 };
 
@@ -328,7 +329,7 @@ struct SPHDBGDrawPoint :public SPHDBGDrawAbsract
 	{
 		//Level().debug_renderer().draw_aabb(p,size,size,size,c);
 		Fmatrix m;m.identity();m.scale(size,size,size);m.c.set(p);
-		Level().debug_renderer().draw_ellipse(m,c);
+		Level().debug_renderer().draw_ellipse(m,c, false);
 	}
 };
 void DBG_DrawPoint(const Fvector& p,float size,u32 c)
@@ -515,7 +516,7 @@ void DBG_PHAbstructRender()
 		{
 			(*i)->render();
 		}
-		//clear_vector(dbg_draw_simple);
+		clear_vector(dbg_draw_simple);
 	}
 	//capped_cylinder_ray_collision_test();
 }

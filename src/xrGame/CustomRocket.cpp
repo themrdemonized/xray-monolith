@@ -18,7 +18,7 @@
 #include "../Include/xrRender/RenderVisual.h"
 //#include "CalculateTriangle.h"
 #include "actor.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "PHDebug.h"
 #include "game_base_space.h"
 #endif
@@ -244,7 +244,7 @@ void CCustomRocket::ObjectContactCallback(bool& do_colide, bool bo1, dContact& c
 			VERIFY(l_pMYU);
 			if (l_pMYU->last_pos[0] != -dInfinity)
 				l_pos = cast_fv(l_pMYU->last_pos);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 			bool corrected_pos=false;
 #endif
 			if (!l_pUD1 || !l_pUD2)
@@ -269,7 +269,7 @@ void CCustomRocket::ObjectContactCallback(bool& do_colide, bool bo1, dContact& c
 						float dist = neg_tri.dist / cosinus;
 						velocity.mul(dist * 1.1f);
 						l_pos.sub(velocity);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 						corrected_pos=true;
 //.	DBG_OpenCashedDraw();
 						//.	const Fvector*	 V_array	= Level().ObjectSpace.GetStaticVerts();
@@ -279,7 +279,7 @@ void CCustomRocket::ObjectContactCallback(bool& do_colide, bool bo1, dContact& c
 					}
 				}
 			}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 			if(ph_dbg_draw_mask.test(phDbgDrawExplosionPos))
 				DBG_DrawPoint(l_pos,0.05f,D3DCOLOR_XRGB(255,255,(!corrected_pos)*255));
 #endif

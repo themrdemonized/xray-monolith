@@ -99,7 +99,7 @@ protected:
 	u32 m_dwRPC; // ReceivedPacketsCount
 	u32 m_dwRPS; // ReceivedPacketsSize
 public:
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     CLevelDebug* m_level_debug = nullptr;
 #endif
 public:
@@ -388,7 +388,7 @@ IC CLevel& Level() { return *(CLevel*)g_pGameLevel; }
 IC game_cl_GameState& Game() { return *Level().game; }
 u32 GameID();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 IC CLevelDebug& DBG() { return *(CLevelDebug*)Level().m_level_debug; }
 #endif
 

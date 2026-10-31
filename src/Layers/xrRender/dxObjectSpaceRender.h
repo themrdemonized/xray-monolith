@@ -2,7 +2,7 @@
 #define dxObjectSpaceRender_included
 #pragma once
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 #include "..\..\Include\xrRender\ObjectSpaceRender.h"
 #include "..\..\xrengine\xr_collide_form.h"

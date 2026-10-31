@@ -29,7 +29,7 @@ private:
 protected:
 	void add_evaluators();
 	void add_actions();
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 public:
 	virtual LPCSTR			action2string		(const _action_id_type &action_id);
 	virtual LPCSTR			property2string		(const _condition_type &property_id);
@@ -43,7 +43,7 @@ public:
 	IC void affect_cover(bool value);
 	IC bool affect_cover() const;
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	virtual	LPCSTR			object_name			() const;
 #endif
 };

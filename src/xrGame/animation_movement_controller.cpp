@@ -4,12 +4,12 @@
 #include "../Include/xrRender/Kinematics.h"
 #include "game_object_space.h"
 #include "../xrphysics/matrix_utils.h"
-#ifdef	 DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "phdebug.h"
 #endif
 
 void DBG_DrawBones(const Fmatrix& xform, IKinematics* K);
-#ifdef	 DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 BOOL	dbg_draw_animation_movement_controller  = FALSE;
 u16		dbg_frame_count = 0;
 #endif
@@ -26,7 +26,7 @@ animation_movement_controller::animation_movement_controller(Fmatrix* _pObjXForm
 	blend_angular_speed(0),
 	m_control_blend(b),
 	m_poses_blending(Fidentity, Fidentity, -1.f)
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 , DBG_previous_position( *_pObjXForm )
 #endif
 {
@@ -35,7 +35,7 @@ animation_movement_controller::animation_movement_controller(Fmatrix* _pObjXForm
 	VERIFY(_pObjXForm);
 	VERIFY(b);
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller )
 	{
 		m_pKinematicsC->CalculateBones_Invalidate();
@@ -55,7 +55,7 @@ animation_movement_controller::animation_movement_controller(Fmatrix* _pObjXForm
 	m_pKinematicsC->CalculateBones_Invalidate();
 	m_pKinematicsC->CalculateBones(TRUE);
 	SetPosesBlending();
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller )
 	{
 		DBG_OpenCashedDraw();
@@ -79,7 +79,7 @@ IC bool is_blending_in(CBlend& b)
 
 void animation_movement_controller::deinitialize()
 {
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller )
 	{
 		DBG_OpenCashedDraw();
@@ -97,7 +97,7 @@ void animation_movement_controller::deinitialize()
 	m_pKinematicsA->SetBlendDestroyCallback(0);
 	m_control_blend = 0;
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller )
 	{
 		DBG_OpenCashedDraw();
@@ -138,7 +138,7 @@ float blend_angular_accel = 1.f;
 
 void animation_movement_controller::InitalPositionBlending(const Fmatrix& to)
 {
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller )
 	{
 		DBG_DrawMatrix( m_pObjXForm, 1 );
@@ -152,7 +152,7 @@ void animation_movement_controller::InitalPositionBlending(const Fmatrix& to)
 	//	return ;
 	//}
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller )
 		DBG_DrawMatrix( to, 2 );
 #endif
@@ -169,7 +169,7 @@ void animation_movement_controller::InitalPositionBlending(const Fmatrix& to)
 	else
 		m_pObjXForm.set(to);
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	DBG_previous_position = m_pObjXForm;
 #endif
 }
@@ -223,7 +223,7 @@ void animation_movement_controller::OnFrame()
 	//		ka->CalculateBones_Invalidate( );
 	//	ka->CalculateBones( TRUE );
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_animation_movement_controller && dbg_frame_count < 3 )
 	{
 		DBG_OpenCashedDraw();
@@ -242,7 +242,7 @@ void animation_movement_controller::OnFrame()
 	//Fvector prv_pos = m_pObjXForm.c;
 	InitalPositionBlending(obj_pos);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	DBG_previous_position = m_pObjXForm;
 #endif
 
@@ -269,7 +269,7 @@ void animation_movement_controller::OnFrame()
 		}
 	*/
 	//m_pKinematicsC->CalculateBones( );
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	++dbg_frame_count;
 #endif
 }
@@ -309,7 +309,7 @@ void animation_movement_controller::NewBlend(CBlend* B, const Fmatrix& new_matri
 	//m_pKinematicsC->Bone_GetAnimPos( m_pObjXForm, 0, u8(-1), true );
 	//m_pObjXForm.mulA_43( m_startObjXForm );
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	DBG_previous_position = m_pObjXForm;
 #endif
 
@@ -331,7 +331,7 @@ void animation_movement_controller::NewBlend(CBlend* B, const Fmatrix& new_matri
 		Fmatrix root;
 		animation_root_position(root);
 		m_startObjXForm.mulB_43(root);
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if( dbg_draw_animation_movement_controller )
 		{
 		DBG_OpenCashedDraw();
@@ -351,7 +351,7 @@ void animation_movement_controller::NewBlend(CBlend* B, const Fmatrix& new_matri
 
 void animation_movement_controller::DBG_verify_position_not_chaged() const
 {
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	VERIFY( !IsActive()||inital_position_blending || cmp_matrix( DBG_previous_position, m_pObjXForm, EPS, EPS ) );
 #endif
 }

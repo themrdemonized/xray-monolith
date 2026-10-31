@@ -172,7 +172,7 @@ public:
 	virtual BOOL UsedAI_Locations();
 	BOOL TestServerFlag(u32 Flag) const;
 	virtual bool can_validate_position_on_spawn() { return true; }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void			OnRender			();
 #endif
 
@@ -203,7 +203,7 @@ public:
 	virtual void PH_I_CrPr()
 	{
 	}; // actions & operations after correction before prediction steps
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void			PH_Ch_CrPr			() {}; // 
 	virtual	void			dbg_DrawSkeleton	();
 #endif
