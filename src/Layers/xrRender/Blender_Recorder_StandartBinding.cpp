@@ -1450,7 +1450,7 @@ static bool bus_fits_vector(R_constant* C)
 
 #if defined(USE_DX10) || defined(USE_DX11)
 // a slot past its stage's texture count would write past the backend's per-stage arrays
-static bool bus_slot_fits(u32 slot)
+bool bus_slot_fits(u32 slot)
 {
 	if (slot < CTexture::rstVertex)
 		return slot < CBackend::mtMaxPixelShaderTextures;

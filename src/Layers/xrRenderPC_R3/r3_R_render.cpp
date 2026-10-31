@@ -96,6 +96,8 @@ void CRender::Render()
 
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
 
+	Target->phase_bus(ShaderBus::stage_frame);
+
 	// Configure
 	RImplementation.o.distortion = FALSE; // disable distorion
 	Fcolor sun_color = ((light*)Lights.sun_adapted._get())->color;
@@ -178,6 +180,8 @@ void CRender::Render()
 		render_rain();
 	}
 
+	Target->phase_bus(ShaderBus::stage_gbuffer);
+
 	// Directional light - fucking sun
 	if (bSUN)
 	{
@@ -226,6 +230,8 @@ void CRender::Render()
 
 	// Postprocess
 	{
+		Target->phase_bus(ShaderBus::stage_lighting);
+
 		PIX_EVENT(DEFER_LIGHT_COMBINE);
 		Target->phase_combine();
 	}
