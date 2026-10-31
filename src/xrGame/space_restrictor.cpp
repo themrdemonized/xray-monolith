@@ -15,8 +15,8 @@
 #include "ai_space.h"
 #include "CustomZone.h"
 #include "../xrengine/xr_collide_form.h"
-#ifdef DEBUG
-#	include "debug_renderer.h"
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    #include "debug_renderer.h"
 #endif
 
 //Alundaio
@@ -232,7 +232,7 @@ bool CSpaceRestrictor::prepared_inside(const Fsphere& sphere) const
 	return (false);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 #include "customzone.h"
 #include "ui_base.h"
@@ -271,13 +271,13 @@ void CSpaceRestrictor::OnRender	()
 				l_ball.translate_add(l_p);
 				//l_ball.mul(XFORM(), l_ball);
 				//l_ball.mul(l_ball, XFORM());
-				Level().debug_renderer().draw_ellipse(l_ball, Color);
+				Level().debug_renderer().draw_ellipse(l_ball, Color, false);
 			}
 			break;
 		case 1:
 			{
 				l_box.mul(XFORM(), l_pShape->data.box);
-				Level().debug_renderer().draw_obb(l_box, l_half, Color);
+				Level().debug_renderer().draw_obb(l_box, l_half, Color, false);
 			}
 			break;
 		}

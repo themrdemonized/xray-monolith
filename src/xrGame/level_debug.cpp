@@ -3,7 +3,7 @@
 #include "../xrEngine/xr_object.h"
 #include "level.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 // Lain: added
 #	include "debug_text_tree.h"
@@ -11,7 +11,7 @@
 #	include "ui_base.h"
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 // Lain: added text_tree
 CLevelDebug::CLevelDebug() : m_p_texttree( xr_new<debug::text_tree>() ), m_texttree_offs(0)
@@ -316,18 +316,18 @@ struct DrawLevelPredicate {
 	void operator() (CLevelDebug::SLevelItem s) {
 
 		if (s.ptype == CLevelDebug::SLevelItem::ePoint) {
-			Level().debug_renderer().draw_aabb(s.position1,0.35f,0.35f,0.35f,s.color);
+			Level().debug_renderer().draw_aabb(s.position1,0.35f,0.35f,0.35f,s.color, false);
 
 			Fvector upV;
 			upV		= s.position1;
 			upV.y	+= 5.0f;
 
-			Level().debug_renderer().draw_line(Fidentity,s.position1,upV,s.color);
+			Level().debug_renderer().draw_line(Fidentity,s.position1,upV,s.color, false);
 
 		} else if (s.ptype == CLevelDebug::SLevelItem::eLine) {
-			Level().debug_renderer().draw_line(Fidentity,s.position1,s.position2,s.color);			
+			Level().debug_renderer().draw_line(Fidentity,s.position1,s.position2,s.color, false);
 		} else if (s.ptype == CLevelDebug::SLevelItem::eBox) {
-			Level().debug_renderer().draw_aabb(s.position1,s.radius,s.radius,s.radius,s.color);
+			Level().debug_renderer().draw_aabb(s.position1,s.radius,s.radius,s.radius,s.color, false);
 		}
 	}
 };

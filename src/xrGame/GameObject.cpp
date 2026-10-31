@@ -41,9 +41,9 @@ extern MagicBox3 MagicMinBox(int iQuantity, const Fvector* akPoint);
 #include <malloc.h>
 #pragma warning(pop)
 
-#ifdef DEBUG
-#	include "debug_renderer.h"
-#	include "PHDebug.h"
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    #include "debug_renderer.h"
+    #include "PHDebug.h"
 #endif
 
 extern ENGINE_API bool g_dedicated_server;
@@ -708,7 +708,7 @@ void CGameObject::spatial_move()
 	inherited::spatial_move();
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void			CGameObject::dbg_DrawSkeleton	()
 {
 	CCF_Skeleton* Skeleton = smart_cast<CCF_Skeleton*>(collidable.model);
@@ -723,7 +723,7 @@ void			CGameObject::dbg_DrawSkeleton	()
 				Fmatrix M;
 				M.invert			(I->b_IM);
 				Fvector h_size		= I->b_hsize;
-				Level().debug_renderer().draw_obb	(M, h_size, color_rgba(0, 255, 0, 255));
+				Level().debug_renderer().draw_obb	(M, h_size, color_rgba(0, 255, 0, 255), false);
 								   }break;
 			case SBoneShape::stCylinder:{
 				Fmatrix M;
@@ -732,13 +732,13 @@ void			CGameObject::dbg_DrawSkeleton	()
 				Fvector				h_size;
 				h_size.set			(I->c_cylinder.m_radius,I->c_cylinder.m_radius,I->c_cylinder.m_height*0.5f);
 				Fvector::generate_orthonormal_basis(M.k,M.j,M.i);
-				Level().debug_renderer().draw_obb	(M, h_size, color_rgba(0, 127, 255, 255));
+				Level().debug_renderer().draw_obb	(M, h_size, color_rgba(0, 127, 255, 255), false);
 										}break;
 			case SBoneShape::stSphere:{
 				Fmatrix				l_ball;
 				l_ball.scale		(I->s_sphere.R, I->s_sphere.R, I->s_sphere.R);
 				l_ball.translate_add(I->s_sphere.P);
-				Level().debug_renderer().draw_ellipse(l_ball, color_rgba(0, 255, 0, 255));
+				Level().debug_renderer().draw_ellipse(l_ball, color_rgba(0, 255, 0, 255), false);
 									  }break;
 		};
 	};	
@@ -1304,7 +1304,7 @@ void CGameObject::FootStepCallback(float power, bool b_play, bool b_on_ground, b
 	this->callback(GameObject::eOnFootStep)(this->lua_game_object(), power, b_play, b_on_ground, b_hud_view);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 void render_box						(IRenderVisual *visual, const Fmatrix &xform, const Fvector &additional, bool draw_child_boxes, const u32 &color)
 {
@@ -1342,7 +1342,7 @@ void render_box						(IRenderVisual *visual, const Fmatrix &xform, const Fvector
 		matrix.mulB_43		(Fmatrix().scale(half_size));
 
 		if (draw_child_boxes)
-			renderer.draw_obb	(matrix,color);
+			renderer.draw_obb	(matrix,color,false);
 
 		static const Fvector	local_points[8] = {
 			Fvector().set(-1.f,-1.f,-1.f),
@@ -1361,7 +1361,7 @@ void render_box						(IRenderVisual *visual, const Fmatrix &xform, const Fvector
 
 	VERIFY						(visible_bone_count);
 	if (visible_bone_count == 1) {
-		renderer.draw_obb		(matrix,color);
+		renderer.draw_obb		(matrix,color,false);
 		return;
 	}
 
@@ -1384,7 +1384,7 @@ void render_box						(IRenderVisual *visual, const Fmatrix &xform, const Fvector
 	scale.z						= points[2].distance_to(points[6])*.5f;
 	result.mulB_43				(Fmatrix().scale(scale));
 
-	renderer.draw_obb			(result,color);
+	renderer.draw_obb			(result,color, false);
 }
 
 void CGameObject::OnRender			()
@@ -1410,7 +1410,7 @@ void CGameObject::OnRender			()
 		M.scale						(bd);
 		Fmatrix						T = XFORM();
 		T.c.add						(bc);
-		renderer.draw_obb			(T,bd,color_rgba(255,255,255,255));
+		renderer.draw_obb			(T,bd,color_rgba(255,255,255,255), false);
 	}
 }
 #endif // DEBUG

@@ -1337,7 +1337,7 @@ public:
 	}
 };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 class CCC_DrawGameGraphAll : public IConsole_Command
 {
@@ -1403,7 +1403,8 @@ public:
 		ai().level_graph().setup_current_level(level->id());
 	}
 };
-
+#endif
+#ifdef DEBUG
 #if defined(USE_DEBUGGER) && !defined(USE_LUA_STUDIO)
 class CCC_ScriptDbg : public IConsole_Command {
 public:
@@ -2628,19 +2629,51 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "lua_debug", &lua_debug, 0, 1);
 	CMD4(CCC_Integer, "lua_busy_hands_debug", &lua_busy_hands_debug, 0, 1);
 
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    CMD3(CCC_Mask, "ai_dbg_brain", &psAI_Flags, aiBrain);
+    CMD3(CCC_Mask, "ai_dbg_motion", &psAI_Flags, aiMotion);
+    CMD3(CCC_Mask, "ai_debug", &psAI_Flags, aiDebug);
+    CMD3(CCC_Mask, "ai_dbg_vision", &psAI_Flags, aiVision);
+    CMD3(CCC_Mask, "ai_dbg_frustum", &psAI_Flags, aiFrustum);
+    CMD3(CCC_Mask, "ai_dbg_goap", &psAI_Flags, aiGOAP);
+    CMD3(CCC_Mask, "ai_dbg_goap_script", &psAI_Flags, aiGOAPScript);
+    CMD3(CCC_Mask, "ai_dbg_goap_object", &psAI_Flags, aiGOAPObject);
+    CMD3(CCC_Mask, "ai_dbg_cover", &psAI_Flags, aiCover);
+    CMD3(CCC_Mask, "ai_draw_game_graph", &psAI_Flags, aiDrawGameGraph);
+    CMD3(CCC_Mask, "ai_draw_game_graph_stalkers", &psAI_Flags, aiDrawGameGraphStalkers);
+    CMD3(CCC_Mask, "ai_draw_game_graph_objects", &psAI_Flags, aiDrawGameGraphObjects);
+    CMD3(CCC_Mask, "ai_draw_game_graph_real_pos", &psAI_Flags, aiDrawGameGraphRealPos);
+    CMD3(CCC_Mask, "ai_draw_visibility_rays", &psAI_Flags, aiDrawVisibilityRays);
+
+    /////////////////////////////////////////////HIT ANIMATION////////////////////////////////////////////////////
+    //float						power_factor				= 2.f;
+    //float						rotational_power_factor		= 3.f;
+    //float						side_sensitivity_threshold	= 0.2f;
+    //float						anim_channel_factor			= 3.f;
+
+    CMD4(CCC_Float, "hit_anims_power", &ghit_anims_params.power_factor, 0.0f, 100.0f);
+    CMD4(CCC_Float, "hit_anims_rotational_power", &ghit_anims_params.rotational_power_factor, 0.0f, 100.0f);
+    CMD4(CCC_Float, "hit_anims_side_sensitivity_threshold", &ghit_anims_params.side_sensitivity_threshold, 0.0f, 10.0f);
+    CMD4(CCC_Float, "hit_anims_channel_factor", &ghit_anims_params.anim_channel_factor, 0.0f, 100.0f);
+    //float	block_blend					= 0.1f;
+    //float	reduce_blend				= 0.5f;
+    //float	reduce_power_factor			= 0.5f;
+    CMD4(CCC_Float, "hit_anims_block_blend", &ghit_anims_params.block_blend, 0.f, 1.f);
+    CMD4(CCC_Float, "hit_anims_reduce_blend", &ghit_anims_params.reduce_blend, 0.f, 1.f);
+    CMD4(CCC_Float, "hit_anims_reduce_blend_factor", &ghit_anims_params.reduce_power_factor, 0.0f, 1.0f);
+    CMD4(CCC_Integer, "hit_anims_tune", &tune_hit_anims, 0, 1);
+    /////////////////////////////////////////////HIT ANIMATION END////////////////////////////////////////////////////
+
+    CMD1(CCC_DrawGameGraphAll, "ai_draw_game_graph_all");
+    CMD1(CCC_DrawGameGraphCurrent, "ai_draw_game_graph_current_level");
+    CMD1(CCC_DrawGameGraphLevel, "ai_draw_game_graph_level");
+#endif
+
 #ifdef DEBUG
-	CMD3(CCC_Mask, "ai_debug", &psAI_Flags, aiDebug);
-	CMD3(CCC_Mask, "ai_dbg_brain", &psAI_Flags, aiBrain);
-	CMD3(CCC_Mask, "ai_dbg_motion", &psAI_Flags, aiMotion);
-	CMD3(CCC_Mask, "ai_dbg_frustum", &psAI_Flags, aiFrustum);
 	CMD3(CCC_Mask, "ai_dbg_funcs", &psAI_Flags, aiFuncs);
 	CMD3(CCC_Mask, "ai_dbg_alife", &psAI_Flags, aiALife);
-	CMD3(CCC_Mask, "ai_dbg_goap", &psAI_Flags, aiGOAP);
-	CMD3(CCC_Mask, "ai_dbg_goap_script", &psAI_Flags, aiGOAPScript);
-	CMD3(CCC_Mask, "ai_dbg_goap_object", &psAI_Flags, aiGOAPObject);
-	CMD3(CCC_Mask, "ai_dbg_cover", &psAI_Flags, aiCover);
+	
 	CMD3(CCC_Mask, "ai_dbg_anim", &psAI_Flags, aiAnimation);
-	CMD3(CCC_Mask, "ai_dbg_vision", &psAI_Flags, aiVision);
 	CMD3(CCC_Mask, "ai_dbg_monster", &psAI_Flags, aiMonsterDebug);
 	CMD3(CCC_Mask, "ai_dbg_stalker", &psAI_Flags, aiStalker);
 	CMD3(CCC_Mask, "ai_stats", &psAI_Flags, aiStats);
@@ -2649,34 +2682,8 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "ai_dbg_dialogs", &psAI_Flags, aiDialogs);
 	CMD3(CCC_Mask, "ai_dbg_infoportion", &psAI_Flags, aiInfoPortion);
 
-	CMD3(CCC_Mask, "ai_draw_game_graph", &psAI_Flags, aiDrawGameGraph);
-	CMD3(CCC_Mask, "ai_draw_game_graph_stalkers", &psAI_Flags, aiDrawGameGraphStalkers);
-	CMD3(CCC_Mask, "ai_draw_game_graph_objects", &psAI_Flags, aiDrawGameGraphObjects);
-	CMD3(CCC_Mask, "ai_draw_game_graph_real_pos", &psAI_Flags, aiDrawGameGraphRealPos);
-
 	CMD3(CCC_Mask, "ai_nil_object_access", &psAI_Flags, aiNilObjectAccess);
-
-	CMD3(CCC_Mask, "ai_draw_visibility_rays", &psAI_Flags, aiDrawVisibilityRays);
 	CMD3(CCC_Mask, "ai_animation_stats", &psAI_Flags, aiAnimationStats);
-
-	/////////////////////////////////////////////HIT ANIMATION////////////////////////////////////////////////////
-	//float						power_factor				= 2.f;
-	//float						rotational_power_factor		= 3.f;
-	//float						side_sensitivity_threshold	= 0.2f;
-	//float						anim_channel_factor			= 3.f;
-
-	CMD4(CCC_Float, "hit_anims_power", &ghit_anims_params.power_factor, 0.0f, 100.0f);
-	CMD4(CCC_Float, "hit_anims_rotational_power", &ghit_anims_params.rotational_power_factor, 0.0f, 100.0f);
-	CMD4(CCC_Float, "hit_anims_side_sensitivity_threshold", &ghit_anims_params.side_sensitivity_threshold, 0.0f, 10.0f);
-	CMD4(CCC_Float, "hit_anims_channel_factor", &ghit_anims_params.anim_channel_factor, 0.0f, 100.0f);
-	//float	block_blend					= 0.1f;
-	//float	reduce_blend				= 0.5f;
-	//float	reduce_power_factor			= 0.5f;
-	CMD4(CCC_Float, "hit_anims_block_blend", &ghit_anims_params.block_blend, 0.f, 1.f);
-	CMD4(CCC_Float, "hit_anims_reduce_blend", &ghit_anims_params.reduce_blend, 0.f, 1.f);
-	CMD4(CCC_Float, "hit_anims_reduce_blend_factor", &ghit_anims_params.reduce_power_factor, 0.0f, 1.0f);
-	CMD4(CCC_Integer, "hit_anims_tune", &tune_hit_anims, 0, 1);
-	/////////////////////////////////////////////HIT ANIMATION END////////////////////////////////////////////////////
 
 #ifdef DEBUG_MEMORY_MANAGER
 	CMD3(CCC_Mask, "debug_on_frame_gather_stats", &psAI_Flags, aiDebugOnFrameAllocs);
@@ -2686,10 +2693,6 @@ void CCC_RegisterCommands()
 #endif // DEBUG_MEMORY_MANAGER
 
 	CMD1(CCC_DumpModelBones, "debug_dump_model_bones");
-
-	CMD1(CCC_DrawGameGraphAll, "ai_draw_game_graph_all");
-	CMD1(CCC_DrawGameGraphCurrent, "ai_draw_game_graph_current_level");
-	CMD1(CCC_DrawGameGraphLevel, "ai_draw_game_graph_level");
 
 	CMD4(CCC_Integer, "ai_dbg_inactive_time", &g_AI_inactive_time, 0, 1000000);
 

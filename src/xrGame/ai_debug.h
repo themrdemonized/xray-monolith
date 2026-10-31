@@ -8,6 +8,9 @@
 
 #pragma once
 
+// Forward declaration for CDebugRenderer to resolve C2027 errors
+class CDebugRenderer;
+
 #if defined(DEBUG) || defined(DEBUG_DRAW)
 #	define aiDebug						(1<<0)
 #	define aiBrain						(1<<1)

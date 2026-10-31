@@ -13,7 +13,7 @@
 //#include "../xrphysics/PhysicsShellAnimator.h"
 #include "moving_bones_snd_player.h"
 #include "../xrphysics/extendedgeom.h"
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "phdebug.h"
 #include "../xrengine/objectdump.h"
 #endif
@@ -85,7 +85,7 @@ BOOL CPhysicObject::net_Spawn(CSE_Abstract* DC)
 		}
 	}
 	//processing_activate();
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if(dbg_draw_doors)
 {
 	DBG_OpenCashedDraw( );
@@ -374,7 +374,7 @@ void CPhysicObject::shedule_Update(u32 dt)
 {
 	inherited::shedule_Update(dt);
 	CPHSkeleton::Update(dt);
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if(dbg_draw_doors)
 {
 	Fvector c,o;
@@ -402,7 +402,7 @@ void CPhysicObject::UpdateCL()
 	m_anim_script_callback.update(*this);
 	PHObjectPositionUpdate();
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if(dbg_draw_doors)
 {
 	Fvector c,o;
@@ -999,7 +999,7 @@ bool CPhysicObject::get_door_vectors(Fvector& closed, Fvector& open) const
 
 	//DBG_OpenCashedDraw( );
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if(dbg_draw_doors)
 {
 	DBG_DrawMatrix( Fidentity, 10.0f );

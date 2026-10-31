@@ -1161,6 +1161,20 @@ bool CCustomMonster::update_critical_wounded(const u16& bone_id, const float& po
 extern void dbg_draw_frustum (float FOV, float _FAR, float A, Fvector &P, Fvector &D, Fvector &U);
 void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::rq_results& rq_storage);
 
+void CCustomMonster::dbg_draw_frustum_self()
+{
+	float new_range = eye_range, new_fov = eye_fov;
+
+	if (g_Alive())
+		update_range_fov(new_range, new_fov, memory().visual().current_state().m_max_view_distance * eye_range, eye_fov);
+
+	// dbg_draw_frustum re-normalizes D/U through references, so pass copies
+	Fvector position = eye_matrix.c;
+	Fvector direction = eye_matrix.k;
+	Fvector up = eye_matrix.j;
+	dbg_draw_frustum(new_fov, new_range, 1, position, direction, up);
+}
+
 void CCustomMonster::OnRender()
 {
 	DRender->OnFrameEnd();
@@ -1236,14 +1250,7 @@ void CCustomMonster::OnRender()
 		}
 	}
 
-	if (psAI_Flags.test(aiFrustum)) {
-		float					new_range = eye_range, new_fov = eye_fov;
-		
-		if (g_Alive())
-			update_range_fov	(new_range, new_fov, memory().visual().current_state().m_max_view_distance*eye_range, eye_fov);
-
-		dbg_draw_frustum		(new_fov,new_range,1,eye_matrix.c,eye_matrix.k,eye_matrix.j);
-	}
+	// aiFrustum is drawn from CLevel::OnRender via dbg_draw_frustum_self()
 
 	if (psAI_Flags.test(aiMotion)) 
 		if (character_physics_support())

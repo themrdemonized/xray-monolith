@@ -610,7 +610,7 @@ void CCharacterPhysicsSupport::in_UpdateCL()
 	{
 		return;
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_character_bones )
 				dbg_draw_geoms( m_weapon_geoms );
 

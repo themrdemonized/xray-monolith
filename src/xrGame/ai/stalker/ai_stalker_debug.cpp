@@ -8,7 +8,7 @@
 
 #include "pch_script.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "ai_stalker.h"
 #include "../../memory_manager.h"
 #include "../../visual_memory_manager.h"
@@ -1075,18 +1075,18 @@ void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::
 	VERIFY					(points.size() > 1);
 	
 	Fvector					size = Fvector().set(.05f,.05f,.05f);
-	Level().debug_renderer().draw_aabb	(points.front(),size.x,size.y,size.z,D3DCOLOR_XRGB(0,0,255));
+	Level().debug_renderer().draw_aabb	(points.front(),size.x,size.y,size.z,D3DCOLOR_XRGB(0,0,255), false);
 
 	{
 		COLLIDE_POINTS::const_iterator	I = points.begin() + 1;
 		COLLIDE_POINTS::const_iterator	E = points.end();
 		for ( ; I != E; ++I) {
-			Level().debug_renderer().draw_line	(Fidentity,*(I-1),*I,D3DCOLOR_XRGB(0,255,0));
-			Level().debug_renderer().draw_aabb	(*I,size.x,size.y,size.z,D3DCOLOR_XRGB(0,255,0));
+			Level().debug_renderer().draw_line	(Fidentity,*(I-1),*I,D3DCOLOR_XRGB(0,255,0), false);
+			Level().debug_renderer().draw_aabb	(*I,size.x,size.y,size.z,D3DCOLOR_XRGB(0,255,0), false);
 		}
 	}
 
-	Level().debug_renderer().draw_aabb	(points.back(),size.x,size.y,size.z,D3DCOLOR_XRGB(255,0,0));
+	Level().debug_renderer().draw_aabb	(points.back(),size.x,size.y,size.z,D3DCOLOR_XRGB(255,0,0), false);
 }
 
 void CAI_Stalker::dbg_draw_visibility_rays	()
@@ -1127,12 +1127,12 @@ static Fmatrix aim_on_actor		(
 	{
 		temp.scale						(.01f, .01f, .01f);
 		temp.c							= bone_position;
-		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(255, 0, 0));
+		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(255, 0, 0), false);
 
 		temp.c							= weapon_position;
-		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(0, 255, 0));
+		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(0, 255, 0), false);
 		Fvector const weapon_position_target= Fvector().mad(weapon_position, weapon_direction, weapon_position.distance_to(target));
-		renderer.draw_line				(Fidentity, weapon_position, weapon_position_target, D3DCOLOR_XRGB(255, 0, 255));
+		renderer.draw_line				(Fidentity, weapon_position, weapon_position_target, D3DCOLOR_XRGB(255, 0, 255), false);
 	}
 #endif // #ifdef DEBUG_RENDER
 
@@ -1144,7 +1144,7 @@ static Fmatrix aim_on_actor		(
 	if (debug_draw)
 	{
 		temp.c							= current_point;
-		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(0, 0, 255));
+		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(0, 0, 255), false);
 	}
 #endif // #ifdef DEBUG_RENDER
 
@@ -1173,12 +1173,12 @@ static Fmatrix aim_on_actor		(
 	if (debug_draw)
 	{
 		temp.c							= target_point;
-		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(255, 255, 255));
+		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(255, 255, 255), false);
 
 		float const sphere_radius		= _sqrt(sphere_radius_sqr);
 		temp.scale						(sphere_radius, sphere_radius, sphere_radius);
 		temp.c							= bone_position;
-		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(255, 255, 0));
+		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(255, 255, 0), false);
 	}
 #endif // #ifdef DEBUG_RENDER
 
@@ -1233,7 +1233,7 @@ static Fmatrix aim_on_actor		(
 		temp.scale						(.01f, .01f, .01f);
 		transform.transform_dir			(temp.c, Fvector().sub(weapon_position, bone_position));
 		temp.c.add						(bone_position);
-		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(0, 255, 255));
+		renderer.draw_ellipse			(temp, D3DCOLOR_XRGB(0, 255, 255), false);
 	}
 #endif // #ifdef DEBUG_RENDER
 
@@ -1334,7 +1334,8 @@ static void draw_bones				(
 		renderer.draw_obb				(
 			temp,
 			box_size,
-			box_color
+			box_color,
+            false
 		);
 
 		CBoneData&						bone_data = kinematics.LL_GetData(i);
@@ -1351,7 +1352,8 @@ static void draw_bones				(
 			Fidentity,
 			temp2.c,
 			temp.c,
-			line_color
+			line_color,
+            false
 		);
 	}
 }
@@ -1582,22 +1584,23 @@ static void draw_animation_bones	(CAI_Stalker& self, Fmatrix const& transform, I
 				Fidentity,
 				position,
 				Fvector().mad(position, direction, position.distance_to(target)),
-				D3DCOLOR_XRGB(255, 0, 0)
+				D3DCOLOR_XRGB(255, 0, 0),
+                false
 			);
 		}
 	}
 
 	Fvector const weapon_position_target= Fvector().mad(weapon_bone_position, weapon_bone_direction, weapon_bone_position.distance_to(target));
-	renderer.draw_line				(Fidentity, weapon_bone_position, weapon_position_target, D3DCOLOR_XRGB(255, 255, 0));
+	renderer.draw_line				(Fidentity, weapon_bone_position, weapon_position_target, D3DCOLOR_XRGB(255, 255, 0), false);
 
 	Fmatrix							target_transform;
 	target_transform.scale			(.01f, .01f, .01f);
 	target_transform.c				= target;
-	renderer.draw_ellipse			(target_transform, D3DCOLOR_XRGB(255, 0, 0));
+	renderer.draw_ellipse			(target_transform, D3DCOLOR_XRGB(255, 0, 0), false);
 
 	target_transform.scale			(.015f, .015f, .015f);
 	target_transform.c				= weapon_bone_position;
-	renderer.draw_ellipse			(target_transform, D3DCOLOR_XRGB(255, 0, 0));
+	renderer.draw_ellipse			(target_transform, D3DCOLOR_XRGB(255, 0, 0), false);
 
 	draw_bones						(
 		*kinematics,
@@ -1609,18 +1612,21 @@ static void draw_animation_bones	(CAI_Stalker& self, Fmatrix const& transform, I
 	renderer.draw_obb				(
 		g_stalker_skeleton[weapon_bone_id0],
 		Fvector().set(.01f, .01f, .01f),
-		D3DCOLOR_XRGB(255, 0, 0)
+		D3DCOLOR_XRGB(255, 0, 0),
+        false
 	);
 	renderer.draw_obb				(
 		g_stalker_skeleton[weapon_bone_id1],
 		Fvector().set(.01f, .01f, .01f),
-		D3DCOLOR_XRGB(255, 0, 0)
+		D3DCOLOR_XRGB(255, 0, 0),
+        false
 	);
 	renderer.draw_line				(
 		Fidentity,
 		g_stalker_skeleton[weapon_bone_id0].c,
 		g_stalker_skeleton[weapon_bone_id1].c,
-		D3DCOLOR_XRGB(255, 0, 0)
+		D3DCOLOR_XRGB(255, 0, 0),
+        false
 	);
 #endif // #ifdef DEBUG_RENDER
 }
@@ -1653,7 +1659,7 @@ void CAI_Stalker::OnRender				()
 		temp					= direction;
 		temp.mul				(1.f);
 		temp.add				(position);
-		Level().debug_renderer().draw_line		(Fidentity,position,temp,D3DCOLOR_XRGB(0*255,255,0*255));
+		Level().debug_renderer().draw_line		(Fidentity,position,temp,D3DCOLOR_XRGB(0*255,255,0*255), false);
 	}
 
 	if (IsMyCamera()) {
@@ -1667,7 +1673,7 @@ void CAI_Stalker::OnRender				()
 		feel_vision_get			(objects);
 		if (std::find(objects.begin(),objects.end(),memory().enemy().selected()) != objects.end()) {
 			Fvector				position = feel_vision_get_vispoint(const_cast<CEntityAlive*>(memory().enemy().selected()));
-			Level().debug_renderer().draw_aabb	(position,.05f,.05f,.05f,D3DCOLOR_XRGB(0*255,255,0*255));
+			Level().debug_renderer().draw_aabb	(position,.05f,.05f,.05f,D3DCOLOR_XRGB(0*255,255,0*255), false);
 			return;
 		}
 
@@ -1713,8 +1719,8 @@ void CAI_Stalker::OnRender				()
 		target_direction.add(eye_matrix.c);
 		target_direction.y = eye_matrix.c.y + 0.4f;
 		
-		Level().debug_renderer().draw_line(Fidentity, eye_matrix.c, current_direction, D3DCOLOR_XRGB(255,0,255));
-		Level().debug_renderer().draw_line(Fidentity, eye_matrix.c, target_direction, D3DCOLOR_XRGB(255,255,0));
+		Level().debug_renderer().draw_line(Fidentity, eye_matrix.c, current_direction, D3DCOLOR_XRGB(255,0,255), false);
+		Level().debug_renderer().draw_line(Fidentity, eye_matrix.c, target_direction, D3DCOLOR_XRGB(255,255,0), false);
 	}
 
 	{
@@ -1722,12 +1728,12 @@ void CAI_Stalker::OnRender				()
 		c0.y					+= 2.f;
 		c1.setHP				(-movement().m_body.current.yaw,-movement().m_body.current.pitch);
 		c1.add					(c0);
-		Level().debug_renderer().draw_line		(Fidentity,c0,c1,D3DCOLOR_XRGB(0,255,0));
+		Level().debug_renderer().draw_line		(Fidentity,c0,c1,D3DCOLOR_XRGB(0,255,0), false);
 		
 		t0.y					+= 2.f;
 		t1.setHP				(-movement().m_body.target.yaw,-movement().m_body.target.pitch);
 		t1.add					(t0);
-		Level().debug_renderer().draw_line		(Fidentity,t0,t1,D3DCOLOR_XRGB(255,0,0));
+		Level().debug_renderer().draw_line		(Fidentity,t0,t1,D3DCOLOR_XRGB(255,0,0), false);
 	}
 
 	if (memory().danger().selected() && ai().level_graph().valid_vertex_position(memory().danger().selected()->position())) {
@@ -1735,7 +1741,7 @@ void CAI_Stalker::OnRender				()
 		u32							level_vertex_id = ai().level_graph().vertex_id(position);
 		float						half_size = ai().level_graph().header().cell_size()*.5f;
 		position.y					+= 1.f;
-		Level().debug_renderer().draw_aabb	(position,half_size - .01f,1.f,ai().level_graph().header().cell_size()*.5f-.01f,D3DCOLOR_XRGB(0*255,255,0*255));
+		Level().debug_renderer().draw_aabb	(position,half_size - .01f,1.f,ai().level_graph().header().cell_size()*.5f-.01f,D3DCOLOR_XRGB(0*255,255,0*255), false);
 
 		if (ai().level_graph().valid_vertex_id(level_vertex_id)) {
 			LevelGraph::CVertex			*v = ai().level_graph().vertex(level_vertex_id);
@@ -1743,15 +1749,16 @@ void CAI_Stalker::OnRender				()
 			// high
 			Fvector						direction;
 			float						best_value = -1.f;
+            u32 j = 0;
 
-			for (u32 i=0, j = 0; i<36; ++i) {
+			for (u32 i=0; i<36; ++i) {
 				float				value = ai().level_graph().high_cover_in_direction(float(10*i)/180.f*PI,v);
 				direction.setHP		(float(10*i)/180.f*PI,0);
 				direction.normalize	();
 				direction.mul		(value*half_size);
 				direction.add		(position);
 				direction.y			= position.y;
-				Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,255));
+				Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,255), false);
 				value				= ai().level_graph().compute_high_square(float(10*i)/180.f*PI,PI/2.f,v);
 				if (value > best_value) {
 					best_value		= value;
@@ -1760,16 +1767,16 @@ void CAI_Stalker::OnRender				()
 			}
 
 			direction.set		(position.x - half_size*float(v->high_cover(0))/15.f,position.y,position.z);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			direction.set		(position.x,position.y,position.z + half_size*float(v->high_cover(1))/15.f);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			direction.set		(position.x + half_size*float(v->high_cover(2))/15.f,position.y,position.z);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			direction.set		(position.x,position.y,position.z - half_size*float(v->high_cover(3))/15.f);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			float				value = ai().level_graph().high_cover_in_direction(float(10*j)/180.f*PI,v);
 			direction.setHP		(float(10*j)/180.f*PI,0);
@@ -1777,7 +1784,7 @@ void CAI_Stalker::OnRender				()
 			direction.mul		(value*half_size);
 			direction.add		(position);
 			direction.y			= position.y;
-			Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,0));
+			Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,0), false);
 
 			// low
 			{
@@ -1791,7 +1798,7 @@ void CAI_Stalker::OnRender				()
 				direction.mul		(value*half_size);
 				direction.add		(position);
 				direction.y			= position.y;
-				Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,255));
+				Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,255), false);
 				value				= ai().level_graph().compute_low_square(float(10*i)/180.f*PI,PI/2.f,v);
 				if (value > best_value) {
 					best_value		= value;
@@ -1800,16 +1807,16 @@ void CAI_Stalker::OnRender				()
 			}
 
 			direction.set		(position.x - half_size*float(v->low_cover(0))/15.f,position.y,position.z);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			direction.set		(position.x,position.y,position.z + half_size*float(v->low_cover(1))/15.f);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			direction.set		(position.x + half_size*float(v->low_cover(2))/15.f,position.y,position.z);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			direction.set		(position.x,position.y,position.z - half_size*float(v->low_cover(3))/15.f);
-			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0));
+			Level().debug_renderer().draw_line(Fidentity,position,direction,D3DCOLOR_XRGB(255,0,0), false);
 
 			float				value = ai().level_graph().low_cover_in_direction(float(10*j)/180.f*PI,v);
 			direction.setHP		(float(10*j)/180.f*PI,0);
@@ -1817,7 +1824,7 @@ void CAI_Stalker::OnRender				()
 			direction.mul		(value*half_size);
 			direction.add		(position);
 			direction.y			= position.y;
-			Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,0));
+			Level().debug_renderer().draw_line	(Fidentity,position,direction,D3DCOLOR_XRGB(0,0,0), false);
 			}
 		}
 	}

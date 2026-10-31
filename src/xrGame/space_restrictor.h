@@ -66,7 +66,7 @@ public:
 	IC RestrictionSpace::ERestrictorTypes restrictor_type() const;
 
 public:
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void				OnRender			();
 #endif
 DECLARE_SCRIPT_REGISTER_FUNCTION
