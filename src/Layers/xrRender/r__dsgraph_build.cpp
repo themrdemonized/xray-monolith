@@ -92,6 +92,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 	item.fov = RI.val_fCustomFOV;
+	item.bus_tag = RI.val_busTag;
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	
@@ -106,6 +107,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
             N->val.fov = RI.val_fCustomFOV;
+			N->val.bus_tag = RI.val_busTag | (RI.val_bHUD ? ShaderBus::hud_lens : 0);
 			return;
 		}
 
@@ -117,6 +119,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
             N->val.fov = RI.val_fCustomFOV;
+			N->val.bus_tag = RI.val_busTag | (RI.val_bHUD ? ShaderBus::hud_lens : 0);
 			return;
 		}
 
@@ -168,6 +171,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
 			N->val.fov = RI.val_fCustomFOV;
+			N->val.bus_tag = RI.val_busTag;
 			/*
 #if RENDER==R_R4
 			if (RImplementation.o.ssfx_core && !sh->passes[0]->ps->hud_disabled)

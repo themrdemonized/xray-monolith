@@ -903,6 +903,7 @@ void CRender::add_Occluder(Fbox2& bb_screenspace)
 void CRender::set_Object(IRenderable* O)
 {
 	val_pObject = O;
+	val_busTag = O ? O->renderable.bus_mask & bus_live_bits : 0;
 }
 
 void CRender::rmNear()

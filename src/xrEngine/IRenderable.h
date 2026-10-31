@@ -19,9 +19,12 @@ public:
 		IRenderVisual* visual;
 		IRender_ObjectSpecific* pROS;
 		BOOL pROS_Allowed;
+		// shader bus object mask bits a mod set on this object
+		u32 bus_mask = 0;
 		// own values on shader bus obj_ lanes, null while it has none
 		ShaderBus::object_values* bus_values = nullptr;
 	} renderable;
+	static_assert(sizeof(renderable) == 96, "renderable grew");
 
 public:
 	IRenderable();

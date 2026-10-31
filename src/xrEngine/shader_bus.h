@@ -255,6 +255,36 @@ namespace ShaderBus
 
 	// the renderer calls this at device create when it can bind buffers and read back
 	ENGINE_API void enable_gpu_lanes();
+	// bits HUD sources write into the shader bus mask, mod mask bits sit above them
+	enum : u32
+	{
+		hud_arms = 0x001,
+		hud_arms2 = 0x002,
+		hud_item0 = 0x004,
+		hud_item1 = 0x008,
+		hud_scope = 0x010,
+		hud_prop = 0x020,
+		hud_att_actor = 0x040,
+		hud_att_item = 0x080,
+		hud_cam = 0x100,
+		hud_lens = 0x200,
+		hud_mask_bits = 0x3FF,
+	};
+	// the renderer calls this at device create, the mask target and object masks need it
+	ENGINE_API void enable_mask();
+	ENGINE_API bool mask_enabled();
+	// claims the lowest free object mask bit for a mask lane, the same owner gets its token back
+	ENGINE_API u32 register_mask(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
+	// sets or clears the token's bit on the object from the next frame on
+	ENGINE_API bool set_mask(u32 token, IRenderable* object, bool on);
+	// the object's mask bits that are live
+	ENGINE_API u32 get_mask(const IRenderable* object);
+	// drops the bit from the next frame on, it returns to the pool after the next level load
+	ENGINE_API bool release_mask(u32 token);
+	// object mask bits as of the last per-frame update
+	ENGINE_API u32 mask_live_bits();
+	// the object mask bit a token holds, parked or live, -1 for none
+	ENGINE_API int mask_bit(u32 token);
 	// arms a w by h block centred at x, y in 0..1 of light, scene or backbuffer, an empty source disarms
 	ENGINE_API bool set_readback(u32 token, LPCSTR source, float x, float y, u32 w, u32 h, LPCSTR reduce);
 	// texel i of the last result, row-major for none and 0 only for a reduce, false with no result
@@ -288,7 +318,8 @@ namespace ShaderBus
 		role_none = 0,
 		role_target = 1,
 		role_history = 2,
-		role_pass = 3
+		role_pass = 3,
+		role_mask = 4
 	};
 
 	enum pass_stage

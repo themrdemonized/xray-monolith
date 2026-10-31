@@ -82,6 +82,7 @@ namespace R_dsgraph
 		Fmatrix Matrix; // matrix (copy)
 		Fmatrix PrevMatrix;
 		float fov;
+		u32 bus_tag;
 	};
 
 	struct _MatrixItemS : public _MatrixItem

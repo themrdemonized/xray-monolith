@@ -293,6 +293,8 @@ public:
 	virtual BOOL get_HUD() = 0;
 	virtual void set_UI3D(BOOL V) = 0;
 	virtual BOOL get_UI3D() = 0;
+	virtual void set_BusTag(u32 tag) = 0;
+	virtual u32 get_BusTag() = 0;
 	virtual void set_CamAttached(BOOL V) = 0;
 	virtual BOOL get_CamAttached() = 0;
 	virtual void set_CustomFOV(float V) = 0;

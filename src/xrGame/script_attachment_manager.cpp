@@ -9,6 +9,7 @@
 #include "CharacterPhysicsSupport.h"
 #include "../xrPhysics/PHElement.h"
 #include "physics_shell_scripted.h"
+#include "../xrEngine/shader_bus.h"
 #include "debug_renderer.h"
 #include "../Layers/xrRender/LightTrack.h"
 
@@ -260,6 +261,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name): ISpatial(g
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
 	m_type = eSA_World;
+	m_hud_category = eSAH_Parent;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
 	m_model_name = "";
@@ -404,17 +406,30 @@ void script_attachment::renderable_Render()
     if (!m_bVisible) return;
 	Visual()->getVisData().hom_frame = Device.dwFrame;
 
+	// the draw keeps its caller's tag, set_Object leaves only this attachment's own mask bits
+	const u32 bus_tag = ::Render->get_BusTag();
+	// one read of the category, a script may change it on another thread
+	const u8 hud_category = m_hud_category;
+	u32 tag = bus_tag;
+	if (hud_category != eSAH_Parent && ::Render->get_HUD())
+		tag = (tag & ~ShaderBus::hud_mask_bits) |
+			(hud_category == eSAH_Actor ? ShaderBus::hud_att_actor : ShaderBus::hud_att_item);
+
     ::Render->set_Object(this);
+	tag |= ::Render->get_BusTag();
+	::Render->set_BusTag(tag);
 	::Render->set_CustomFOV(m_custom_fov);
 	::Render->set_Transform(&renderable.xform);
 	::Render->add_Visual(Visual());
 	::Render->set_CustomFOV(0.f);
     ::Render->set_Object(nullptr);
+	::Render->set_BusTag(tag);
 
 	RenderInstanceAttachments();
 
 	for (auto& pair : m_children)
 		pair.second->renderable_Render();
+	::Render->set_BusTag(bus_tag);
 	}
 
 void script_attachment::RenderUI()
