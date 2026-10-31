@@ -101,6 +101,7 @@ class CScriptSoundInfo;
 class CScriptMonsterHitInfo;
 class CScriptMonsterEnemyInfo;
 class CScriptMonsterHomeInfo;
+class CScriptMonsterMovementInfo;
 class CScriptBinderObject;
 class CCoverPoint;
 class CScriptIniFile;
@@ -573,6 +574,7 @@ public:
 	CScriptMonsterHitInfo GetMonsterHitInfo();
 	CScriptMonsterEnemyInfo GetMonsterEnemyInfo();
 	CScriptMonsterHomeInfo GetMonsterHomeInfo();
+	CScriptMonsterMovementInfo GetMonsterMovementInfo();
 	void bind_object(CScriptBinderObject* object);
 	CScriptGameObject* GetCurrentOutfit() const;
 	float GetCurrentOutfitProtection(int hit_type);

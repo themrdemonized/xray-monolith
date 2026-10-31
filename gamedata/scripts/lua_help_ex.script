@@ -940,6 +940,7 @@
         // CBaseMonster - FSM memory readers. Report what the monster currently believes, distinct from live ground truth off the enemy game_object.
         MonsterEnemyInfo get_monster_enemy_info() // The EnemyMan record: enemy game_object (nil when none), last-seen position and vertex (the monster's cached belief, diverges from the live object while the enemy is unseen), time_last_seen (ms), enemies_count (remembered, not live-visible), my_vertex_enemy_last_seen + enemy_vertex_enemy_last_seen. Empty record on a non-monster.
         MonsterHomeInfo get_monster_home_info() // The CMonsterHome record: point (home anchor), radius_min/mid/max, aggressive, has_home, at_home. has_home false = no home set. Empty record on a non-monster.
+        MonsterMovementInfo get_monster_movement_info() // The CControl_Manager movement record, for slow/stuck diagnosis: velocity_current (applied AI speed), velocity_target (speed the active state asked for), real_velocity (physics XZ translation in the going direction), path_completed (reached the path end, arrived and correctly idle), path_actual (path is current/valid, false = rebuilding or target unreachable), path_active (false = movement yielded to a capture like a jump). Empty record on a non-monster.
         // get_monster_hit_info gains .position (last hit world pos) + .count (remembered hits); get_sound_info gains .type (TSoundDangerValue) + .count (remembered sounds).
         
         // CBaseMonster - rear-strike lever. Default = exact vanilla; not serialized, re-apply on net_spawn.

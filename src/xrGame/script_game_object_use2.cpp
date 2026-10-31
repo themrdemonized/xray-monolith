@@ -9,6 +9,7 @@
 #include "script_monster_hit_info.h"
 #include "script_monster_enemy_info.h"
 #include "script_monster_home_info.h"
+#include "script_monster_movement_info.h"
 #include "ai/monsters/monster_home.h"
 #include "ai/monsters/control_animation_base.h"
 #include "ai/monsters/control_manager_custom.h"
@@ -380,6 +381,27 @@ CScriptMonsterHomeInfo CScriptGameObject::GetMonsterHomeInfo()
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
 		                                "CScriptGameObject : cannot access class member GetMonsterHomeInfo!");
+	}
+	return (ret_val);
+}
+
+CScriptMonsterMovementInfo CScriptGameObject::GetMonsterMovementInfo()
+{
+	CScriptMonsterMovementInfo ret_val;
+
+	CBaseMonster* monster = smart_cast<CBaseMonster *>(&object());
+	if (monster)
+	{
+		CControl_Manager& ctrl = monster->control();
+		CControlPathBuilder& pb = ctrl.path_builder();
+		ret_val.set(ctrl.movement().velocity_current(), ctrl.movement().velocity_target(),
+		            ctrl.movement().real_velocity(),
+		            pb.path_completed(), pb.actual_all(), pb.is_active());
+	}
+	else
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CScriptGameObject : cannot access class member GetMonsterMovementInfo!");
 	}
 	return (ret_val);
 }
