@@ -241,6 +241,53 @@ static LPCSTR bus_get_texture(LPCSTR id)
 	return l && l->texture_bound.size() ? l->texture_bound.c_str() : nullptr;
 }
 
+static bool bus_set_readback(u32 token, LPCSTR source, float x, float y, double w, double h, LPCSTR reduce)
+{
+	u32 width, height;
+	if (!bus_uint_value(w, width) || !bus_uint_value(h, height))
+		return ShaderBus::refuse_write(token, "a readback block size that is not a whole number");
+	return ShaderBus::set_readback(token, source, x, y, width, height, reduce);
+}
+
+static bool bus_readback_texel(LPCSTR id, u32 i, float& x, float& y, float& z, float& w, u32& frame)
+{
+	Fvector4 v;
+	frame = 0;
+	const bool found = ShaderBus::get_readback(id, i, v, frame);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	x = v.x;
+	y = v.y;
+	z = v.z;
+	w = v.w;
+	return found;
+}
+
+static bool bus_get_readback(LPCSTR id, float& x, float& y, float& z, float& w, u32& frame)
+{
+	return bus_readback_texel(id, 0, x, y, z, w, frame);
+}
+
+static bool bus_get_readback_row(LPCSTR id, double i, float& x, float& y, float& z, float& w, u32& frame)
+{
+	u32 texel;
+	return bus_readback_texel(id, bus_uint_value(i, texel) ? texel : u32(-1), x, y, z, w, frame);
+}
+
+static bool bus_set_buffer(u32 token, double rows)
+{
+	u32 count;
+	if (!bus_uint_value(rows, count))
+		return ShaderBus::refuse_write(token, "a buffer size that is not a whole number");
+	return ShaderBus::set_buffer(token, count);
+}
+
+static bool bus_set_late(u32 token, bool on)
+{
+	return ShaderBus::set_late(token, on);
+}
+
 static bool bus_get(LPCSTR id, float& x, float& y, float& z, float& w)
 {
 	Fvector4 v;
@@ -359,6 +406,7 @@ static int bus_version()
 
 static ::luabind::object bus_list(lua_State* L, bool include_declared)
 {
+	static LPCSTR readback_states[] = { "none", "ok", "refused", "lost" };
 	::luabind::object rows = ::luabind::newtable(L);
 
 	int row_index = 1;
@@ -385,6 +433,9 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["shared"] = l->shared != nullptr;
 		row["writers"] = ShaderBus::writer_count(l);
 		row["texture"] = l->texture_bound.size() ? l->texture_bound.c_str() : "";
+		row["readback"] = l->readback ? readback_states[l->readback->state] : "none";
+		row["buffer_rows"] = l->buffer_bound;
+		row["late"] = l->late;
 
 		// every kind a shader declared, more than one or one unlike kind shows a mismatch
 		::luabind::object kinds = ::luabind::newtable(L);
@@ -460,6 +511,13 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("writers", &bus_writers_attachment, raw<1>()),
 		def("set_texture", &bus_set_texture),
 		def("get_texture", &bus_get_texture),
+		def("set_readback", &bus_set_readback),
+		def("get_readback", &bus_get_readback,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("get_readback", &bus_get_readback_row,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>() + pure_out_value<7>()),
+		def("set_buffer", &bus_set_buffer),
+		def("set_late", &bus_set_late),
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),
