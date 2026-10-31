@@ -9,6 +9,8 @@
 #include "../../level.h"
 #include "control_animation_base.h"
 #include "control_critical_wound.h"
+#include "pch_script.h"
+#include "../../script_game_object.h"
 
 
 CControlManagerCustom::CControlManagerCustom()
@@ -149,9 +151,21 @@ void CControlManagerCustom::on_event(ControlCom::EEventType type, ControlCom::IE
 		break;
 	case ControlCom::eventRotationJumpEnd: m_man->release(this, ControlCom::eControlRotationJump);
 		break;
-	case ControlCom::eventMeleeJumpEnd: m_man->release(this, ControlCom::eControlMeleeJump);
+	case ControlCom::eventMeleeJumpEnd:
+		m_man->release(this, ControlCom::eControlMeleeJump);
+		{
+			::luabind::functor<void> funct;
+			if (ai().script_engine().functor("_G.CMonsterOnMeleeJumpEnd", funct))
+				funct(m_object->lua_game_object());
+		}
 		break;
-	case ControlCom::eventRunAttackEnd: m_man->release(this, ControlCom::eControlRunAttack);
+	case ControlCom::eventRunAttackEnd:
+		m_man->release(this, ControlCom::eControlRunAttack);
+		{
+			::luabind::functor<void> funct;
+			if (ai().script_engine().functor("_G.CMonsterOnRunAttackEnd", funct))
+				funct(m_object->lua_game_object());
+		}
 		break;
 	case ControlCom::eventThreatenEnd: m_man->release(this, ControlCom::eControlThreaten);
 		break;
