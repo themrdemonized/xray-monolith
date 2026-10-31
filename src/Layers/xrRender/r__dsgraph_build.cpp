@@ -123,7 +123,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 			break;
 
 		case 1: {
-			RGraph.mapHUD.emplace_back(EPS, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			RGraph.mapHUD.emplace_back(EPS, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud], val_busTag | (i_mask[CDSGraphManager::fl_hud] ? ShaderBus::hud_lens : 0));
 
 			// SSS: Deprecated
 			/*if (!sh->passes[0]->ps->hud_disabled)
@@ -139,7 +139,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 		}
 
 		case 2: {
-			RGraph.mapScopeHUD.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			RGraph.mapScopeHUD.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud], val_busTag | (i_mask[CDSGraphManager::fl_hud] ? ShaderBus::hud_lens : 0));
 			return;
 		}
 
@@ -172,9 +172,9 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 		else
 		{
 			if (i_mask[CDSGraphManager::fl_cam])
-				RGraph.mapCamAttached.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_cam]);
+				RGraph.mapCamAttached.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_cam], val_busTag);
 			else
-				RGraph.mapHUD.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+				RGraph.mapHUD.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud], val_busTag);
 
 			/*
 #if RENDER==R_R4
@@ -253,7 +253,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 #if RENDER==R_R1
 		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], item, pass);
 #else
-		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], { 0, SSA, val_pObject, pVisual, xform, nullptr, i_mask[CDSGraphManager::fl_hud] }, pass);
+		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], { 0, SSA, val_pObject, pVisual, xform, nullptr, i_mask[CDSGraphManager::fl_hud], val_busTag }, pass);
 #endif
 	}
 }
@@ -467,7 +467,7 @@ void CDSGraphManager::add_Dynamic(IRenderVisual* piVisual, Fmatrix* xform)
 			add_Dynamic(pV->m_lod, xform);
 		else
 		{
-			//pV->CalculateBones(TRUE);
+			if ((val_busTag & ~ShaderBus::hud_mask_bits) && bus_mask_runs()) pV->CalculateBones(TRUE);
 			if (i_mask[CDSGraphManager::fl_normal])
 				pV->CalculateWallmarks();
 			add_leafs_Dynamic(pV->children, xform);
@@ -534,7 +534,7 @@ void CDSGraphManager::add_Dynamic(dxRender_Visual* pVisual, Fmatrix* xform)
 			add_Dynamic(pV->m_lod, xform);
 		else
 		{
-			//pV->CalculateBones(TRUE);
+			if ((val_busTag & ~ShaderBus::hud_mask_bits) && bus_mask_runs()) pV->CalculateBones(TRUE);
 			if (i_mask[CDSGraphManager::fl_normal])
 				pV->CalculateWallmarks();
 			add_leafs_Dynamic(pV->children, xform);

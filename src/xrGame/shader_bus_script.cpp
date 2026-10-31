@@ -5,6 +5,8 @@
 #include "../xrEngine/xr_ioc_cmd.h"
 #include "script_game_object.h"
 #include "GameObject.h"
+#include "script_attachment_manager.h"
+#include "script_particles.h"
 
 using namespace luabind;
 
@@ -138,25 +140,35 @@ static bool bus_set_array_uint(u32 token, double first, const ::luabind::object&
 	return ShaderBus::set_rows_uint(token, row, &raw.front(), u32(raw.size() / 4));
 }
 
-static IRenderable* bus_renderable(CScriptGameObject* obj)
+// the object behind a game_object, ScriptAttachment or particles_object argument, null for nil or any other value
+static IRenderable* bus_target(const ::luabind::object& o)
 {
-	return obj ? &obj->object() : nullptr;
+	const std::optional<CScriptGameObject*> obj = ::luabind::object_cast_nothrow<CScriptGameObject*>(o);
+	if (obj && *obj)
+		return &(*obj)->object();
+
+	const std::optional<script_attachment*> att = ::luabind::object_cast_nothrow<script_attachment*>(o);
+	if (att && *att)
+		return *att;
+
+	const std::optional<CScriptParticles*> particles = ::luabind::object_cast_nothrow<CScriptParticles*>(o);
+	return particles && *particles ? (*particles)->m_particles.get() : nullptr;
 }
 
-static bool bus_set_object(u32 token, CScriptGameObject* obj, float x, float y, float z, float w)
+static bool bus_set_object(u32 token, const ::luabind::object& target, float x, float y, float z, float w)
 {
-	return ShaderBus::set_object(token, bus_renderable(obj), x, y, z, w);
+	return ShaderBus::set_object(token, bus_target(target), x, y, z, w);
 }
 
-static bool bus_clear_object(u32 token, CScriptGameObject* obj)
+static bool bus_clear_object(u32 token, const ::luabind::object& target)
 {
-	return ShaderBus::clear_object(token, bus_renderable(obj));
+	return ShaderBus::clear_object(token, bus_target(target));
 }
 
-static bool bus_get_object(LPCSTR id, CScriptGameObject* obj, float& x, float& y, float& z, float& w)
+static bool bus_get_object(LPCSTR id, const ::luabind::object& target, float& x, float& y, float& z, float& w)
 {
 	Fvector4 v;
-	const bool found = ShaderBus::get_object(id, bus_renderable(obj), v);
+	const bool found = ShaderBus::get_object(id, bus_target(target), v);
 	if (!found)
 		v.set(0.f, 0.f, 0.f, 0.f);
 
@@ -191,11 +203,12 @@ static ::luabind::object bus_writers(lua_State* L, LPCSTR id)
 	return bus_writer_rows(L, id, nullptr);
 }
 
-static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, CScriptGameObject* obj)
+static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, const ::luabind::object& target)
 {
-	if (!obj)
+	const IRenderable* object = bus_target(target);
+	if (!object)
 		return ::luabind::newtable(L);
-	return bus_writer_rows(L, id, bus_renderable(obj));
+	return bus_writer_rows(L, id, object);
 }
 
 static bool bus_set_texture(u32 token, LPCSTR name)
@@ -599,6 +612,34 @@ static bool bus_release_target(u32 token)
 	return ShaderBus::release_target(token);
 }
 
+static ::luabind::object bus_register_mask(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description)
+{
+	string_path source;
+	bus_caller_source(L, source);
+	return bus_token_object(L, ShaderBus::register_mask(id, owner, description, source));
+}
+
+static bool bus_set_mask(u32 token, const ::luabind::object& target, bool on)
+{
+	const std::optional<CScriptParticles*> particles = ::luabind::object_cast_nothrow<CScriptParticles*>(target);
+	if (particles && *particles)
+		return false;
+
+	IRenderable* object = bus_target(target);
+	return object && ShaderBus::set_mask(token, object, on);
+}
+
+static u32 bus_get_mask(const ::luabind::object& target)
+{
+	const IRenderable* object = bus_target(target);
+	return object ? ShaderBus::get_mask(object) : 0;
+}
+
+static bool bus_release_mask(u32 token)
+{
+	return ShaderBus::release_mask(token);
+}
+
 // the list() keys of a target or history row, a history row shows its target's spec
 static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
 {
@@ -647,7 +688,7 @@ static int bus_version()
 static ::luabind::object bus_list(lua_State* L, bool include_declared)
 {
 	static LPCSTR readback_states[] = { "none", "ok", "refused", "lost" };
-	static LPCSTR roles[] = { "", "target", "history", "pass" };
+	static LPCSTR roles[] = { "", "target", "history", "pass", "mask" };
 	::luabind::object rows = ::luabind::newtable(L);
 
 	int row_index = 1;
@@ -682,6 +723,12 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 			bus_list_target(row, l);
 		else if (l->role == ShaderBus::role_pass)
 			bus_list_pass(row, l);
+		else if (l->role == ShaderBus::role_mask)
+		{
+			const int bit = ShaderBus::mask_bit((u32(l->nonce) << 16) | u32(l->index));
+			if (bit >= 0)
+				row["mask_bit"] = bit;
+		}
 
 		// every kind a shader declared, more than one or one unlike kind shows a mismatch
 		::luabind::object kinds = ::luabind::newtable(L);
@@ -773,6 +820,10 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("enable_pass", &bus_enable_pass),
 		def("release_pass", &bus_release_pass),
 		def("release_target", &bus_release_target),
+		def("register_mask", &bus_register_mask, raw<1>()),
+		def("set_mask", &bus_set_mask),
+		def("get_mask", &bus_get_mask),
+		def("release_mask", &bus_release_mask),
 		def("version", &bus_version)
 	];
 }

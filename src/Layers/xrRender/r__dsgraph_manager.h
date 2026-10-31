@@ -32,6 +32,12 @@ public:
 	ref_shader								f_shader;
 	ref_geom								f_geom;
 
+	// shader bus object mask bits live this frame, read once at the render start
+	static u32								bus_live_bits;
+	// the world pass keeps queue 0 for the object mask pass this frame
+	bool									bus_mask_on = false;
+	bool bus_mask_runs() const { return bus_mask_on; }
+
 	CDSGraphManager(u32 options, u32 doptions, bool(&& mask)[7]) : i_options(options), i_doptions(doptions)
 	{
 		std::copy(mask, mask + 7, i_mask);
@@ -74,7 +80,14 @@ public:
 	void r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fmatrix* xform);
 
 	void AddToRenderQueue(R_dsgraph::RenderQueue& queue, const R_dsgraph::DSGraphItem<u32, false>& item, const SPass& pass);
+	template<bool BusMask = false>
 	void r_dsgraph_render_graph(R_dsgraph::RenderQueueArray& queue, u32 _priority, bool _clear = true, bool static_geometry = true);
+	// copies the matrices of tagged queue 0 items so both draws use one value
+	void r_dsgraph_bus_keep_xforms();
+#if defined(USE_DX10) || defined(USE_DX11)
+	// redraws the tagged priority 0 dynamic items into the shader bus mask and clears them
+	void r_dsgraph_render_bus_mask();
+#endif
 	IC void r_dsgraph_render_graph(u32 _priority, bool _clear = true)
 	{
 		r_dsgraph_render_static(_priority, _clear);
@@ -91,10 +104,11 @@ public:
 		r_dsgraph_render_graph(RGraph.mapDynamicPasses, _priority, _clear, false);
 	};
 
-	template<typename T, bool Reverse>
+	template<typename T, bool Reverse, bool BusMask = false>
 	void r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear = true);
 	void r_dsgraph_capture_hud();
 	void r_dsgraph_render_hud();
+	void r_dsgraph_render_hud_mask(R_dsgraph::mapDSGraphItems<float, false>& list);
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted(bool render_hud = true);

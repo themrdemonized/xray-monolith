@@ -66,6 +66,9 @@ void CRender::Render()
 {
 	PIX_EVENT_C(CRender_Render, dx10_marker_frame);
 	dx10_annotate_frame();
+	CDSGraphManager::bus_live_bits = ShaderBus::mask_live_bits();
+	// tagged world items keep their queue 0 packets for the mask pass after the scene
+	GMBase.bus_mask_on = CDSGraphManager::bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
 
 	rmNormal();
 
@@ -163,7 +166,9 @@ void CRender::Render()
 		// level, SPLIT
 		Target->phase_scene_begin();
 		GMBase.r_dsgraph_render_static(0);
-		GMBase.r_dsgraph_render_dynamic(0);
+		if (GMBase.bus_mask_runs())
+			GMBase.r_dsgraph_bus_keep_xforms();
+		GMBase.r_dsgraph_render_dynamic(0, !GMBase.bus_mask_runs());
 		Target->disable_aniso();
 	}
 
@@ -197,6 +202,7 @@ void CRender::Render()
 		GMBase.r_dsgraph_render_lods(true,true);
 		if (Details) Details->Render();
 		Target->phase_scene_end();
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_render_bus_mask();
 	}
 
 	// Wall marks

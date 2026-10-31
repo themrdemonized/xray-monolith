@@ -14,6 +14,14 @@ enum script_attachment_type
 	eSA_undefined
 };
 
+enum script_attachment_hud
+{
+	eSAH_Parent = 0,
+	eSAH_Actor,
+	eSAH_Item,
+	eSAH_undefined
+};
+
 struct script_attachment_bone_cb
 {
 	u16 m_bone_id, m_attachment_bone_id;
@@ -73,6 +81,7 @@ private:
 	u32 m_anim_end;
 
 	u16 m_type;
+	u8 m_hud_category;
 	script_attachment* m_parent_attachment;
 	CGameObject* m_parent_object;
 	bool m_parent_level;
@@ -186,6 +195,8 @@ public:
 
     void SetType(u16 type);
 	u16 GetType() { return m_type; }
+	void SetHudCategory(u16 category) { m_hud_category = u8(category < eSAH_undefined ? category : eSAH_Parent); }
+	u16 GetHudCategory() { return m_hud_category; }
 
 	u32 PlayMotion(LPCSTR name, bool mixin = true, float speed = 1.f);
 	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed);
