@@ -422,6 +422,185 @@ static void bus_buffers_release()
 }
 #endif
 
+#if defined(USE_DX11)
+// a script render target and its history copy
+struct bus_target_slot
+{
+	ShaderBus::target_spec spec;
+	ref_rt cur;
+	ref_rt prev;
+	u32 clears;
+	u32 copied_frame;
+};
+
+static xr_vector<bus_target_slot> bus_target_slots;
+static u32 bus_targets_serial = u32(-1);
+static u32 bus_targets_epoch = u32(-1);
+static u32 bus_target_clear_serial = 0;
+
+// the target formats in the order of ShaderBus::target_format_name and their texel bytes
+static const struct
+{
+	D3DFORMAT format;
+	u32 bytes;
+} bus_target_formats[ShaderBus::target_format_count] =
+{
+	{ D3DFMT_A8R8G8B8, 4 },
+	{ D3DFMT_A2R10G10B10, 4 },
+	{ D3DFMT_V16U16, 4 },
+	{ D3DFMT_G16R16F, 4 },
+	{ D3DFMT_R16F, 2 },
+	{ D3DFMT_R32F, 4 },
+	{ D3DFMT_A16B16G16R16F, 8 },
+	{ D3DFMT_A32B32G32R32F, 16 },
+};
+
+static D3DFORMAT bus_target_format(u8 format)
+{
+	return bus_target_formats[format].format;
+}
+
+static u32 bus_target_texel_bytes(u8 format)
+{
+	return bus_target_formats[format].bytes;
+}
+
+// fills the target and its history with the clear value and moves its clear count
+static void bus_target_clear(bus_target_slot& s)
+{
+	HW.pContext->ClearRenderTargetView(s.cur->pRT, &s.spec.clear.x);
+	if (s.prev)
+		HW.pContext->ClearRenderTargetView(s.prev->pRT, &s.spec.clear.x);
+	s.clears = ++bus_target_clear_serial;
+}
+
+// drops every target so none outlives a reset or the device, the next Begin recreates them
+static void bus_targets_release()
+{
+	bus_target_slots.clear();
+	bus_targets_serial = u32(-1);
+	bus_targets_epoch = u32(-1);
+}
+
+// creates, keeps or drops a target per live spec and clears every target on a level change
+static void bus_targets_update()
+{
+	const u32 serial = ShaderBus::targets_serial();
+	const u32 epoch = ShaderBus::level_epoch();
+	if (serial == bus_targets_serial && epoch == bus_targets_epoch)
+		return;
+
+	const bool level_changed = epoch != bus_targets_epoch;
+	bus_targets_serial = serial;
+	bus_targets_epoch = epoch;
+
+	xr_vector<ShaderBus::target_spec> specs;
+	xr_vector<ShaderBus::pass_spec> passes;
+	ShaderBus::targets_copy(specs, passes);
+
+	// slots left in the old list when it goes out of scope are destroyed
+	xr_vector<bus_target_slot> old_slots;
+	old_slots.swap(bus_target_slots);
+
+	for (u32 i = 0; i < specs.size(); ++i)
+	{
+		const ShaderBus::target_spec& t = specs[i];
+		ShaderBus::gpu_status status = {};
+		if (t.released)
+		{
+			status.state = ShaderBus::gpu_released;
+			ShaderBus::set_gpu_status(t.id, status);
+			continue;
+		}
+
+		u32 w = t.width, h = t.height;
+		if (t.size != ShaderBus::size_fixed)
+		{
+			const u32 shift = t.size == ShaderBus::size_half ? 1 : t.size == ShaderBus::size_quarter ? 2 : 0;
+			w = _max(Device.dwWidth >> shift, 1u);
+			h = _max(Device.dwHeight >> shift, 1u);
+		}
+
+		bus_target_slot* old = nullptr;
+		for (u32 k = 0; k < old_slots.size() && !old; ++k)
+			if (old_slots[k].spec.id == t.id)
+				old = &old_slots[k];
+
+		if (old && old->spec.generation == t.generation && old->cur->dwWidth == w && old->cur->dwHeight == h)
+		{
+			bus_target_slots.push_back(*old);
+			if (level_changed)
+				bus_target_clear(bus_target_slots.back());
+		}
+		else
+		{
+			// the old surfaces go first so the names are free for the new size
+			if (old)
+			{
+				old->cur.destroy();
+				old->prev.destroy();
+			}
+
+			bus_target_slot s = {};
+			s.spec = t;
+			string_path name;
+			xr_sprintf(name, "$user$bus_%s", t.id.c_str());
+			s.cur.create(name, w, h, bus_target_format(t.format));
+			if (t.history)
+			{
+				xr_strcat(name, "_prev");
+				s.prev.create(name, w, h, bus_target_format(t.format));
+			}
+			bus_target_clear(s);
+			bus_target_slots.push_back(s);
+		}
+
+		status.state = ShaderBus::gpu_ready;
+		status.width = w;
+		status.height = h;
+		status.bytes = w * h * bus_target_texel_bytes(t.format) * (t.history ? 2 : 1);
+		ShaderBus::set_gpu_status(t.id, status);
+	}
+}
+
+static bus_target_slot* bus_target_find(const shared_str& id)
+{
+	for (u32 i = 0; i < bus_target_slots.size(); ++i)
+		if (bus_target_slots[i].spec.id == id)
+			return &bus_target_slots[i];
+	return nullptr;
+}
+
+// the target of a lane id, prev for its history copy, null for none
+CRT* bus_target_rt(const shared_str& id, bool prev)
+{
+	bus_target_slot* s = bus_target_find(id);
+	return s ? (prev ? s->prev._get() : s->cur._get()) : nullptr;
+}
+
+// copies the target into its history once per main frame, before its first writer
+void bus_target_rotate(const shared_str& id)
+{
+	bus_target_slot* s = bus_target_find(id);
+	if (!s || !s->cur || !s->prev || !s->cur->pSurface || !s->prev->pSurface)
+		return;
+	if (s->copied_frame == Device.dwFrame || Device.m_SecondViewport.IsSVPFrame())
+		return;
+
+	RCache.set_RT(nullptr);
+	RCache.unbind_texture(&*s->prev->pTexture);
+	HW.pContext->CopyResource(s->prev->pSurface, s->cur->pSurface);
+	s->copied_frame = Device.dwFrame;
+}
+
+// moves on every clear of the target, 0 for none
+u32 bus_target_clears(const shared_str& id)
+{
+	bus_target_slot* s = bus_target_find(id);
+	return s ? s->clears : 0;
+}
+#endif
+
 dxRenderDeviceRender::dxRenderDeviceRender()
 	: Resources(0)
 {
@@ -464,6 +643,7 @@ void dxRenderDeviceRender::OnDeviceDestroy(BOOL bKeepTextures)
 	bus_buffer_slots.clear();
 	bus_readback_release();
 	bus_readback_rings.clear();
+	bus_targets_release();
 #endif
 	bus_texture_slots.clear();
 	bus_texture_serial = 0;
@@ -492,6 +672,7 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 #if defined(USE_DX11)
 	bus_buffers_release();
 	bus_readback_release();
+	bus_targets_release();
 #endif
 	Resources->reset_begin();
 	Memory.mem_compact();
@@ -592,6 +773,7 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 	Device.Statistic->OnDeviceCreate();
 #if defined(USE_DX11)
 	ShaderBus::enable_gpu_lanes();
+	ShaderBus::set_enable_targets(true);
 #endif
 
 	//#ifndef DEDICATED_SERVER
@@ -791,6 +973,7 @@ void dxRenderDeviceRender::Begin()
 	bus_textures_update();
 #if defined(USE_DX11)
 	bus_buffers_update();
+	bus_targets_update();
 #endif
 }
 

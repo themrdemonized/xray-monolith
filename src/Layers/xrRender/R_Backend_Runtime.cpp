@@ -60,6 +60,54 @@ void CBackend::OnFrameBegin()
 	//#endif
 }
 
+#if defined(USE_DX10) || defined(USE_DX11)
+void CBackend::unbind_texture(CTexture* t)
+{
+	for (u32 i = 0; i < mtMaxPixelShaderTextures; ++i)
+		if (textures_ps[i] == t)
+		{
+			textures_ps[i] = nullptr;
+			SRVSManager.SetPSResource(i, nullptr);
+		}
+	for (u32 i = 0; i < mtMaxVertexShaderTextures; ++i)
+		if (textures_vs[i] == t)
+		{
+			textures_vs[i] = nullptr;
+			SRVSManager.SetVSResource(i, nullptr);
+		}
+	for (u32 i = 0; i < mtMaxGeometryShaderTextures; ++i)
+		if (textures_gs[i] == t)
+		{
+			textures_gs[i] = nullptr;
+			SRVSManager.SetGSResource(i, nullptr);
+		}
+#ifdef USE_DX11
+	for (u32 i = 0; i < mtMaxHullShaderTextures; ++i)
+		if (textures_hs[i] == t)
+		{
+			textures_hs[i] = nullptr;
+			SRVSManager.SetHSResource(i, nullptr);
+		}
+	for (u32 i = 0; i < mtMaxDomainShaderTextures; ++i)
+		if (textures_ds[i] == t)
+		{
+			textures_ds[i] = nullptr;
+			SRVSManager.SetDSResource(i, nullptr);
+		}
+	for (u32 i = 0; i < mtMaxComputeShaderTextures; ++i)
+		if (textures_cs[i] == t)
+		{
+			textures_cs[i] = nullptr;
+			SRVSManager.SetCSResource(i, nullptr);
+		}
+#endif
+
+	// the next set_Textures must rebind even an equal list
+	T = nullptr;
+	SRVSManager.Apply();
+}
+#endif
+
 void CBackend::Invalidate()
 {
 	pRT[0] = NULL;
