@@ -303,6 +303,10 @@ public:
 	// drops a texture from every stage it is bound to before a copy writes it
 	void unbind_texture(CTexture* t);
 #endif
+#ifdef USE_DX11
+	// unbinds every compute shader view through the cache
+	void clear_cs_resources();
+#endif
 
 #ifdef _EDITOR
 	IC	void						set_Matrices		(SMatrixList* M);

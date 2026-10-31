@@ -5,8 +5,13 @@
 CRT* bus_target_rt(const shared_str& id, bool prev);
 void bus_target_rotate(const shared_str& id);
 u32 bus_target_clears(const shared_str& id);
+void fix_texture_name(LPSTR fn);
+bool bus_slot_fits(u32 slot);
+#ifdef USE_DX11
+bool bus_buffer_uav(const shared_str& id, ID3D11UnorderedAccessView*& uav, u32& rows, CTexture*& alias);
+#endif
 
-// compiles one script pass from its own pixel shader over the stock screen space vertex shader
+// compiles one script pass from its own pixel shader over the stock screen space vertex shader, or from its compute shader
 class CBlender_bus_pass : public IBlender
 {
 public:
@@ -14,6 +19,9 @@ public:
 	LPCSTR image;
 	shared_str reason;
 	bool reads_image;
+	u8 uav_slots[ShaderBus::max_pass_outputs];
+	u8 uav_return[ShaderBus::max_pass_outputs];
+	u8 uav_dimension[ShaderBus::max_pass_outputs];
 
 	CBlender_bus_pass() : spec(nullptr), image(nullptr), reads_image(false) {}
 
@@ -29,8 +37,8 @@ public:
 			return;
 		if (c->type != RC_dx10texture)
 			reason.printf("'%s' is not a texture", name);
-		else if (c->samp.index >= CBackend::mtMaxPixelShaderTextures)
-			reason.printf("'%s' sits past slot t15", name);
+		else if (!bus_slot_fits(c->samp.index))
+			reason.printf("'%s' is bound past the texture slots its shader stage has", name);
 		else
 			C.r_dx10Texture(name, texture);
 	}
@@ -44,14 +52,38 @@ public:
 		const BOOL blend = spec->blend != ShaderBus::blend_none;
 		const D3DBLEND src = spec->blend == ShaderBus::blend_alpha ? D3DBLEND_SRCALPHA : D3DBLEND_ONE;
 		const D3DBLEND dst = spec->blend == ShaderBus::blend_alpha ? D3DBLEND_INVSRCALPHA : D3DBLEND_ONE;
-		C.r_Pass("stub_screen_space", spec->ps.c_str(), FALSE, FALSE, FALSE, blend, src, dst);
-
-		for (u32 i = 0; i < spec->output_count; ++i)
+#ifdef USE_DX11
+		if (spec->cs.size())
 		{
-			string64 own;
-			xr_sprintf(own, "bus_%s", spec->outputs[i].c_str());
-			if (C.r_Constant(own))
-				reason.printf("it reads its own output '%s'", spec->outputs[i].c_str());
+			C.r_ComputePass(spec->cs.c_str());
+			for (u32 i = 0; i < spec->output_count; ++i)
+			{
+				string64 own;
+				xr_sprintf(own, "bus_%s", spec->outputs[i].c_str());
+				R_constant* u = C.r_Constant(own);
+				uav_return[i] = u ? u->return_type : 0;
+				uav_dimension[i] = u ? u->dimension : 0;
+				if (!u || u->type != RC_dx11UAV)
+					reason.printf("output '%s' is not a RWTexture2D or RWBuffer of the pass", own);
+				else if (u->samp.index - CTexture::rstCompute >= 8)
+					reason.printf("'%s' sits past slot u7", own);
+				else
+					uav_slots[i] = u8(u->samp.index - CTexture::rstCompute);
+			}
+		}
+		else
+#endif
+		{
+			C.r_Pass("stub_screen_space", spec->ps.c_str(), FALSE, FALSE, FALSE, blend, src, dst);
+			// a scene writer's output is the engine scene, never a target
+			const bool scene = spec->output_count == 1 && !xr_strcmp(spec->outputs[0], "scene");
+			for (u32 i = 0; !scene && i < spec->output_count; ++i)
+			{
+				string64 own;
+				xr_sprintf(own, "bus_%s", spec->outputs[i].c_str());
+				if (C.r_Constant(own))
+					reason.printf("it reads its own output '%s'", spec->outputs[i].c_str());
+			}
 		}
 		bool lists_image = false;
 		for (u32 i = 0; i < spec->inputs.size(); ++i)
@@ -88,6 +120,8 @@ struct bus_pass_run
 	ref_shader shader;
 	bool reads_image;
 	bool writes_scene;
+	bool writes_buffer;
+	u8 uav_slots[ShaderBus::max_pass_outputs];
 	u32 enables;
 	u32 clears;
 	u32 runs;
@@ -133,17 +167,18 @@ static bool bus_pass_less(const bus_pass_run& a, const bus_pass_run& b)
 }
 
 // why a pass cannot run before it compiles, empty when it can
-static void bus_pass_check(const bus_pass_run& r, const xr_vector<ShaderBus::target_spec>& targets, shared_str& reason)
+static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, const xr_vector<ShaderBus::target_spec>& targets, shared_str& reason)
 {
 	const ShaderBus::pass_spec& p = r.spec;
-	if (p.cs.size())
+	if (p.cs.size() && r.writes_scene)
 	{
-		reason = "compute passes are not supported";
+		reason = "compute passes cannot write the scene";
 		return;
 	}
 
 	string_path file;
-	strconcat(sizeof(file), file, ::Render->getShaderPath(), p.ps.c_str(), ".ps");
+	strconcat(sizeof(file), file, ::Render->getShaderPath(), p.cs.size() ? p.cs.c_str() : p.ps.c_str(),
+	          p.cs.size() ? ".cs" : ".ps");
 	if (!FS.exist("$game_shaders$", file))
 	{
 		reason.printf("'%s' is missing", file);
@@ -161,10 +196,33 @@ static void bus_pass_check(const bus_pass_run& r, const xr_vector<ShaderBus::tar
 			reason.printf("it reads the scene it writes through '%s'", t);
 			return;
 		}
+		// the texture manager drops these extensions, so the compare does too
+		string_path name;
+		xr_strcpy(name, t);
+		fix_texture_name(name);
+		for (u32 o = 0; !r.writes_scene && o < p.output_count; ++o)
+		{
+			LPCSTR id = p.outputs[o].c_str();
+			string64 own, buf, bufu;
+			xr_sprintf(own, "$user$bus_%s", id);
+			xr_sprintf(buf, "$user$busbuf_%s", id);
+			xr_sprintf(bufu, "$user$busbufu_%s", id);
+			if (!xr_strcmp(name, own) || !xr_strcmp(name, buf) || !xr_strcmp(name, bufu))
+			{
+				reason.printf("it reads its own output '%s'", p.outputs[o].c_str());
+				return;
+			}
+		}
 	}
 
 	if (r.writes_scene)
 		return;
+	if (r.writes_buffer)
+	{
+		if (l->owner != p.owner)
+			reason.printf("output '%s' is not a buffer lane of '%s'", p.outputs[0].c_str(), p.owner.c_str());
+		return;
+	}
 
 	CRT* first = bus_target_rt(p.outputs[0], false);
 	for (u32 i = 0; i < p.output_count; ++i)
@@ -224,6 +282,9 @@ void bus_passes_update()
 		r.spec = p;
 		r.reads_image = false;
 		r.writes_scene = p.output_count == 1 && !xr_strcmp(p.outputs[0], "scene");
+		// a buffer lane set this frame gets its view at the next latch, the dispatch asks for it every run
+		const ShaderBus::lane* l = p.cs.size() && p.output_count == 1 ? ShaderBus::find(p.outputs[0].c_str()) : nullptr;
+		r.writes_buffer = l && l->buffer_rows;
 		r.enables = 0;
 		r.clears = 0;
 		r.runs = 0;
@@ -241,15 +302,30 @@ void bus_passes_update()
 			}
 
 		shared_str reason;
-		bus_pass_check(r, targets, reason);
+		bus_pass_check(r, l, targets, reason);
 		if (!reason.size())
 		{
 			CBlender_bus_pass blender;
 			blender.spec = &r.spec;
 			blender.image = bus_image_name(p.stage);
-			r.shader.create(&blender, p.ps.c_str());
+			r.shader.create(&blender, p.cs.size() ? p.cs.c_str() : p.ps.c_str());
 			reason = blender.reason;
+#ifdef USE_DX11
+			if (!reason.size() && p.cs.size() && !r.shader->E[0]->passes[0]->cs->sh)
+				reason = "its compute shader could not be created";
+			// the lane keeps its kind while the pass lives, every CPU write is refused
+			const bool uint_lane = r.writes_buffer && l->kind == ShaderBus::kind_uint;
+			if (!reason.size() && r.writes_buffer && blender.uav_return[0] != (uint_lane ? D3D_RETURN_TYPE_UINT : D3D_RETURN_TYPE_FLOAT))
+				reason.printf("output '%s' returns %s, the lane holds %s", p.outputs[0].c_str(), uint_lane ? "float4" : "uint4",
+				              uint_lane ? "uint4" : "float4");
+			// a buffer lane takes a RWBuffer, a target a RWTexture2D
+			const u8 dimension = r.writes_buffer ? D3D_SRV_DIMENSION_BUFFER : D3D_SRV_DIMENSION_TEXTURE2D;
+			for (u32 o = 0; !reason.size() && p.cs.size() && o < p.output_count; ++o)
+				if (blender.uav_dimension[o] != dimension)
+					reason.printf("output '%s' is not a %s of the pass", p.outputs[o].c_str(), r.writes_buffer ? "RWBuffer" : "RWTexture2D");
+#endif
 			r.reads_image = blender.reads_image;
+			memcpy(r.uav_slots, blender.uav_slots, sizeof(r.uav_slots));
 		}
 		CRT* scene = bus_scene_target(p.stage);
 		if (!reason.size() && r.reads_image && scene && scene->fmt != RImplementation.Target->rt_Generic_0->fmt)
@@ -288,6 +364,79 @@ void bus_passes_update()
 		std::sort(bus_runs[s].begin(), bus_runs[s].end(), bus_pass_less);
 }
 
+// moves the run counters of a pass and gives its pass_time
+static void bus_pass_time(bus_pass_run& r, Fvector4& t)
+{
+	const u32 clears = r.writes_scene ? 0 : bus_target_clears(r.spec.outputs[0]);
+	if (clears != r.clears)
+	{
+		r.clears = clears;
+		r.runs = 0;
+	}
+	const bool first = !r.runs || r.enables != r.spec.enables;
+	const float dt = first ? Device.fTimeDelta : float(bus_clock - r.last_clock);
+	const float frames = first ? 1.f : float(Device.dwFrame - r.last_frame);
+	const float runs_since = float(r.runs);
+	const float seed = r.runs ? 0.f : 1.f;
+	r.enables = r.spec.enables;
+	r.last_clock = bus_clock;
+	r.last_frame = Device.dwFrame;
+	++r.runs;
+	t.set(dt, frames, runs_since, seed);
+}
+
+#ifdef USE_DX11
+// runs one compute pass into its UAV targets or buffer and leaves no compute view bound
+static void bus_pass_compute(bus_pass_run& r)
+{
+	ID3D11UnorderedAccessView* uav = nullptr;
+	u32 rows = 0;
+	CTexture* alias = nullptr;
+	// a buffer without its compute view yet, or with more groups than one dispatch takes, skips the run
+	if (r.writes_buffer && (!bus_buffer_uav(r.spec.outputs[0], uav, rows, alias) || !uav ||
+		(rows + r.spec.group_x - 1) / r.spec.group_x > D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION))
+		return;
+
+	for (u32 o = 0; o < 4; ++o)
+		RCache.set_RT(nullptr, o);
+	RCache.set_ZB(nullptr);
+	RCache.clear_cs_resources();
+
+	CRT* out[ShaderBus::max_pass_outputs] = {nullptr, nullptr, nullptr, nullptr};
+	if (r.writes_buffer)
+		RCache.unbind_texture(alias);
+	for (u32 o = 0; o < r.spec.output_count && !r.writes_buffer; ++o)
+	{
+		bus_target_rotate(r.spec.outputs[o]);
+		out[o] = bus_target_rt(r.spec.outputs[o], false);
+		RCache.unbind_texture(&*out[o]->pTexture);
+	}
+
+	Fvector4 t;
+	bus_pass_time(r, t);
+	SPass& P = *r.shader->E[0]->passes[0];
+	RCache.set_States(P.state);
+	RCache.set_Constants(P.constants);
+	RCache.set_Textures(P.T);
+	RCache.set_CS(P.cs);
+	RCache.set_c("pass_time", t.x, t.y, t.z, t.w);
+
+	for (u32 o = 0; o < r.spec.output_count; ++o)
+		HW.pContext->CSSetUnorderedAccessViews(r.uav_slots[o], 1, r.writes_buffer ? &uav : &out[o]->pUAView, nullptr);
+	const u32 gx = r.spec.group_x;
+	const u32 gy = r.spec.group_y;
+	if (r.writes_buffer)
+		RCache.Compute((rows + gx - 1) / gx, 1, 1);
+	else
+		RCache.Compute((out[0]->dwWidth + gx - 1) / gx, (out[0]->dwHeight + gy - 1) / gy, 1);
+
+	ID3D11UnorderedAccessView* none = nullptr;
+	for (u32 o = 0; o < r.spec.output_count; ++o)
+		HW.pContext->CSSetUnorderedAccessViews(r.uav_slots[o], 1, &none, nullptr);
+	RCache.clear_cs_resources();
+}
+#endif
+
 // draws the enabled passes of one stage into their targets and puts the engine state back
 void CRenderTarget::phase_bus(u32 stage)
 {
@@ -323,6 +472,13 @@ void CRenderTarget::phase_bus(u32 stage)
 			RCache.unbind_texture(&*scratch->pTexture);
 			HW.pContext->CopyResource(scratch->pSurface, scene->pSurface);
 		}
+#ifdef USE_DX11
+		if (r.spec.cs.size())
+		{
+			bus_pass_compute(r);
+			continue;
+		}
+#endif
 
 		u32 w = Device.dwWidth;
 		u32 h = Device.dwHeight;
@@ -347,23 +503,14 @@ void CRenderTarget::phase_bus(u32 stage)
 			RCache.set_RT(out[o] ? out[o]->pRT : nullptr, o);
 		}
 		RCache.set_ZB(nullptr);
-		set_viewport_size(HW.pContext, float(w), float(h));
+		D3D_VIEWPORT vp = {};
+		vp.Width = w;
+		vp.Height = h;
+		vp.MaxDepth = 1;
+		HW.pContext->RSSetViewports(1, &vp);
 
-		const u32 clears = r.writes_scene ? 0 : bus_target_clears(r.spec.outputs[0]);
-		if (clears != r.clears)
-		{
-			r.clears = clears;
-			r.runs = 0;
-		}
-		const bool first = !r.runs || r.enables != r.spec.enables;
-		const float dt = first ? Device.fTimeDelta : float(bus_clock - r.last_clock);
-		const float frames = first ? 1.f : float(Device.dwFrame - r.last_frame);
-		const float runs_since = float(r.runs);
-		const float seed = r.runs ? 0.f : 1.f;
-		r.enables = r.spec.enables;
-		r.last_clock = bus_clock;
-		r.last_frame = Device.dwFrame;
-		++r.runs;
+		Fvector4 t;
+		bus_pass_time(r, t);
 
 		// the quad covers the screen in screen pixels, the viewport scales it to the target
 		u32 offset = 0;
@@ -378,7 +525,7 @@ void CRenderTarget::phase_bus(u32 stage)
 
 		RCache.set_Element(r.shader->E[0]);
 		RCache.set_CullMode(CULL_NONE);
-		RCache.set_c("pass_time", dt, frames, runs_since, seed);
+		RCache.set_c("pass_time", t.x, t.y, t.z, t.w);
 		RCache.set_Geometry(g_combine);
 		RCache.Render(D3DPT_TRIANGLELIST, offset, 0, 4, 0, 2);
 	}

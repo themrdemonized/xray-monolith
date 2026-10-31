@@ -108,6 +108,19 @@ void CBackend::unbind_texture(CTexture* t)
 }
 #endif
 
+#ifdef USE_DX11
+void CBackend::clear_cs_resources()
+{
+	for (u32 i = 0; i < mtMaxComputeShaderTextures; ++i)
+	{
+		textures_cs[i] = nullptr;
+		SRVSManager.SetCSResource(i, nullptr);
+	}
+	T = nullptr;
+	SRVSManager.Apply();
+}
+#endif
+
 void CBackend::Invalidate()
 {
 	pRT[0] = NULL;
