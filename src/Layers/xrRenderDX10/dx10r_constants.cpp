@@ -303,6 +303,8 @@ BOOL R_constant_table::parseResources(ID3DShaderReflection* pReflection, int Res
 			R_constant_load& L = C->samp;
 			L.index = r_index;
 			L.cls = type;
+			C->dimension = u8(ResDesc.Dimension);
+			C->return_type = u8(ResDesc.ReturnType);
 			table.push_back(C);
 		}
 		else
