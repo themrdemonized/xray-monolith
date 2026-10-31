@@ -90,6 +90,11 @@ static xr_vector<ShaderBus::lane*> g_bus_buffers;
 // bytes set_buffer has handed out over every buffer lane
 static u32 g_bus_buffer_bytes = 0;
 static xr_vector<ShaderBus::lane*> g_bus_late;
+static xr_vector<ShaderBus::target_spec> g_bus_targets;
+static xr_vector<ShaderBus::pass_spec> g_bus_passes;
+static xr_vector<std::pair<shared_str, ShaderBus::gpu_status>> g_bus_status;
+static u32 g_bus_targets_serial = 0;
+static bool g_bus_targets_enabled = false;
 
 ENGINE_API const ShaderBus::lane* ShaderBus::hotness_lane = nullptr;
 
@@ -281,35 +286,39 @@ void ShaderBus::refuse(LPCSTR hlsl_name, LPCSTR reason)
 	bus_refuse(hlsl_name, reason);
 }
 
-static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn, bool share)
+static bool bus_take_args(LPCSTR id, LPCSTR owner, LPCSTR description)
 {
 	if (!bus_valid_id(id))
 	{
 		Msg("! [SHADER-BUS] rejected lane id '%s'", id ? id : "");
-		return 0;
+		return false;
 	}
 	if (!owner || !owner[0])
 	{
 		Msg("! [SHADER-BUS] lane '%s' needs an owner", id);
-		return 0;
+		return false;
 	}
 	if (xr_strlen(owner) > 64)
 	{
 		Msg("! [SHADER-BUS] lane '%s' owner is longer than 64 characters", id);
-		return 0;
+		return false;
 	}
 	if (description && xr_strlen(description) > 256)
 	{
 		Msg("! [SHADER-BUS] lane '%s' description is longer than 256 characters", id);
-		return 0;
+		return false;
 	}
+	return true;
+}
 
+// takes or joins the lane for a caller bus_take_args passed, called under the lock
+static u32 bus_take_locked(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn, bool share)
+{
 	string256 stored_source;
 	stored_source[0] = 0;
 	if (source)
 		strncpy_s(stored_source, sizeof(stored_source), source, _TRUNCATE);
 
-	xrCriticalSectionGuard guard(&g_bus_lock);
 	ShaderBus::lane* l = bus_find_or_add(id);
 	if (!l)
 		return 0;
@@ -352,6 +361,15 @@ static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, 
 
 	Msg("[SHADER-BUS] lane %s registered by '%s' from '%s'", id, owner, l->source.c_str());
 	return bus_token(l);
+}
+
+static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn, bool share)
+{
+	if (!bus_take_args(id, owner, description))
+		return 0;
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return bus_take_locked(id, owner, description, source, warn, share);
 }
 
 // the console value kinds a lane can take
@@ -799,6 +817,8 @@ bool ShaderBus::set_texture(u32 token, LPCSTR name)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (l->role == role_target || l->role == role_history)
+		return bus_refuse_write(l, "a texture, it is a render target");
 	if (l->shared)
 		return bus_refuse_write(l, "a texture, a shared lane takes set and set_object only");
 	if (!name || xr_strlen(name) > 255)
@@ -879,6 +899,8 @@ bool ShaderBus::set_buffer(u32 token, u32 rows)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (l->role == role_target || l->role == role_history)
+		return bus_refuse_write(l, "a buffer, it is a render target");
 	if (l->shared)
 		return bus_refuse_write(l, "a buffer, a shared lane takes set and set_object only");
 	if (!g_bus_gpu_lanes)
@@ -1442,6 +1464,445 @@ u32 ShaderBus::level_epoch()
 const xr_vector<ShaderBus::lane*>& ShaderBus::buffers()
 {
 	return g_bus_buffers;
+}
+
+LPCSTR ShaderBus::target_format_name(u8 format)
+{
+	static LPCSTR names[target_format_count] = { "rgba8", "rgb10a2", "r11g11b10f", "rg16f", "r16f", "r32f", "rgba16f", "rgba32f" };
+	return format < target_format_count ? names[format] : "";
+}
+
+// false with a ~ line when a target or pass call cannot take the lane in that role, called under the lock
+static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role)
+{
+	// obj_hotness is shared from its creation, so it is refused before it exists too
+	const int found = bus_find(id);
+	if (0 == xr_strcmp(id, "obj_hotness") || (found >= 0 && g_bus_lanes[found]->shared))
+	{
+		Msg("~ [SHADER-BUS] lane '%s' is shared, '%s' cannot take it as a target or pass", id, owner);
+		return false;
+	}
+	if (found < 0)
+		return true;
+
+	const ShaderBus::lane* l = g_bus_lanes[found];
+	if (!l->registered)
+		return true;
+	if (0 != xr_strcmp(l->owner.c_str(), owner))
+	{
+		Msg("~ [SHADER-BUS] lane '%s' stays with '%s', '%s' did not take it", id, l->owner.c_str(), owner);
+		return false;
+	}
+	if (l->role != role || l->texture_pending.size() || l->texture_bound.size() || l->buffer_rows)
+	{
+		Msg("~ [SHADER-BUS] lane '%s' of '%s' is in use as another kind of lane", id, owner);
+		return false;
+	}
+	return true;
+}
+
+// false with a ! line citing the first new lane that would pass the 16 bit lane index, called under the lock
+static bool bus_room(LPCSTR id, LPCSTR prev)
+{
+	u32 lanes = u32(g_bus_lanes.size());
+	LPCSTR ids[] = { id, prev };
+	for (u32 i = 0; i < 2; ++i)
+		if (ids[i] && bus_find(ids[i]) < 0 && ++lanes > 0xFFFF)
+		{
+			Msg("! [SHADER-BUS] lane '%s' refused, the bus is full at %u lanes", ids[i], u32(g_bus_lanes.size()));
+			return false;
+		}
+	return true;
+}
+
+static int bus_target_find(const shared_str& id)
+{
+	for (u32 i = 0; i < g_bus_targets.size(); ++i)
+		if (g_bus_targets[i].id.equal(id))
+			return int(i);
+	return -1;
+}
+
+// all live targets together stay under this so a script cannot exhaust video memory
+static const u64 bus_target_budget = u64(1024) << 20;
+
+// bytes a target takes at the current resolution, twice with history
+static u64 bus_target_bytes(const ShaderBus::target_spec& t)
+{
+	static const u8 texel_bytes[ShaderBus::target_format_count] = { 4, 4, 4, 4, 2, 4, 8, 16 };
+	u64 w = t.width, h = t.height;
+	if (t.size != ShaderBus::size_fixed)
+	{
+		const u32 shift = t.size == ShaderBus::size_half ? 1 : t.size == ShaderBus::size_quarter ? 2 : 0;
+		w = _max(Device.dwWidth >> shift, 1u);
+		h = _max(Device.dwHeight >> shift, 1u);
+	}
+	return w * h * texel_bytes[t.format] * (t.history ? 2 : 1);
+}
+
+static int bus_pass_find(const shared_str& id)
+{
+	for (u32 i = 0; i < g_bus_passes.size(); ++i)
+		if (g_bus_passes[i].id.equal(id))
+			return int(i);
+	return -1;
+}
+
+static void bus_status_erase(const shared_str& id)
+{
+	for (u32 i = 0; i < g_bus_status.size(); ++i)
+		if (g_bus_status[i].first.equal(id))
+		{
+			g_bus_status.erase(g_bus_status.begin() + i);
+			return;
+		}
+}
+
+// the target and its history read pending again until the render side writes them
+static void bus_target_status_erase(const shared_str& id)
+{
+	string64 prev;
+	xr_sprintf(prev, "%s_prev", id.c_str());
+	bus_status_erase(id);
+	bus_status_erase(shared_str(prev));
+}
+
+static bool bus_same_target(const ShaderBus::target_spec& a, const ShaderBus::target_spec& b)
+{
+	return a.size == b.size && a.width == b.width && a.height == b.height && a.format == b.format && a.history == b.history &&
+	       0 == memcmp(&a.clear, &b.clear, sizeof(a.clear));
+}
+
+static bool bus_same_pass(const ShaderBus::pass_spec& a, const ShaderBus::pass_spec& b)
+{
+	if (a.stage != b.stage || a.order != b.order || !a.ps.equal(b.ps) || !a.cs.equal(b.cs) || a.output_count != b.output_count ||
+	    a.inputs.size() != b.inputs.size() || a.blend != b.blend || a.group_x != b.group_x || a.group_y != b.group_y || a.svp != b.svp)
+		return false;
+	for (u32 i = 0; i < a.output_count; ++i)
+		if (!a.outputs[i].equal(b.outputs[i]))
+			return false;
+	for (u32 i = 0; i < a.inputs.size(); ++i)
+		if (!a.inputs[i].hlsl.equal(b.inputs[i].hlsl) || !a.inputs[i].texture.equal(b.inputs[i].texture))
+			return false;
+	return true;
+}
+
+// why a pass spec is refused, null when it is not
+static LPCSTR bus_pass_refusal(const ShaderBus::pass_spec& spec)
+{
+	if (spec.stage >= ShaderBus::stage_count)
+		return "a stage past post";
+	if (!spec.ps.size() == !spec.cs.size())
+		return "it needs exactly one of ps and cs";
+	if (spec.output_count < 1 || spec.output_count > ShaderBus::max_pass_outputs)
+		return "it needs 1 to 4 outputs";
+	for (u32 i = 0; i < spec.output_count; ++i)
+	{
+		if (!spec.outputs[i].size())
+			return "an empty output";
+		if (0 == xr_strcmp(spec.outputs[i], "scene") &&
+		    (spec.output_count > 1 || (spec.stage != ShaderBus::stage_scene && spec.stage != ShaderBus::stage_post)))
+			return "scene as an output, which is the only output of a scene or post pass";
+	}
+	if (spec.inputs.size() > ShaderBus::max_pass_inputs)
+		return "more than 16 inputs";
+	for (u32 i = 0; i < spec.inputs.size(); ++i)
+		if (!spec.inputs[i].hlsl.size() || !spec.inputs[i].texture.size())
+			return "an input with an empty name or texture";
+	if (spec.blend > ShaderBus::blend_alpha)
+		return "a blend other than none, add or alpha";
+	if (spec.cs.size() && (spec.group_x < 1 || spec.group_x > 1024 || spec.group_y < 1 || spec.group_y > 1024))
+		return "a compute group side outside 1 to 1024";
+	return nullptr;
+}
+
+u32 ShaderBus::register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const target_spec& spec)
+{
+	if (!bus_take_args(id, owner, description))
+		return 0;
+	if (!enable_targets())
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, this renderer has no targets", id);
+		return 0;
+	}
+	if (bus_reserved(id))
+		return 0;
+	if (xr_strlen(id) > 27)
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, a target id is at most 27 characters", id);
+		return 0;
+	}
+	if (spec.size > size_fixed ||
+	    (spec.size == size_fixed && (spec.width < 1 || spec.width > 4096 || spec.height < 1 || spec.height > 4096)))
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, a size side outside 1 to 4096", id);
+		return 0;
+	}
+	if (spec.format >= target_format_count)
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, a format past rgba32f", id);
+		return 0;
+	}
+	if (!bus_finite(spec.clear))
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, a clear that is not finite", id);
+		return 0;
+	}
+
+	string64 prev;
+	xr_sprintf(prev, "%s_prev", id);
+	const shared_str key(id);
+
+	// every refusal comes before the first take so a refused call adds no lane
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (!bus_role_free(id, owner, role_target) || (spec.history && !bus_role_free(prev, owner, role_history)))
+		return 0;
+	if (!bus_room(id, spec.history ? prev : nullptr))
+		return 0;
+
+	int entry = bus_target_find(key);
+	u32 live = 0;
+	const u64 need = bus_target_bytes(spec);
+	const u64 kept = entry >= 0 && !g_bus_targets[entry].released ? bus_target_bytes(g_bus_targets[entry]) : 0;
+	u64 bytes = need;
+	for (u32 i = 0; i < g_bus_targets.size(); ++i)
+		if (int(i) != entry && !g_bus_targets[i].released)
+		{
+			++live;
+			bytes += bus_target_bytes(g_bus_targets[i]);
+		}
+	if (live >= max_targets)
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, the bus has %u live targets", id, max_targets);
+		return 0;
+	}
+	// a call that grows nothing passes even when a mode change left the total over
+	if (bytes > bus_target_budget && need > kept)
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, the bus targets would pass %u MB", id, u32(bus_target_budget >> 20));
+		return 0;
+	}
+
+	const u32 token = bus_take_locked(id, owner, description, source, true, false);
+	g_bus_lanes[token & 0xffff]->role = role_target;
+	if (spec.history)
+		g_bus_lanes[bus_take_locked(prev, owner, description, source, true, false) & 0xffff]->role = role_history;
+
+	if (entry >= 0 && !g_bus_targets[entry].released && bus_same_target(g_bus_targets[entry], spec))
+		return token;
+
+	if (entry < 0)
+	{
+		g_bus_targets.push_back(target_spec());
+		entry = int(g_bus_targets.size()) - 1;
+	}
+	target_spec& t = g_bus_targets[entry];
+	const u32 generation = t.generation + 1;
+	t = spec;
+	t.id = key;
+	t.owner = owner;
+	t.released = false;
+	t.generation = generation;
+	bus_target_status_erase(key);
+	++g_bus_targets_serial;
+	return token;
+}
+
+u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const pass_spec& spec)
+{
+	if (!bus_take_args(id, owner, description))
+		return 0;
+	if (!enable_targets())
+	{
+		Msg("! [SHADER-BUS] pass '%s' refused, this renderer has no passes", id);
+		return 0;
+	}
+	if (bus_reserved(id))
+		return 0;
+	if (LPCSTR why = bus_pass_refusal(spec))
+	{
+		Msg("! [SHADER-BUS] pass '%s' refused, %s", id, why);
+		return 0;
+	}
+
+	// inputs in name order so the stored spec and the equal spec test do not depend on table order
+	pass_spec sorted = spec;
+	std::sort(sorted.inputs.begin(), sorted.inputs.end(),
+	          [](const pass_input& a, const pass_input& b) { return xr_strcmp(a.hlsl, b.hlsl) < 0; });
+	const shared_str key(id);
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (sorted.cs.size())
+	{
+		if (!g_bus_gpu_lanes)
+		{
+			Msg("! [SHADER-BUS] pass '%s' refused, this renderer has no compute passes", id);
+			return 0;
+		}
+		for (u32 i = 0; i < sorted.output_count; ++i)
+		{
+			const int found = bus_find(sorted.outputs[i].c_str());
+			if (found >= 0 && g_bus_lanes[found]->buffer_rows)
+			{
+				Msg("! [SHADER-BUS] pass '%s' refused, output '%s' is a buffer lane", id, sorted.outputs[i].c_str());
+				return 0;
+			}
+		}
+	}
+	if (!bus_role_free(id, owner, role_pass) || !bus_room(id, nullptr))
+		return 0;
+
+	int entry = bus_pass_find(key);
+	u32 live = 0;
+	for (u32 i = 0; i < g_bus_passes.size(); ++i)
+		if (int(i) != entry && !g_bus_passes[i].released)
+			++live;
+	if (live >= max_passes)
+	{
+		Msg("! [SHADER-BUS] pass '%s' refused, the bus has %u live passes", id, max_passes);
+		return 0;
+	}
+
+	const u32 token = bus_take_locked(id, owner, description, source, true, false);
+	g_bus_lanes[token & 0xffff]->role = role_pass;
+	if (entry >= 0 && !g_bus_passes[entry].released && bus_same_pass(g_bus_passes[entry], sorted))
+		return token;
+
+	if (entry < 0)
+	{
+		g_bus_passes.push_back(pass_spec());
+		entry = int(g_bus_passes.size()) - 1;
+	}
+	pass_spec& p = g_bus_passes[entry];
+	const u32 enables = p.enables + 1;
+	p = sorted;
+	p.id = key;
+	p.owner = owner;
+	p.enabled = true;
+	p.released = false;
+	p.enables = enables;
+	bus_status_erase(key);
+	++g_bus_targets_serial;
+	return token;
+}
+
+bool ShaderBus::enable_pass(u32 token, bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const lane* l = bus_writable(token);
+	const int entry = l && l->role == role_pass ? bus_pass_find(l->id) : -1;
+	if (entry < 0 || g_bus_passes[entry].released)
+		return false;
+
+	pass_spec& p = g_bus_passes[entry];
+	if (p.enabled == on)
+		return true;
+	if (on)
+		++p.enables;
+	p.enabled = on;
+	++g_bus_targets_serial;
+	return true;
+}
+
+bool ShaderBus::release_pass(u32 token)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const lane* l = bus_writable(token);
+	const int entry = l && l->role == role_pass ? bus_pass_find(l->id) : -1;
+	if (entry < 0)
+		return false;
+	if (!g_bus_passes[entry].released)
+	{
+		g_bus_passes[entry].released = true;
+		bus_status_erase(l->id);
+		++g_bus_targets_serial;
+	}
+	return true;
+}
+
+bool ShaderBus::release_target(u32 token)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const lane* l = bus_writable(token);
+	const int entry = l && l->role == role_target ? bus_target_find(l->id) : -1;
+	if (entry < 0)
+		return false;
+	if (!g_bus_targets[entry].released)
+	{
+		g_bus_targets[entry].released = true;
+		bus_target_status_erase(l->id);
+		++g_bus_targets_serial;
+	}
+	return true;
+}
+
+void ShaderBus::set_enable_targets(bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	g_bus_targets_enabled = on;
+}
+
+bool ShaderBus::enable_targets()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_targets_enabled;
+}
+
+u32 ShaderBus::targets_serial()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_targets_serial;
+}
+
+void ShaderBus::targets_copy(xr_vector<target_spec>& targets, xr_vector<pass_spec>& passes)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	targets = g_bus_targets;
+	passes = g_bus_passes;
+}
+
+void ShaderBus::set_gpu_status(const shared_str& id, const gpu_status& status)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 i = 0; i < g_bus_status.size(); ++i)
+		if (g_bus_status[i].first.equal(id))
+		{
+			g_bus_status[i].second = status;
+			return;
+		}
+	g_bus_status.push_back(std::make_pair(id, status));
+}
+
+bool ShaderBus::get_gpu_status(const shared_str& id, gpu_status& status)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 i = 0; i < g_bus_status.size(); ++i)
+		if (g_bus_status[i].first.equal(id))
+		{
+			status = g_bus_status[i].second;
+			return true;
+		}
+	return false;
+}
+
+bool ShaderBus::target_get(const shared_str& id, target_spec& out)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int entry = bus_target_find(id);
+	if (entry < 0)
+		return false;
+	out = g_bus_targets[entry];
+	return true;
+}
+
+bool ShaderBus::pass_get(const shared_str& id, pass_spec& out)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int entry = bus_pass_find(id);
+	if (entry < 0)
+		return false;
+	out = g_bus_passes[entry];
+	return true;
 }
 
 int ShaderBus::version()

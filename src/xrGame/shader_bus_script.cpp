@@ -367,6 +367,278 @@ static bool bus_get_pending(LPCSTR id, double& x, double& y, double& z, double& 
 	return found;
 }
 
+// a whole number from 1 to most
+static bool bus_read_side(const ::luabind::object& value, u32 most, u32& out)
+{
+	return value.type() == LUA_TNUMBER && bus_uint_value(::luabind::object_cast<double>(value), out) && out >= 1 && out <= most;
+}
+
+// the index of a string field among names, count for a missing field, -1 for anything else
+static int bus_read_name(const ::luabind::object& value, LPCSTR const* names, int count)
+{
+	if (value.type() == LUA_TNIL)
+		return count;
+	if (value.type() != LUA_TSTRING)
+		return -1;
+
+	LPCSTR name = ::luabind::object_cast<LPCSTR>(value);
+	for (int i = 0; i < count; ++i)
+		if (0 == xr_strcmp(name, names[i]))
+			return i;
+	return -1;
+}
+
+// the target spec of a Lua table, the name of the first bad field or null
+static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_spec& t)
+{
+	static LPCSTR sizes[] = { "screen", "half", "quarter" };
+	t.size = ShaderBus::size_screen;
+	t.width = 0;
+	t.height = 0;
+	t.format = 0;
+	t.history = false;
+	t.clear.set(0.f, 0.f, 0.f, 0.f);
+	if (spec.type() != LUA_TTABLE)
+		return "spec";
+
+	::luabind::object size = spec["size"];
+	if (size.type() == LUA_TTABLE)
+	{
+		u32 w, h;
+		if (!bus_read_side(size[1], 4096, w) || !bus_read_side(size[2], 4096, h))
+			return "size";
+		t.size = ShaderBus::size_fixed;
+		t.width = u16(w);
+		t.height = u16(h);
+	}
+	else
+	{
+		const int i = bus_read_name(size, sizes, 3);
+		if (i < 0)
+			return "size";
+		t.size = u8(i < 3 ? i : ShaderBus::size_screen);
+	}
+
+	LPCSTR formats[ShaderBus::target_format_count];
+	for (u32 i = 0; i < ShaderBus::target_format_count; ++i)
+		formats[i] = ShaderBus::target_format_name(u8(i));
+	const int format = bus_read_name(spec["format"], formats, ShaderBus::target_format_count);
+	if (format < 0)
+		return "format";
+	t.format = u8(format < int(ShaderBus::target_format_count) ? format : 0);
+
+	::luabind::object history = spec["history"];
+	if (history.type() == LUA_TBOOLEAN)
+		t.history = ::luabind::object_cast<bool>(history);
+	else if (history.type() != LUA_TNIL)
+		return "history";
+
+	::luabind::object clear = spec["clear"];
+	if (clear.type() == LUA_TNUMBER)
+	{
+		const float c = ::luabind::object_cast<float>(clear);
+		t.clear.set(c, c, c, c);
+	}
+	else if (clear.type() == LUA_TTABLE)
+	{
+		float c[4] = { 0.f, 0.f, 0.f, 0.f };
+		for (int i = 0; i < 4; ++i)
+		{
+			::luabind::object e = clear[i + 1];
+			if (e.type() == LUA_TNUMBER)
+				c[i] = ::luabind::object_cast<float>(e);
+			else if (e.type() != LUA_TNIL)
+				return "clear";
+		}
+		::luabind::object fifth = clear[5];
+		if (fifth.type() != LUA_TNIL)
+			return "clear";
+		t.clear.set(c[0], c[1], c[2], c[3]);
+	}
+	else if (clear.type() != LUA_TNIL)
+		return "clear";
+	return nullptr;
+}
+
+static LPCSTR bus_stages[] = { "frame", "gbuffer", "lighting", "scene", "post" };
+static LPCSTR bus_gpu_states[] = { "pending", "ready", "failed", "released", "off" };
+
+// the pass spec of a Lua table, the name of the first bad field or null
+static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec& p)
+{
+	static LPCSTR blends[] = { "none", "add", "alpha" };
+	p.order = 0;
+	p.output_count = 0;
+	p.group_x = 0;
+	p.group_y = 0;
+	p.svp = false;
+	p.enabled = true;
+	p.released = false;
+	p.enables = 0;
+	if (spec.type() != LUA_TTABLE)
+		return "spec";
+
+	const int stage = bus_read_name(spec["stage"], bus_stages, ShaderBus::stage_count);
+	if (stage < 0 || stage == ShaderBus::stage_count)
+		return "stage";
+	p.stage = u8(stage);
+
+	::luabind::object order = spec["order"];
+	if (order.type() == LUA_TNUMBER)
+	{
+		const double v = ::luabind::object_cast<double>(order);
+		if (!(v >= -2147483648.0 && v <= 2147483647.0) || v != floor(v))
+			return "order";
+		p.order = int(v);
+	}
+	else if (order.type() != LUA_TNIL)
+		return "order";
+
+	::luabind::object ps = spec["ps"];
+	::luabind::object cs = spec["cs"];
+	if (ps.type() == LUA_TSTRING)
+		p.ps = ::luabind::object_cast<LPCSTR>(ps);
+	else if (ps.type() != LUA_TNIL)
+		return "ps";
+	if (cs.type() == LUA_TSTRING)
+		p.cs = ::luabind::object_cast<LPCSTR>(cs);
+	else if (cs.type() != LUA_TNIL)
+		return "cs";
+
+	::luabind::object outputs = spec["outputs"];
+	if (outputs.type() != LUA_TTABLE)
+		return "outputs";
+	for (u32 i = 1; ; ++i)
+	{
+		::luabind::object e = outputs[i];
+		if (e.type() == LUA_TNIL)
+			break;
+		if (e.type() != LUA_TSTRING || p.output_count >= ShaderBus::max_pass_outputs)
+			return "outputs";
+		p.outputs[p.output_count++] = ::luabind::object_cast<LPCSTR>(e);
+	}
+
+	::luabind::object inputs = spec["inputs"];
+	if (inputs.type() == LUA_TTABLE)
+		for (::luabind::object::iterator it = inputs.begin(); it != inputs.end(); ++it)
+		{
+			::luabind::object texture = *it;
+			if (it.key().type() != LUA_TSTRING || texture.type() != LUA_TSTRING)
+				return "inputs";
+			ShaderBus::pass_input input;
+			input.hlsl = ::luabind::object_cast<LPCSTR>(it.key());
+			input.texture = ::luabind::object_cast<LPCSTR>(texture);
+			p.inputs.push_back(input);
+		}
+	else if (inputs.type() != LUA_TNIL)
+		return "inputs";
+
+	const int blend = bus_read_name(spec["blend"], blends, 3);
+	if (blend < 0)
+		return "blend";
+	p.blend = u8(blend < 3 ? blend : ShaderBus::blend_none);
+
+	if (p.cs.size())
+	{
+		::luabind::object group = spec["group"];
+		u32 x, y;
+		if (group.type() != LUA_TTABLE || !bus_read_side(group[1], 1024, x) || !bus_read_side(group[2], 1024, y))
+			return "group";
+		p.group_x = u16(x);
+		p.group_y = u16(y);
+	}
+
+	::luabind::object svp = spec["svp"];
+	if (svp.type() == LUA_TBOOLEAN)
+		p.svp = ::luabind::object_cast<bool>(svp);
+	else if (svp.type() != LUA_TNIL)
+		return "svp";
+	return nullptr;
+}
+
+static ::luabind::object bus_register_target(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description, const ::luabind::object& spec)
+{
+	ShaderBus::target_spec t;
+	if (LPCSTR field = bus_read_target(spec, t))
+	{
+		Msg("! [SHADER-BUS] target '%s' refused, its spec field '%s' is not valid", id ? id : "", field);
+		return bus_token_object(L, 0);
+	}
+
+	string_path source;
+	bus_caller_source(L, source);
+	return bus_token_object(L, ShaderBus::register_target(id, owner, description, source, t));
+}
+
+static ::luabind::object bus_register_pass(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description, const ::luabind::object& spec)
+{
+	ShaderBus::pass_spec p;
+	if (LPCSTR field = bus_read_pass(spec, p))
+	{
+		Msg("! [SHADER-BUS] pass '%s' refused, its spec field '%s' is not valid", id ? id : "", field);
+		return bus_token_object(L, 0);
+	}
+
+	string_path source;
+	bus_caller_source(L, source);
+	return bus_token_object(L, ShaderBus::register_pass(id, owner, description, source, p));
+}
+
+static bool bus_enable_pass(u32 token, bool on)
+{
+	return ShaderBus::enable_pass(token, on);
+}
+
+static bool bus_release_pass(u32 token)
+{
+	return ShaderBus::release_pass(token);
+}
+
+static bool bus_release_target(u32 token)
+{
+	return ShaderBus::release_target(token);
+}
+
+// the list() keys of a target or history row, a history row shows its target's spec
+static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
+{
+	shared_str id = l->id;
+	if (l->role == ShaderBus::role_history)
+	{
+		string64 base;
+		xr_strcpy(base, l->id.c_str());
+		base[xr_strlen(base) - 5] = 0;
+		id = base;
+	}
+
+	ShaderBus::target_spec t;
+	ShaderBus::gpu_status s;
+	if (!ShaderBus::target_get(id, t))
+		return;
+	const bool found = ShaderBus::get_gpu_status(id, s);
+	const bool released = t.released || (l->role == ShaderBus::role_history && !t.history);
+	const bool live = found && !released;
+	row["width"] = live ? s.width : 0u;
+	row["height"] = live ? s.height : 0u;
+	row["format"] = ShaderBus::target_format_name(t.format);
+	row["bytes"] = live ? s.bytes : 0u;
+	row["history"] = t.history;
+	row["target_state"] = released ? "released" : found ? bus_gpu_states[s.state] : "pending";
+}
+
+static void bus_list_pass(::luabind::object& row, const ShaderBus::lane* l)
+{
+	ShaderBus::pass_spec p;
+	ShaderBus::gpu_status s;
+	if (!ShaderBus::pass_get(l->id, p))
+		return;
+	const bool found = ShaderBus::get_gpu_status(l->id, s);
+	row["stage"] = bus_stages[p.stage];
+	row["order"] = p.order;
+	row["pass_state"] = p.released || !p.enabled ? "off" : found ? bus_gpu_states[s.state] : "pending";
+	row["reason"] = found && s.reason.size() ? s.reason.c_str() : "";
+}
+
 static int bus_version()
 {
 	return ShaderBus::version();
@@ -375,6 +647,7 @@ static int bus_version()
 static ::luabind::object bus_list(lua_State* L, bool include_declared)
 {
 	static LPCSTR readback_states[] = { "none", "ok", "refused", "lost" };
+	static LPCSTR roles[] = { "", "target", "history", "pass" };
 	::luabind::object rows = ::luabind::newtable(L);
 
 	int row_index = 1;
@@ -404,6 +677,11 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["readback"] = l->readback ? readback_states[l->readback->state] : "none";
 		row["buffer_rows"] = l->buffer_bound;
 		row["late"] = l->late;
+		row["role"] = roles[l->role];
+		if (l->role == ShaderBus::role_target || l->role == ShaderBus::role_history)
+			bus_list_target(row, l);
+		else if (l->role == ShaderBus::role_pass)
+			bus_list_pass(row, l);
 
 		// every kind a shader declared, more than one or one unlike kind shows a mismatch
 		::luabind::object kinds = ::luabind::newtable(L);
@@ -490,6 +768,11 @@ void shader_bus_registrator::script_register(lua_State* L)
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("list", &bus_list_registered, raw<1>()),
 		def("list", &bus_list, raw<1>()),
+		def("register_target", &bus_register_target, raw<1>()),
+		def("register_pass", &bus_register_pass, raw<1>()),
+		def("enable_pass", &bus_enable_pass),
+		def("release_pass", &bus_release_pass),
+		def("release_target", &bus_release_target),
 		def("version", &bus_version)
 	];
 }

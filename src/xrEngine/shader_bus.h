@@ -105,6 +105,8 @@ namespace ShaderBus
 		u8 kind;
 		// one bit per kind any shader declared
 		u8 declared_kinds;
+		// lane_role, set once a target or pass takes the lane
+		u8 role;
 		bool registered;
 		bool is_forced;
 		// is_forced as of the last per-frame update, what draws read
@@ -119,7 +121,7 @@ namespace ShaderBus
 		bool late;
 
 		lane() : rows_declared(0), shared(nullptr), readback(nullptr), objects(0), changes(0), writes(0), last_change_frame(0), bound_frame(0), index(0),
-		         nonce(0), kind(kind_float), declared_kinds(0), registered(false), is_forced(false),
+		         nonce(0), kind(kind_float), declared_kinds(0), role(0), registered(false), is_forced(false),
 		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), late(false)
 		{
 			pending.set(0.f, 0.f, 0.f, 0.f);
@@ -277,6 +279,127 @@ namespace ShaderBus
 
 	ENGINE_API void note_legacy_write(LPCSTR command, LPCSTR writer);
 	ENGINE_API bool legacy_writer(LPCSTR command, string256& out);
+
+	// what a lane is to the target and pass registry
+	enum lane_role
+	{
+		role_none = 0,
+		role_target = 1,
+		role_history = 2,
+		role_pass = 3
+	};
+
+	enum pass_stage
+	{
+		stage_frame = 0,
+		stage_gbuffer,
+		stage_lighting,
+		stage_scene,
+		stage_post,
+		stage_count
+	};
+
+	enum target_size
+	{
+		size_screen = 0,
+		size_half,
+		size_quarter,
+		size_fixed
+	};
+
+	enum pass_blend
+	{
+		blend_none = 0,
+		blend_add,
+		blend_alpha
+	};
+
+	// target_state and pass_state of list(), released is for targets and off for passes
+	enum gpu_state
+	{
+		gpu_pending = 0,
+		gpu_ready,
+		gpu_failed,
+		gpu_released,
+		gpu_off
+	};
+
+	const u32 max_targets = 16;
+	const u32 max_passes = 32;
+	const u32 max_pass_outputs = 4;
+	const u32 max_pass_inputs = 16;
+	const u32 target_format_count = 8;
+
+	struct target_spec
+	{
+		shared_str id;
+		shared_str owner;
+		u8 size;
+		u16 width;
+		u16 height;
+		u8 format;
+		bool history;
+		bool released;
+		Fvector4 clear;
+		// moves when the owner changes the spec, the render side then recreates and clears
+		u32 generation;
+	};
+
+	struct pass_input
+	{
+		shared_str hlsl;
+		shared_str texture;
+	};
+
+	struct pass_spec
+	{
+		shared_str id;
+		shared_str owner;
+		u8 stage;
+		int order;
+		shared_str ps;
+		shared_str cs;
+		shared_str outputs[max_pass_outputs];
+		u8 output_count;
+		xr_vector<pass_input> inputs;
+		u8 blend;
+		u16 group_x;
+		u16 group_y;
+		bool svp;
+		bool enabled;
+		bool released;
+		// moves at registration and at every enable, the next run is a first run
+		u32 enables;
+	};
+
+	// what the render side found, shown by list()
+	struct gpu_status
+	{
+		u8 state;
+		u32 width;
+		u32 height;
+		u32 bytes;
+		shared_str reason;
+	};
+
+	// rgba8 rgb10a2 r11g11b10f rg16f r16f r32f rgba16f rgba32f, in that order
+	ENGINE_API LPCSTR target_format_name(u8 format);
+	ENGINE_API u32 register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const target_spec& spec);
+	ENGINE_API u32 register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const pass_spec& spec);
+	ENGINE_API bool enable_pass(u32 token, bool on);
+	ENGINE_API bool release_pass(u32 token);
+	ENGINE_API bool release_target(u32 token);
+	// set by the renderers that run targets and passes, false refuses every registration
+	ENGINE_API void set_enable_targets(bool on);
+	ENGINE_API bool enable_targets();
+	// moves on every register, enable and release of a target or pass
+	ENGINE_API u32 targets_serial();
+	// the live specs, copied under the lock for the reconcile at Begin
+	ENGINE_API void targets_copy(xr_vector<target_spec>& targets, xr_vector<pass_spec>& passes);
+	ENGINE_API void set_gpu_status(const shared_str& id, const gpu_status& status);
+	ENGINE_API bool get_gpu_status(const shared_str& id, gpu_status& status);
+	ENGINE_API bool target_get(const shared_str& id, target_spec& out);
+	ENGINE_API bool pass_get(const shared_str& id, pass_spec& out);
 
 	ENGINE_API void dump();
 	ENGINE_API int version();
