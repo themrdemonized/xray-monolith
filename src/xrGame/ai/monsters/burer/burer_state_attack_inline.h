@@ -99,6 +99,19 @@ void CStateBurerAttack<Object>::execute()
 	bool const shield_ready = get_state(eStateBurerAttack_Shield)->check_start_conditions();
 	bool const tele_ready = get_state(eStateBurerAttack_Tele)->check_start_conditions();
 
+	// Requested gravi (CBurer::set_request_gravi_attack): the gravi gate's own range/facing/see
+	// feasibility but WITHOUT the cooldown and WITHOUT the force bypass. Selected below the shield so a
+	// script-driven gravi never steals a shield window, unlike force-gravi which is checked first.
+	bool request_gravi_ready = false;
+	if (object->get_request_gravi_attack())
+	{
+		float const gravi_dist = object->Position().distance_to(enemy->Position());
+		request_gravi_ready =
+			(gravi_dist >= object->m_gravi.min_dist) && (gravi_dist <= object->m_gravi.max_dist) &&
+			object->EnemyMan.see_enemy_now() &&
+			object->control().direction().is_face_target(enemy, deg(45));
+	}
+
 	bool selected_state = true;
 
 	if (gravi_ready)
@@ -109,6 +122,11 @@ void CStateBurerAttack<Object>::execute()
 	{
 		m_lost_delta_health = false;
 		select_state(eStateBurerAttack_Shield);
+	}
+	else if (request_gravi_ready)
+	{
+		object->set_request_gravi_attack(false);
+		select_state(eStateBurerAttack_Gravi);
 	}
 	else if (anti_aim_ready)
 	{

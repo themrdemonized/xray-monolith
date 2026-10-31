@@ -31,6 +31,9 @@ void CStateBloodsuckerVampireExecuteAbstract::initialize()
 	m_action = eActionPrepare;
 	time_vampire_started = 0;
 
+	// Consume a script force so it fires exactly one grab (else it would re-grab past the cooldown).
+	object->m_force_vampire = false;
+
 	object->set_visibility_state(CAI_Bloodsucker::full_visibility);
 
 	object->m_hits_before_vampire = 0;
@@ -157,11 +160,20 @@ bool CStateBloodsuckerVampireExecuteAbstract::check_start_conditions()
 {
 	const CEntityAlive* enemy = object->EnemyMan.get_enemy();
 
+	// Script veto: a hard block regardless of everything else.
+	if (object->get_veto_vampire())
+		return false;
+
+	// Script force bypasses the two PACING gates (warm-up hits, want accumulator) but never the
+	// feasibility (range, facing, LOS) or safety (actor-only, not-controlling, no input handler) gates
+	// below - a forced grab still only fires when the bloodsucker could physically grab the actor.
+	const bool force = object->get_force_vampire();
+
 	// проверить дистанцию
 	// 	float dist		= object->MeleeChecker.distance_to_enemy	(enemy);
 	// 	if ((dist > VAMPIRE_MAX_DIST) || (dist < VAMPIRE_MIN_DIST))	return false;
 
-	if (!object->done_enough_hits_before_vampire())
+	if (!force && !object->done_enough_hits_before_vampire())
 		return false;
 
 	u32 const vertex_id = ai().level_graph().check_position_in_direction(object->ai_location().level_vertex_id(),
@@ -177,7 +189,7 @@ bool CStateBloodsuckerVampireExecuteAbstract::check_start_conditions()
 	if (!object->control().direction().is_face_target(enemy, PI_DIV_2))
 		return false;
 
-	if (!object->WantVampire())
+	if (!force && !object->WantVampire())
 		return false;
 
 	// является ли враг актером

@@ -286,7 +286,8 @@ bool CSnork::check_start_conditions(ControlCom::EControlType type)
 
 	if (type == ControlCom::eControlThreaten)
 	{
-		return false;
+		// script-armed revival (#715 shape): the roar is hardwired off in vanilla; armed from Lua it fires
+		return m_script_roar_enabled;
 		// 		if (!start_threaten) return false;
 		// 		start_threaten = false;
 		// 		if (Random.randI(100) < 50) return false;

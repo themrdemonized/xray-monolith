@@ -9,6 +9,8 @@
 #include "../../level.h"
 #include "control_animation_base.h"
 #include "control_critical_wound.h"
+#include "pch_script.h"
+#include "../../script_game_object.h"
 
 
 CControlManagerCustom::CControlManagerCustom()
@@ -480,6 +482,19 @@ bool CControlManagerCustom::script_try_jump(const Fvector& position, float facto
 		ctrl_data->flags.or(SControlJumpData::eUseTargetPosition);
 	}
 
+	// Feasibility gate. The other invokes gate in their own check_start_conditions; the jump's real
+	// feasibility (cooldown, distance band, angle, height, accessibility) lives in can_jump, which the
+	// hollow check_start_conditions above does NOT run - so without this a doomed jump (out of range,
+	// bad angle, wrong floor, still cooling) returns true and launches. Run it now that ePrepareSkip is
+	// set, because can_jump's prepare-trace reads that flag; pass skip_prepare as the aggressive arg so
+	// the close-range pounce keeps its min-distance drop. Release the capture and refuse on failure.
+	// Still NO monster-side check_start_conditions - that is the FSM pacing bypass, kept by design.
+	if (!m_jump->can_jump(position, skip_prepare))
+	{
+		m_man->release(this, ControlCom::eControlJump);
+		return false;
+	}
+
 	m_man->activate(ControlCom::eControlJump);
 	return true;
 }
@@ -673,6 +688,11 @@ void CControlManagerCustom::check_rotation_jump()
 {
 	if (!m_man->check_start_conditions(ControlCom::eControlRotationJump)) return;
 	if (!m_object->check_start_conditions(ControlCom::eControlRotationJump)) return;
+
+	// Crash-safety: a species registered with the ability but no rotation-jump data loaded would index
+	// an empty vector below in release (the VERIFY is compiled out). No vanilla species does that, but
+	// the guard makes an unarmed registration a no-op instead of a crash.
+	if (m_rot_jump_data.empty()) return;
 
 	VERIFY(!m_rot_jump_data.empty());
 
