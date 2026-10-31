@@ -245,14 +245,22 @@ void R_constant_table::merge(R_constant_table* T)
 		}
 		else
 		{
+			// a bus lane keeps the stage merged first and skips a stage that disagrees or reads it as a texture again
+			if (0 == strncmp(C->name.c_str(), "bus_", 4))
+			{
+				if (C->destination & src->destination & RC_dest_sampler)
+				{
+					ShaderBus::refuse(C->name.c_str(), "is read in more than one shader stage of a pass, only the first stage binds it");
+					continue;
+				}
+				if (C->type != src->type)
+				{
+					ShaderBus::refuse(C->name.c_str(), "has a different type in another shader stage, stages that differ from the first one read are skipped");
+					continue;
+				}
+			}
 			VERIFY2(!(C->destination&src->destination&RC_dest_sampler),
 			        "Can't have samplers or textures with the same name for PS, VS and GS.");
-			// a bus lane keeps the type of the stage merged first and skips a stage that disagrees
-			if (C->type != src->type && 0 == strncmp(C->name.c_str(), "bus_", 4))
-			{
-				ShaderBus::refuse(C->name.c_str(), "has a different type in another shader stage, stages that differ from the first one read are skipped");
-				continue;
-			}
 			C->destination |= src->destination;
 			VERIFY(C->type == src->type);
 			R_constant_load& sL = src->get_load(src->destination);
