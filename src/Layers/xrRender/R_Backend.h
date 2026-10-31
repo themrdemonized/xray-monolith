@@ -301,6 +301,10 @@ public:
 
 	void set_Textures(STextureList* T);
 	IC void set_Textures(ref_texture_list& T) { set_Textures(&*T); }
+#if defined(USE_DX10) || defined(USE_DX11)
+	// drops a texture from every stage it is bound to before a copy writes it
+	void unbind_texture(CTexture* t);
+#endif
 
 #ifdef _EDITOR
 	IC	void						set_Matrices		(SMatrixList* M);
