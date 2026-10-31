@@ -262,7 +262,33 @@ _G.CMonsterCombatAction = function(monster, enemy, dist, enemy_strength, can_jum
 	return tonumber(flags.substate) or -1
 end
 
---[[ 
+-- Monster run-attack end: fired at the charge animation's end, or when the charge fails to build a path
+-- at start (control_run_attack.cpp:85,117). A charge PREEMPTED mid-run by a higher-priority capture, a
+-- critical wound, death or a level change is released outside those sites and does NOT fire this - so it
+-- is "a clean charge ran", not a guaranteed "charge ended". The charge is a control capture invisible to
+-- get_monster_state (a charging monster still reads eStateAttack). One argument: the monster.
+AddScriptCallback("monster_on_run_attack_end")
+_G.CMonsterOnRunAttackEnd = function(monster)
+	SendScriptCallback("monster_on_run_attack_end", monster)
+end
+
+-- Monster melee-jump end: fired when a monster's rear spin-strike (the melee-jump component) finishes.
+-- The strike is engine-fired and invisible to get_monster_state; this is its only Lua signal.
+-- One argument: the monster.
+AddScriptCallback("monster_on_melee_jump_end")
+_G.CMonsterOnMeleeJumpEnd = function(monster)
+	SendScriptCallback("monster_on_melee_jump_end", monster)
+end
+
+-- Burer gravi blast fired: fired when a burer launches a gravity attack (CBurer::on_gravi_fired, from
+-- the gravi state). The engine exposes no "gravi active" read, so this is the only Lua signal the blast
+-- happened, the forced request path included. One argument: the burer.
+AddScriptCallback("burer_on_gravi")
+_G.CBurerOnGravi = function(burer)
+	SendScriptCallback("burer_on_gravi", burer)
+end
+
+--[[
 
 On right click on PDA map callback
 Params are property_ui and map_table

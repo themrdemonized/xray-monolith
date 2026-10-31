@@ -111,6 +111,8 @@ public:
 	float relative_time();
 	bool in_auto_aim();
 	float get_auto_aim_factor() const { return m_auto_aim_factor; }
+	// the active jump's live flag mask (SControlJumpData::EFlags); read while jumping to name the leap variant
+	u32 get_active_flags() const { return m_data.flags.get(); }
 	Fvector get_jump_start_pos() const { return m_jump_start_pos; }
 	// process jump
 	virtual void update_frame();

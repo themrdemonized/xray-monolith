@@ -109,6 +109,9 @@ public:
 
 	IC CPolterSpecialAbility* ability() { return (m_flame ? m_flame : m_tele); }
 
+	// Attack subtype: 1 flame, 2 telekinesis, 0 neither. One is set per the section's type.
+	IC int subtype_code() const { return m_flame ? 1 : (m_tele ? 2 : 0); }
+
 
 	IC bool is_hidden() { return state_invisible; }
 

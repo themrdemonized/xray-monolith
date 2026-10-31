@@ -44,6 +44,7 @@
 #include "ai/monsters/burer/burer.h"
 #include "ai/monsters/controller/controller.h"
 #include "ai/monsters/poltergeist/poltergeist.h"
+#include "ai/monsters/snork/snork.h"
 #include "ai/monsters/control_manager_custom.h"
 #include "ai/monsters/control_jump.h"
 #include "ai/monsters/control_run_attack.h"
@@ -235,6 +236,58 @@ bool CScriptGameObject::is_monster_jumping()
 		return false;
 	}
 	return monster->is_jumping();
+}
+
+// The active jump's flag mask (SControlJumpData::EFlags), 0 when not jumping. The two discriminating
+// bits name the leap variant: ePrepareSkip (=2) sudden-vs-telegraphed, eUseAutoAim (=256) steered-vs-straight.
+u32 CScriptGameObject::get_monster_jump_flags()
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member get_monster_jump_flags!");
+		return 0;
+	}
+	if (!monster->is_jumping()) return 0;
+	CControlJump* jump = monster->com_man().get_jump_control();
+	if (!jump) return 0;
+	return jump->get_active_flags();
+}
+
+// Burer only. True while the telekinetic shield is raised (blocks incoming hits). A read.
+bool CScriptGameObject::get_burer_shield_active()
+{
+	CBurer* burer = smart_cast<CBurer*>(&object());
+	if (!burer) return false;
+	return burer->get_shield_active();
+}
+
+// The chimera's monolithic attack phase (see CChimera): 0 undefined, 1 rotate (circling the behind-
+// point), 2 prepare_jump (winding up); 0 outside combat or on a non-chimera. The only read into the
+// chimera combat brain - get_monster_state collapses the whole circle-and-leap machine to eStateAttack.
+int CScriptGameObject::get_chimera_attack_phase()
+{
+	CChimera* chimera = smart_cast<CChimera*>(&object());
+	if (!chimera) return 0;
+	return (int)chimera->get_attack_phase();
+}
+
+// True while the poltergeist holds its invisible state; false on a non-poltergeist.
+bool CScriptGameObject::get_poltergeist_hidden()
+{
+	CPoltergeist* poltergeist = smart_cast<CPoltergeist*>(&object());
+	if (!poltergeist) return false;
+	return poltergeist->is_hidden();
+}
+
+// Poltergeist attack subtype: 1 = flame, 2 = telekinesis, 0 = neither/non-poltergeist. One is set per
+// the section's type; otherwise invisible to Lua.
+int CScriptGameObject::get_poltergeist_subtype()
+{
+	CPoltergeist* poltergeist = smart_cast<CPoltergeist*>(&object());
+	if (!poltergeist) return 0;
+	return poltergeist->subtype_code();
 }
 
 int CScriptGameObject::get_monster_rank()
