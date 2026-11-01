@@ -1016,7 +1016,7 @@ bool ShaderBus::set_readback(u32 token, LPCSTR source, float x, float y, u32 w, 
 		{
 			string64 id;
 			xr_strcpy(id, s->id.c_str());
-			id[s->id.size() - 5] = 0;
+			id[s->id.size() - xr_strlen(history_suffix)] = 0;
 			src = readback_history;
 			source_id = id;
 		}
@@ -2038,6 +2038,15 @@ u32 ShaderBus::target_texels(u32 w, u32 h, bool mips)
 	return texels;
 }
 
+void ShaderBus::target_extent(u8 size, u32& w, u32& h)
+{
+	if (size == size_fixed)
+		return;
+	const u32 shift = size == size_half ? 1 : size == size_quarter ? 2 : 0;
+	w = _max(Device.dwWidth >> shift, 1u);
+	h = _max(Device.dwHeight >> shift, 1u);
+}
+
 // false with a ~ line when a target, pass or mask call cannot take the lane in that role, called under the lock
 static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role)
 {
@@ -2100,14 +2109,9 @@ static const u64 bus_target_budget = u64(1024) << 20;
 static u64 bus_target_bytes(const ShaderBus::target_spec& t)
 {
 	static const u8 texel_bytes[ShaderBus::target_format_count] = { 4, 4, 4, 4, 2, 4, 8, 16 };
-	u64 w = t.width, h = t.height;
-	if (t.size != ShaderBus::size_fixed)
-	{
-		const u32 shift = t.size == ShaderBus::size_half ? 1 : t.size == ShaderBus::size_quarter ? 2 : 0;
-		w = _max(Device.dwWidth >> shift, 1u);
-		h = _max(Device.dwHeight >> shift, 1u);
-	}
-	return u64(ShaderBus::target_texels(u32(w), u32(h), t.mips)) * texel_bytes[t.format] * (t.history ? 2 : 1);
+	u32 w = t.width, h = t.height;
+	ShaderBus::target_extent(t.size, w, h);
+	return u64(ShaderBus::target_texels(w, h, t.mips)) * texel_bytes[t.format] * (t.history ? 2 : 1);
 }
 
 static int bus_pass_find(const shared_str& id)
@@ -2132,7 +2136,7 @@ static void bus_status_erase(const shared_str& id)
 static void bus_target_status_erase(const shared_str& id)
 {
 	string64 prev;
-	xr_sprintf(prev, "%s_prev", id.c_str());
+	xr_sprintf(prev, "%s%s", id.c_str(), ShaderBus::history_suffix);
 	bus_status_erase(id);
 	bus_status_erase(shared_str(prev));
 }
@@ -2240,7 +2244,7 @@ u32 ShaderBus::register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCS
 		return bus_refuse_register("target", id, "a clear that is not finite");
 
 	string64 prev;
-	xr_sprintf(prev, "%s_prev", id);
+	xr_sprintf(prev, "%s%s", id, history_suffix);
 	const shared_str key(id);
 
 	// every refusal comes before the first take so a refused call adds no lane

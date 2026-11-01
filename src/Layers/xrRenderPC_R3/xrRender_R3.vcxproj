@@ -633,6 +633,7 @@
     <ClCompile Include="..\xrRender\dxParticleCustom.cpp" />
     <ClCompile Include="..\xrRender\dxRainRender.cpp" />
     <ClCompile Include="..\xrRender\dxRenderDeviceRender.cpp" />
+    <ClCompile Include="..\xrRender\dxRenderDeviceRender_bus.cpp" />
     <ClCompile Include="..\xrRender\dxRenderFactory.cpp" />
     <ClCompile Include="..\xrRender\dxStatGraphRender.cpp" />
     <ClCompile Include="..\xrRender\dxStatsRender.cpp" />

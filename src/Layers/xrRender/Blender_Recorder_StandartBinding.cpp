@@ -1460,6 +1460,8 @@ static bool bus_fits_vector(R_constant* C)
 }
 
 #if defined(USE_DX10) || defined(USE_DX11)
+void bus_alias(LPSTR out, u32 size, LPCSTR id, bool buffer, bool uint_rows);
+
 // a slot past its stage's texture count would write past the backend's per-stage arrays
 bool bus_slot_fits(u32 slot)
 {
@@ -1682,7 +1684,7 @@ void CBlender_Compile::SetMapping()
 				}
 				if (!ShaderBus::declare(cname, 1, uint_rows ? ShaderBus::kind_uint : ShaderBus::kind_float))
 					continue;
-				xr_sprintf(alias, uint_rows ? "$user$busbufu_%s" : "$user$busbuf_%s", cname + 4);
+				bus_alias(alias, sizeof(alias), cname + 4, true, uint_rows);
 			}
 			else
 				xr_sprintf(alias, "$user$%s", cname);
