@@ -135,7 +135,9 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 					v_orig.accept_frame = v_copy.accept_frame;
 					v_orig.hom_frame = v_copy.hom_frame;
 					v_orig.hom_tested = v_copy.hom_tested;
-					if (!bVisible) break; // exit loop on frustums
+					// an object holding a layer bit or an item with one stays in the frame when occlusion hides it, particles draw no layer
+					if (!bVisible && !(bus_layer_bits && ((renderable->renderable.bus_mask & bus_layer_bits) || ShaderBus::layer_root(renderable))
+						&& !((dxRender_Visual*)renderable->renderable.visual)->dcast_ParticleCustom())) break; // exit loop on frustums
 
 					// Rendering
 					set_Object(renderable);
@@ -223,7 +225,9 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
-	bus_live_bits = ShaderBus::mask_live_bits();
+	bus_live_bits = ShaderBus::mask_live_bits(&bus_layer_bits);
+	if (!Target->rt_bus_mask_layer || Device.m_SecondViewport.IsSVPFrame())
+		bus_layer_bits = 0;
 
 	VERIFY(0==mapDistort.size());
 

@@ -27,6 +27,8 @@ public:
 	u32 val_busTag;
 	// shader bus object mask bits live this frame, read once at the render start
 	u32 bus_live_bits = 0;
+	// mask layer bits this frame, 0 in a second viewport frame or while no layer target exists
+	u32 bus_layer_bits = 0;
 	// tagged world particles of this frame, redrawn into the object mask after the forward pass
 	xr_vector<R_dsgraph::_MatrixItemS> bus_particles;
 	BOOL val_bCamAttached;
