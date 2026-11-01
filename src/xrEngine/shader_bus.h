@@ -97,6 +97,9 @@ namespace ShaderBus
 		u32 objects;
 		u32 changes;
 		u32 writes;
+		// write refusals and the reason of the last one
+		u32 refusals;
+		LPCSTR refusal;
 		u32 last_change_frame;
 		u32 bound_frame;
 		u16 index;
@@ -122,7 +125,7 @@ namespace ShaderBus
 		// latched again after the frame callbacks
 		bool late;
 
-		lane() : rows_declared(0), shared(nullptr), readback(nullptr), objects(0), changes(0), writes(0), last_change_frame(0), bound_frame(0), index(0),
+		lane() : rows_declared(0), shared(nullptr), readback(nullptr), objects(0), changes(0), writes(0), refusals(0), refusal(nullptr), last_change_frame(0), bound_frame(0), index(0),
 		         nonce(0), kind(kind_float), declared_kinds(0), role(0), registered(false), is_forced(false),
 		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), buffer_gpu(false), late(false)
 		{
@@ -149,6 +152,14 @@ namespace ShaderBus
 	{
 		shared_str owner;
 		Fvector4 value;
+	};
+
+	// one lane's id, its value as of the last per-frame update and its last writer's kind
+	struct lane_value
+	{
+		shared_str id;
+		Fvector4 value;
+		u8 kind;
 	};
 
 	// the most 16 byte rows one lane can have
@@ -231,6 +242,10 @@ namespace ShaderBus
 	ENGINE_API bool texture_get(u32 index, shared_str& id, shared_str& name);
 	// logs once per lane why a write was dropped and returns false
 	ENGINE_API bool refuse_write(u32 token, LPCSTR what);
+	// keeps why a call on the id was refused, for last_refusal
+	ENGINE_API void note_refusal(LPCSTR id, LPCSTR reason);
+	// the reason of the last refused write or registration of the id, null for none
+	ENGINE_API LPCSTR last_refusal(LPCSTR id);
 	ENGINE_API bool get(LPCSTR id, Fvector4& value);
 	// bound row, false past the rows a shader declared
 	ENGINE_API bool get_row(LPCSTR id, u32 row, Fvector4& value);
@@ -250,11 +265,17 @@ namespace ShaderBus
 	ENGINE_API bool release(LPCSTR id);
 	ENGINE_API u32 count();
 	ENGINE_API const lane* at(u32 index);
+	// every lane's lane_value in lane order, copied under one lock
+	ENGINE_API void values_copy(xr_vector<lane_value>& out);
 	// a value as text in the lane's kind, (x, y, z, w)
 	ENGINE_API LPCSTR value_text(const lane* l, const Fvector4& value, string256& out);
 
-	// the renderer calls this at device create when it can bind buffers and read back
+	// the renderer calls this at device create when it can read back and run compute passes
 	ENGINE_API void enable_gpu_lanes();
+	// true after enable_gpu_lanes, for scripts that ask before they register
+	ENGINE_API bool gpu_lanes_enabled();
+	// the renderer calls this at device create when it can bind buffer lanes
+	ENGINE_API void enable_buffers();
 	// bits HUD sources write into the shader bus mask, mod mask bits sit above them
 	enum : u32
 	{
@@ -273,6 +294,10 @@ namespace ShaderBus
 	// the renderer calls this at device create, the mask target and object masks need it
 	ENGINE_API void enable_mask();
 	ENGINE_API bool mask_enabled();
+	// the renderer passes its MSAA state at device create, the mask target needs it off
+	ENGINE_API void set_mask_msaa(bool on);
+	// true when masks are enabled and MSAA is off, so mask tags can reach the target
+	ENGINE_API bool mask_drawable();
 	// claims the lowest free object mask bit for a mask lane, the same owner gets its token back
 	ENGINE_API u32 register_mask(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
 	// sets or clears the token's bit on the object from the next frame on
@@ -412,6 +437,8 @@ namespace ShaderBus
 		u32 width;
 		u32 height;
 		u32 bytes;
+		// builds that failed since the spec was registered
+		u32 fails;
 		shared_str reason;
 	};
 

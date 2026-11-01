@@ -82,7 +82,9 @@ static xr_vector<bus_legacy_row> g_bus_legacy;
 static xr_vector<shared_str> g_bus_legacy_logged;
 static xrCriticalSection g_bus_lock;
 static bool g_bus_gpu_lanes = false;
+static bool g_bus_buffer_lanes = false;
 static bool g_bus_mask = false;
+static bool g_bus_mask_msaa = false;
 // the token holding each object mask bit, 0 for a free bit, and the live bits as of the last per-frame update
 static u32 g_bus_mask_tokens[24] = {};
 static u32 g_bus_mask_live = 0;
@@ -100,6 +102,8 @@ static xr_vector<ShaderBus::lane*> g_bus_late;
 static xr_vector<ShaderBus::target_spec> g_bus_targets;
 static xr_vector<ShaderBus::pass_spec> g_bus_passes;
 static xr_vector<std::pair<shared_str, ShaderBus::gpu_status>> g_bus_status;
+// the reasons of the last 64 refused ids, oldest first
+static xr_vector<std::pair<shared_str, LPCSTR>> g_bus_refusals;
 // the pass_time of each pass's last run and the frame it ran in
 struct bus_pass_clock
 {
@@ -151,6 +155,7 @@ static ShaderBus::lane* bus_find_or_add(LPCSTR id)
 	if (g_bus_lanes.size() >= 0xFFFF)
 	{
 		static bool logged = false;
+		ShaderBus::note_refusal(id, "the bus is full");
 		if (!logged)
 			Msg("! [SHADER-BUS] lane '%s' refused, the bus is full at %u lanes", id, u32(g_bus_lanes.size()));
 		logged = true;
@@ -228,6 +233,7 @@ static u32 bus_join(ShaderBus::lane* l, LPCSTR owner, LPCSTR description, LPCSTR
 
 	if (writers.size() >= bus_max_writers)
 	{
+		ShaderBus::note_refusal(l->id.c_str(), "all tokens of the shared lane are taken");
 		Msg("! [SHADER-BUS] shared lane '%s' refused '%s', it has %u tokens", l->id.c_str(), owner, bus_max_writers);
 		return 0;
 	}
@@ -305,21 +311,25 @@ static bool bus_take_args(LPCSTR id, LPCSTR owner, LPCSTR description)
 {
 	if (!bus_valid_id(id))
 	{
+		ShaderBus::note_refusal(id, "a lane id the bus rejects");
 		Msg("! [SHADER-BUS] rejected lane id '%s'", id ? id : "");
 		return false;
 	}
 	if (!owner || !owner[0])
 	{
+		ShaderBus::note_refusal(id, "no owner");
 		Msg("! [SHADER-BUS] lane '%s' needs an owner", id);
 		return false;
 	}
 	if (xr_strlen(owner) > 64)
 	{
+		ShaderBus::note_refusal(id, "an owner longer than 64 characters");
 		Msg("! [SHADER-BUS] lane '%s' owner is longer than 64 characters", id);
 		return false;
 	}
 	if (description && xr_strlen(description) > 256)
 	{
+		ShaderBus::note_refusal(id, "a description longer than 256 characters");
 		Msg("! [SHADER-BUS] lane '%s' description is longer than 256 characters", id);
 		return false;
 	}
@@ -348,11 +358,13 @@ static u32 bus_take_locked(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR s
 			l->shared = xr_new<ShaderBus::lane_shared>();
 			return bus_join(l, owner, description, stored_source);
 		}
+		ShaderBus::note_refusal(id, "it belongs to another owner alone");
 		Msg("~ [SHADER-BUS] lane '%s' belongs to '%s' alone, '%s' cannot share it", id, l->owner.c_str(), owner);
 		return 0;
 	}
 	if (l->shared)
 	{
+		ShaderBus::note_refusal(id, "it is shared, register_shared joins it");
 		if (warn)
 			Msg("~ [SHADER-BUS] lane '%s' is shared, '%s' did not take it, register_shared joins it", id, owner);
 		return 0;
@@ -363,6 +375,7 @@ static u32 bus_take_locked(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR s
 		if (0 == xr_strcmp(l->owner.c_str(), owner))
 			return bus_token(l);
 
+		ShaderBus::note_refusal(id, "it belongs to another owner");
 		if (warn)
 			Msg("~ [SHADER-BUS] lane '%s' stays with '%s', '%s' did not take it", id, l->owner.c_str(), owner);
 		return 0;
@@ -479,6 +492,7 @@ static bool bus_reserved(LPCSTR id)
 	if (!id || (0 != strncmp(id, "engine_", 7) && 0 != strncmp(id, "cvar_", 5)))
 		return false;
 
+	ShaderBus::note_refusal(id, "an id reserved for the engine");
 	Msg("! [SHADER-BUS] lane id '%s' is reserved for the engine", id);
 	return true;
 }
@@ -564,6 +578,9 @@ static ShaderBus::lane* bus_writable(u32 token)
 
 static bool bus_refuse_write(ShaderBus::lane* l, LPCSTR what)
 {
+	++l->refusals;
+	l->refusal = what;
+	ShaderBus::note_refusal(l->id.c_str(), what);
 	if (!l->warned)
 		Msg("! [SHADER-BUS] lane '%s' refused %s", l->id.c_str(), what);
 	l->warned = true;
@@ -952,7 +969,7 @@ bool ShaderBus::set_buffer(u32 token, u32 rows)
 		return bus_refuse_write(l, "a buffer, it is an object mask");
 	if (l->shared)
 		return bus_refuse_write(l, "a buffer, a shared lane takes set and set_object only");
-	if (!g_bus_gpu_lanes)
+	if (!g_bus_buffer_lanes)
 		return bus_refuse_write(l, "a buffer, this renderer has none");
 	if (rows < 1 || rows > max_buffer_rows)
 		return bus_refuse_write(l, "a buffer outside 1 to 65536 rows");
@@ -1008,6 +1025,31 @@ bool ShaderBus::refuse_write(u32 token, LPCSTR what)
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	lane* l = bus_writable(token);
 	return l ? bus_refuse_write(l, what) : false;
+}
+
+void ShaderBus::note_refusal(LPCSTR id, LPCSTR reason)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const shared_str key(id ? id : "");
+	for (u32 i = 0; i < g_bus_refusals.size(); ++i)
+		if (g_bus_refusals[i].first.equal(key))
+		{
+			g_bus_refusals.erase(g_bus_refusals.begin() + i);
+			break;
+		}
+	if (g_bus_refusals.size() >= 64)
+		g_bus_refusals.erase(g_bus_refusals.begin());
+	g_bus_refusals.push_back(std::make_pair(key, reason));
+}
+
+LPCSTR ShaderBus::last_refusal(LPCSTR id)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const shared_str key(id ? id : "");
+	for (u32 i = 0; i < g_bus_refusals.size(); ++i)
+		if (g_bus_refusals[i].first.equal(key))
+			return g_bus_refusals[i].second;
+	return nullptr;
 }
 
 bool ShaderBus::get(LPCSTR id, Fvector4& value)
@@ -1214,6 +1256,18 @@ const ShaderBus::lane* ShaderBus::at(u32 index)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	return (index < g_bus_lanes.size()) ? g_bus_lanes[index] : nullptr;
+}
+
+void ShaderBus::values_copy(xr_vector<lane_value>& out)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	out.resize(g_bus_lanes.size());
+	for (u32 i = 0; i < out.size(); ++i)
+	{
+		out[i].id = g_bus_lanes[i]->id;
+		out[i].value.set(g_bus_lanes[i]->bound);
+		out[i].kind = g_bus_lanes[i]->kind;
+	}
 }
 
 LPCSTR ShaderBus::value_text(const lane* l, const Fvector4& value, string256& out)
@@ -1527,6 +1581,18 @@ void ShaderBus::enable_gpu_lanes()
 	g_bus_gpu_lanes = true;
 }
 
+bool ShaderBus::gpu_lanes_enabled()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_gpu_lanes;
+}
+
+void ShaderBus::enable_buffers()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	g_bus_buffer_lanes = true;
+}
+
 void ShaderBus::enable_mask()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -1539,25 +1605,39 @@ bool ShaderBus::mask_enabled()
 	return g_bus_mask;
 }
 
+void ShaderBus::set_mask_msaa(bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	g_bus_mask_msaa = on;
+}
+
+bool ShaderBus::mask_drawable()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_mask && !g_bus_mask_msaa;
+}
+
 static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role);
 static bool bus_room(LPCSTR id, LPCSTR prev);
+
+// keeps the reason for last_refusal and prints it, 0 for the refused registration
+static u32 bus_refuse_register(LPCSTR what, LPCSTR id, LPCSTR reason)
+{
+	ShaderBus::note_refusal(id, reason);
+	Msg("! [SHADER-BUS] %s '%s' refused, %s", what, id, reason);
+	return 0;
+}
 
 u32 ShaderBus::register_mask(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
 {
 	if (!bus_take_args(id, owner, description))
 		return 0;
 	if (!mask_enabled())
-	{
-		Msg("! [SHADER-BUS] mask '%s' refused, this renderer has no object masks", id);
-		return 0;
-	}
+		return bus_refuse_register("mask", id, "this renderer has no object masks");
 	if (bus_reserved(id))
 		return 0;
 	if (0 == strncmp(id, "obj_", 4))
-	{
-		Msg("! [SHADER-BUS] mask '%s' refused, an obj_ id is an object value lane", id);
-		return 0;
-	}
+		return bus_refuse_register("mask", id, "an obj_ id is an object value lane");
 
 	// every refusal comes before the take so a refused call adds no lane
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -1572,10 +1652,7 @@ u32 ShaderBus::register_mask(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 		while (bit < 24 && g_bus_mask_tokens[bit])
 			++bit;
 		if (bit == 24)
-		{
-			Msg("! [SHADER-BUS] mask '%s' refused, all 14 object mask bits are taken", id);
-			return 0;
-		}
+			return bus_refuse_register("mask", id, "all 14 object mask bits are taken");
 	}
 
 	const u32 token = bus_take_locked(id, owner, description, source, true, false);
@@ -1594,8 +1671,10 @@ bool ShaderBus::set_mask(u32 token, IRenderable* object, bool on)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	lane* l = bus_writable(token);
-	if (!l || l->role != role_mask)
+	if (!l)
 		return false;
+	if (l->role != role_mask)
+		return bus_refuse_write(l, "an object, it is not a mask lane");
 	const int bit = bus_mask_bit(token);
 	if (bit < 0 || (g_bus_mask_parked & (1u << bit)))
 		return false;
@@ -1680,14 +1759,15 @@ LPCSTR ShaderBus::target_format_name(u8 format)
 	return format < target_format_count ? names[format] : "";
 }
 
-// false with a ~ line when a target or pass call cannot take the lane in that role, called under the lock
+// false with a ~ line when a target, pass or mask call cannot take the lane in that role, called under the lock
 static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role)
 {
 	// obj_hotness is shared from its creation, so it is refused before it exists too
 	const int found = bus_find(id);
 	if (0 == xr_strcmp(id, "obj_hotness") || (found >= 0 && g_bus_lanes[found]->shared))
 	{
-		Msg("~ [SHADER-BUS] lane '%s' is shared, '%s' cannot take it as a target or pass", id, owner);
+		ShaderBus::note_refusal(id, "it is shared");
+		Msg("~ [SHADER-BUS] lane '%s' is shared, '%s' cannot take it as a target, pass or mask", id, owner);
 		return false;
 	}
 	if (found < 0)
@@ -1698,11 +1778,13 @@ static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role)
 		return true;
 	if (0 != xr_strcmp(l->owner.c_str(), owner))
 	{
+		ShaderBus::note_refusal(id, "it belongs to another owner");
 		Msg("~ [SHADER-BUS] lane '%s' stays with '%s', '%s' did not take it", id, l->owner.c_str(), owner);
 		return false;
 	}
 	if (l->role != role || l->texture_pending.size() || l->texture_bound.size() || l->buffer_rows)
 	{
+		ShaderBus::note_refusal(id, "it is in use as another kind of lane");
 		Msg("~ [SHADER-BUS] lane '%s' of '%s' is in use as another kind of lane", id, owner);
 		return false;
 	}
@@ -1717,6 +1799,7 @@ static bool bus_room(LPCSTR id, LPCSTR prev)
 	for (u32 i = 0; i < 2; ++i)
 		if (ids[i] && bus_find(ids[i]) < 0 && ++lanes > 0xFFFF)
 		{
+			ShaderBus::note_refusal(ids[i], "the bus is full");
 			Msg("! [SHADER-BUS] lane '%s' refused, the bus is full at %u lanes", ids[i], u32(g_bus_lanes.size()));
 			return false;
 		}
@@ -1829,33 +1912,22 @@ u32 ShaderBus::register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCS
 	if (!bus_take_args(id, owner, description))
 		return 0;
 	if (!enable_targets())
-	{
-		Msg("! [SHADER-BUS] target '%s' refused, this renderer has no targets", id);
-		return 0;
-	}
+		return bus_refuse_register("target", id, "this renderer has no targets");
 	if (bus_reserved(id))
 		return 0;
 	if (xr_strlen(id) > 27)
 	{
+		ShaderBus::note_refusal(id, "a target id longer than 27 characters");
 		Msg("! [SHADER-BUS] target '%s' refused, a target id is at most 27 characters", id);
 		return 0;
 	}
 	if (spec.size > size_fixed ||
 	    (spec.size == size_fixed && (spec.width < 1 || spec.width > 4096 || spec.height < 1 || spec.height > 4096)))
-	{
-		Msg("! [SHADER-BUS] target '%s' refused, a size side outside 1 to 4096", id);
-		return 0;
-	}
+		return bus_refuse_register("target", id, "a size side outside 1 to 4096");
 	if (spec.format >= target_format_count)
-	{
-		Msg("! [SHADER-BUS] target '%s' refused, a format past rgba32f", id);
-		return 0;
-	}
+		return bus_refuse_register("target", id, "a format past rgba32f");
 	if (!bus_finite(spec.clear))
-	{
-		Msg("! [SHADER-BUS] target '%s' refused, a clear that is not finite", id);
-		return 0;
-	}
+		return bus_refuse_register("target", id, "a clear that is not finite");
 
 	string64 prev;
 	xr_sprintf(prev, "%s_prev", id);
@@ -1863,10 +1935,19 @@ u32 ShaderBus::register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCS
 
 	// every refusal comes before the first take so a refused call adds no lane
 	xrCriticalSectionGuard guard(&g_bus_lock);
-	if (!bus_role_free(id, owner, role_target) || (spec.history && !bus_role_free(prev, owner, role_history)))
+	if (!bus_role_free(id, owner, role_target))
 		return 0;
+	// a refusal of the history lane is kept under the target id too
+	if (spec.history && !bus_role_free(prev, owner, role_history))
+	{
+		note_refusal(id, last_refusal(prev));
+		return 0;
+	}
 	if (!bus_room(id, spec.history ? prev : nullptr))
+	{
+		note_refusal(id, "the bus is full");
 		return 0;
+	}
 
 	int entry = bus_target_find(key);
 	u32 live = 0;
@@ -1881,12 +1962,14 @@ u32 ShaderBus::register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCS
 		}
 	if (live >= max_targets)
 	{
+		ShaderBus::note_refusal(id, "the bus has 16 live targets");
 		Msg("! [SHADER-BUS] target '%s' refused, the bus has %u live targets", id, max_targets);
 		return 0;
 	}
 	// a call that grows nothing passes even when a mode change left the total over
 	if (bytes > bus_target_budget && need > kept)
 	{
+		ShaderBus::note_refusal(id, "the targets would pass their memory budget");
 		Msg("! [SHADER-BUS] target '%s' refused, the bus targets would pass %u MB", id, u32(bus_target_budget >> 20));
 		return 0;
 	}
@@ -1921,14 +2004,12 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 	if (!bus_take_args(id, owner, description))
 		return 0;
 	if (!enable_targets())
-	{
-		Msg("! [SHADER-BUS] pass '%s' refused, this renderer has no passes", id);
-		return 0;
-	}
+		return bus_refuse_register("pass", id, "this renderer has no passes");
 	if (bus_reserved(id))
 		return 0;
 	if (LPCSTR why = bus_pass_refusal(spec))
 	{
+		ShaderBus::note_refusal(id, why);
 		Msg("! [SHADER-BUS] pass '%s' refused, %s", id, why);
 		return 0;
 	}
@@ -1943,10 +2024,7 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 	if (sorted.cs.size())
 	{
 		if (!g_bus_gpu_lanes)
-		{
-			Msg("! [SHADER-BUS] pass '%s' refused, this renderer has no compute passes", id);
-			return 0;
-		}
+			return bus_refuse_register("pass", id, "this renderer has no compute passes");
 	}
 	// a buffer lane is the only output of a compute pass of its owner
 	for (u32 i = 0; i < sorted.output_count; ++i)
@@ -1960,6 +2038,7 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 		             : sorted.group_y != 1 ? ", its group takes y = 1" : nullptr;
 		if (why)
 		{
+			ShaderBus::note_refusal(id, "an output is a buffer lane it cannot write");
 			Msg("! [SHADER-BUS] pass '%s' refused, output '%s' is a buffer lane%s", id, sorted.outputs[i].c_str(), why);
 			return 0;
 		}
@@ -1974,6 +2053,7 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 			++live;
 	if (live >= max_passes)
 	{
+		ShaderBus::note_refusal(id, "the bus has 32 live passes");
 		Msg("! [SHADER-BUS] pass '%s' refused, the bus has %u live passes", id, max_passes);
 		return 0;
 	}
@@ -2098,13 +2178,17 @@ void ShaderBus::targets_copy(xr_vector<target_spec>& targets, xr_vector<pass_spe
 void ShaderBus::set_gpu_status(const shared_str& id, const gpu_status& status)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
+	const u32 failed = status.state == gpu_failed ? 1 : 0;
 	for (u32 i = 0; i < g_bus_status.size(); ++i)
 		if (g_bus_status[i].first.equal(id))
 		{
+			const u32 fails = g_bus_status[i].second.fails;
 			g_bus_status[i].second = status;
+			g_bus_status[i].second.fails = fails + failed;
 			return;
 		}
 	g_bus_status.push_back(std::make_pair(id, status));
+	g_bus_status.back().second.fails = failed;
 }
 
 bool ShaderBus::get_gpu_status(const shared_str& id, gpu_status& status)
