@@ -374,6 +374,11 @@ static LPCSTR bus_owner_of(LPCSTR id)
 	return ShaderBus::owner_of(id);
 }
 
+static LPCSTR bus_last_refusal(LPCSTR id)
+{
+	return ShaderBus::last_refusal(id);
+}
+
 static bool bus_stats(LPCSTR id, u32& changes, u32& last_change, u32& bound_frame, u32& writes)
 {
 	changes = 0;
@@ -605,6 +610,7 @@ static ::luabind::object bus_register_target(lua_State* L, LPCSTR id, LPCSTR own
 	ShaderBus::target_spec t;
 	if (LPCSTR field = bus_read_target(spec, t))
 	{
+		ShaderBus::note_refusal(id, "a spec field that is not valid");
 		Msg("! [SHADER-BUS] target '%s' refused, its spec field '%s' is not valid", id ? id : "", field);
 		return bus_token_object(L, 0);
 	}
@@ -619,6 +625,7 @@ static ::luabind::object bus_register_pass(lua_State* L, LPCSTR id, LPCSTR owner
 	ShaderBus::pass_spec p;
 	if (LPCSTR field = bus_read_pass(spec, p))
 	{
+		ShaderBus::note_refusal(id, "a spec field that is not valid");
 		Msg("! [SHADER-BUS] pass '%s' refused, its spec field '%s' is not valid", id ? id : "", field);
 		return bus_token_object(L, 0);
 	}
@@ -654,7 +661,7 @@ static bool bus_set_mask(u32 token, const ::luabind::object& target, bool on)
 {
 	const std::optional<CScriptParticles*> particles = ::luabind::object_cast_nothrow<CScriptParticles*>(target);
 	if (particles && *particles)
-		return false;
+		return ShaderBus::refuse_write(token, "an object, a particles object takes no mask");
 
 	IRenderable* object = bus_target(target);
 	return object && ShaderBus::set_mask(token, object, on);
@@ -709,6 +716,7 @@ static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus:
 	row["order"] = p.order;
 	row["pass_state"] = p.released || !p.enabled ? "off" : found ? bus_gpu_states[s.state] : "pending";
 	row["reason"] = found && s.reason.size() ? s.reason.c_str() : "";
+	row["fails"] = found ? s.fails : 0u;
 
 	// the shader, outputs, inputs and compute group as the spec gave them
 	if (p.cs.size())
@@ -750,6 +758,21 @@ static int bus_version()
 	return ShaderBus::version();
 }
 
+static bool bus_gpu_lanes()
+{
+	return ShaderBus::gpu_lanes_enabled();
+}
+
+static bool bus_targets()
+{
+	return ShaderBus::enable_targets();
+}
+
+static bool bus_masks()
+{
+	return ShaderBus::mask_drawable();
+}
+
 static ::luabind::object bus_list(lua_State* L, bool include_declared)
 {
 	static LPCSTR readback_states[] = { "none", "ok", "refused", "lost" };
@@ -783,6 +806,8 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["readback"] = l->readback ? readback_states[l->readback->state] : "none";
 		row["buffer_rows"] = l->buffer_bound;
 		row["late"] = l->late;
+		row["refusals"] = l->refusals;
+		row["refusal"] = l->refusal ? l->refusal : "";
 		row["role"] = roles[l->role];
 		if (l->role == ShaderBus::role_target || l->role == ShaderBus::role_history)
 			bus_list_target(row, l);
@@ -838,6 +863,35 @@ static ::luabind::object bus_list_registered(lua_State* L)
 	return bus_list(L, false);
 }
 
+// a table from lane id to { x, y, z, w }, uint lanes as raw unsigned integers
+static ::luabind::object bus_values(lua_State* L)
+{
+	xr_vector<ShaderBus::lane_value> values;
+	ShaderBus::values_copy(values);
+
+	::luabind::object result = ::luabind::newtable(L);
+	for (u32 i = 0; i < values.size(); ++i)
+	{
+		::luabind::object v = ::luabind::newtable(L);
+		if (values[i].kind == ShaderBus::kind_uint)
+		{
+			u32 raw[4];
+			CopyMemory(raw, &values[i].value, sizeof(raw));
+			for (int c = 0; c < 4; ++c)
+				v[c + 1] = raw[c];
+		}
+		else
+		{
+			v[1] = values[i].value.x;
+			v[2] = values[i].value.y;
+			v[3] = values[i].value.z;
+			v[4] = values[i].value.w;
+		}
+		result[(LPCSTR)values[i].id.c_str()] = v;
+	}
+	return result;
+}
+
 #pragma optimize("s",on)
 void shader_bus_registrator::script_register(lua_State* L)
 {
@@ -879,12 +933,14 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),
+		def("last_refusal", &bus_last_refusal),
 		def("stats", &bus_stats,
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("get_pending", &bus_get_pending,
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("list", &bus_list_registered, raw<1>()),
 		def("list", &bus_list, raw<1>()),
+		def("values", &bus_values, raw<1>()),
 		def("register_target", &bus_register_target, raw<1>()),
 		def("register_pass", &bus_register_pass, raw<1>()),
 		def("enable_pass", &bus_enable_pass),
@@ -896,6 +952,9 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("set_mask", &bus_set_mask),
 		def("get_mask", &bus_get_mask),
 		def("release_mask", &bus_release_mask),
+		def("gpu_lanes", &bus_gpu_lanes),
+		def("targets", &bus_targets),
+		def("masks", &bus_masks),
 		def("version", &bus_version)
 	];
 }
