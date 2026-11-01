@@ -741,10 +741,6 @@ static ::luabind::object bus_register_mask(lua_State* L, LPCSTR id, LPCSTR owner
 
 static bool bus_set_mask(u32 token, const ::luabind::object& target, bool on)
 {
-	const std::optional<CScriptParticles*> particles = ::luabind::object_cast_nothrow<CScriptParticles*>(target);
-	if (particles && *particles)
-		return ShaderBus::refuse_write(token, "an object, a particles object takes no mask");
-
 	return ShaderBus::set_mask(token, bus_target(target), on);
 }
 

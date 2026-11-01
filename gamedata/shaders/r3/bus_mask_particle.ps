@@ -1,0 +1,19 @@
+// object mask for particles, the tag where the particle is mostly opaque
+#include "common.h"
+
+struct v2p
+{
+	float2 tc0	: TEXCOORD0;
+	float4 c	: COLOR0;
+#ifdef	USE_SOFT_PARTICLES
+	float4 tctexgen	: TEXCOORD1;
+#endif
+	float  fog : FOG;
+	float4 hpos	: SV_Position;
+};
+
+float main(v2p I) : SV_Target
+{
+	clip(I.c.a * s_base.Sample(smp_base, I.tc0).a - 0.5);
+	return 1.0;
+}
