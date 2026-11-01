@@ -90,8 +90,13 @@ static u32 g_bus_mask_tokens[ShaderBus::mask_bits_end] = {};
 static u32 g_bus_mask_live = 0;
 // bits release_mask parked, freed at the next per-frame update
 static u32 g_bus_mask_parked = 0;
+// mask bits a mod put on the layer, and those live as of the last per-frame update
+static u32 g_bus_mask_layer = 0;
+static u32 g_bus_mask_layer_live = 0;
 // objects whose mask bits are not 0, so a freed bit leaves all of them at once
 static xr_vector<IRenderable*> g_bus_mask_holders;
+// the objects at the top of the parent chain of a held item with a live layer bit, rebuilt each per-frame update
+static xr_vector<IRenderable*> g_bus_layer_roots;
 // the engine lane that lists the objects holding live mask bits, and how many rows it filled last
 static ShaderBus::lane* g_bus_mask_objects = nullptr;
 static u32 g_bus_mask_objects_count = 0;
@@ -1631,10 +1636,23 @@ void ShaderBus::frame_latch()
 			g_bus_lanes[g_bus_mask_tokens[bit] & 0xffff]->objects = 0;
 			g_bus_mask_tokens[bit] = 0;
 			g_bus_mask_parked &= ~b;
+			g_bus_mask_layer &= ~b;
 		}
 		if (g_bus_mask_tokens[bit] && !(g_bus_mask_parked & b))
 			g_bus_mask_live |= b;
 	}
+	g_bus_mask_layer_live = g_bus_mask_layer & g_bus_mask_live;
+
+	// a held item draws inside its holder, so the holder stays in the frame for the item
+	g_bus_layer_roots.clear();
+	if (g_bus_mask_layer_live)
+		for (IRenderable* holder : g_bus_mask_holders)
+		{
+			if (!(holder->renderable.bus_mask & g_bus_mask_layer_live))
+				continue;
+			if (IRenderable* root = holder->renderable_Root())
+				g_bus_layer_roots.push_back(root);
+		}
 
 	// the engine lists the objects holding live mask bits once a shader declares the lane
 	g_bus_mask_objects_live = g_bus_mask_objects && g_bus_mask_objects->rows_declared;
@@ -1930,10 +1948,41 @@ bool ShaderBus::release_mask(u32 token)
 	return true;
 }
 
-u32 ShaderBus::mask_live_bits()
+u32 ShaderBus::mask_live_bits(u32* layer)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (layer)
+		*layer = g_bus_mask_layer_live;
 	return g_bus_mask_live;
+}
+
+// only the per-frame update writes the list, and the render reads it between two updates
+bool ShaderBus::layer_root(const IRenderable* object)
+{
+	for (const IRenderable* root : g_bus_layer_roots)
+		if (root == object)
+			return true;
+	return false;
+}
+
+bool ShaderBus::set_mask_layer(u32 token, bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_mask)
+		return bus_refuse_write(l, "a layer, it is not a mask lane");
+	const int bit = bus_mask_bit(token);
+	if (bit < 0 || (g_bus_mask_parked & (1u << bit)))
+		return bus_refuse_write(l, "a layer, its mask bit is released");
+
+	if (on)
+		g_bus_mask_layer |= 1u << bit;
+	else
+		g_bus_mask_layer &= ~(1u << bit);
+	++l->writes;
+	return true;
 }
 
 int ShaderBus::mask_bit(u32 token)

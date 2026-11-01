@@ -73,6 +73,7 @@ void CDSGraphManager::traverse(CSector* start, CFrustum& F, Fvector& vBase, Fmat
 }
 
 u32 CDSGraphManager::bus_live_bits = 0;
+u32 CDSGraphManager::bus_layer_bits = 0;
 
 void CDSGraphManager::set_Object(IRenderable* O)
 {

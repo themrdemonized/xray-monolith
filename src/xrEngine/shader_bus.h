@@ -328,8 +328,12 @@ namespace ShaderBus
 	ENGINE_API u32 get_mask(const IRenderable* object);
 	// drops the bit from the next frame on, when it leaves every object and returns to the pool
 	ENGINE_API bool release_mask(u32 token);
-	// object mask bits as of the last per-frame update
-	ENGINE_API u32 mask_live_bits();
+	// object mask bits as of the last per-frame update, and the layer bits among them when asked
+	ENGINE_API u32 mask_live_bits(u32* layer = nullptr);
+	// true for an object holding an item with a layer bit, as of the last per-frame update
+	ENGINE_API bool layer_root(const IRenderable* object);
+	// puts the token's mask bit on the layer or takes it off, from the next frame on
+	ENGINE_API bool set_mask_layer(u32 token, bool on);
 	// the object mask bit a token holds, parked or live, -1 for none
 	ENGINE_API int mask_bit(u32 token);
 	// arms a w by h block centred at x, y in 0..1 of light, scene or backbuffer, an empty source disarms

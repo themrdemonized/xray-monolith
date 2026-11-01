@@ -168,9 +168,11 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
         for (auto& packet : queue)
         {
 #if defined(USE_DX10) || defined(USE_DX11)
+            u32 value = 0;
             if constexpr (BusMask)
             {
-                if (!packet.item.bus_tag)
+                value = bus_mask_value(packet.item.pObject, packet.item.bus_tag);
+                if (!value)
                     continue;
             }
 #endif
@@ -253,7 +255,7 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 #endif
 #if defined(USE_DX10) || defined(USE_DX11)
 			if constexpr (BusMask)
-				bus_mask_apply(packet.item.bus_tag);
+				bus_mask_apply(value);
 #endif
 			item.pVisual->Render(LOD);
 		}
@@ -293,8 +295,24 @@ void CDSGraphManager::r_dsgraph_render_bus_mask()
 {
 	PROF_EVENT("r_dsgraph_render_bus_mask");
 	ID3DRenderTargetView* saved[4];
+	const bool ids = RImplementation.Target->rt_bus_object_id;
+	const u32 layer = bus_layer_bits;
 	bus_mask_bind(saved);
-	r_dsgraph_render_graph<true>(RGraph.mapDynamicPasses, 0, true, false);
+	r_dsgraph_render_graph<true>(RGraph.mapDynamicPasses, 0, !ids && !layer, false);
+	// the object ids draw in a second walk of the same items with the same depth test
+	if (ids)
+	{
+		bus_mask_pass_begin(bus_pass_id, RImplementation.Target->rt_bus_object_id->pRT, 0);
+		r_dsgraph_render_graph<true>(RGraph.mapDynamicPasses, 0, !layer, false);
+	}
+	// the layer bits draw again with no depth buffer, so walls hide nothing
+	if (layer)
+	{
+		ID3DDepthStencilView* zb = RCache.get_ZB();
+		bus_mask_pass_begin(bus_pass_layer, RImplementation.Target->rt_bus_mask_layer->pRT, layer);
+		r_dsgraph_render_graph<true>(RGraph.mapDynamicPasses, 0, true, false);
+		RCache.set_ZB(zb);
+	}
 	bus_mask_unbind(saved);
 }
 
@@ -727,6 +745,15 @@ void CDSGraphManager::r_dsgraph_capture_lights()
 	}
 }
 
+// true for a renderable holding a bit on the mask layer or an item with one, particles draw no layer
+static bool bus_layer_holder(ISpatial* spatial)
+{
+	if (spatial->spatial.type & STYPE_PARTICLE)
+		return false;
+	IRenderable* renderable = spatial->dcast_Renderable();
+	return renderable && ((renderable->renderable.bus_mask & CDSGraphManager::bus_layer_bits) || ShaderBus::layer_root(renderable));
+}
+
 void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 {
 	PROF_EVENT("r_dsgraph_capture_dynamic")
@@ -811,7 +838,9 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 				CSector* sector = (CSector*)spatial->spatial.sector;
 				if (0 == sector) continue;
 
-				if (i_mask[CDSGraphManager::fl_normal] && !RImplementation.HOM.visible(spatial->spatial.sphere))
+				// an object holding a layer bit, or holding an item with one, stays in the frame when occlusion hides it
+				if (i_mask[CDSGraphManager::fl_normal] && !RImplementation.HOM.visible(spatial->spatial.sphere)
+					&& !(CDSGraphManager::bus_layer_bits && bus_layer_holder(spatial.get())))
 					continue;
 
 #if	RENDER==R_R1

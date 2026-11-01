@@ -232,6 +232,8 @@ public:
 
 	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
 	ref_rt rt_bus_mask; // shader bus mask, R32F, tag times 2^-24
+	ref_rt rt_bus_object_id; // shader bus object ids, R32F, id + 1 times 2^-24
+	ref_rt rt_bus_mask_layer; // shader bus mask layer, R32F, layer bits times 2^-24
 	ref_ps s_bus_mask;
 	ref_ps s_bus_mask_particle;
 	ID3DBlendState* bs_bus_mask = nullptr;

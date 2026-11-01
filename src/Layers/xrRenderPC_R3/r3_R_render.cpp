@@ -65,9 +65,11 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
-	CDSGraphManager::bus_live_bits = ShaderBus::mask_live_bits();
+	CDSGraphManager::bus_live_bits = ShaderBus::mask_live_bits(&CDSGraphManager::bus_layer_bits);
 	// tagged world items keep their queue 0 packets for the mask pass after the scene
 	GMBase.bus_mask_on = CDSGraphManager::bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
+	if (!GMBase.bus_mask_on || !Target->rt_bus_mask_layer)
+		CDSGraphManager::bus_layer_bits = 0;
 
 	rmNormal();
 

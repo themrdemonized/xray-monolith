@@ -36,6 +36,10 @@ public:
 	virtual void renderable_RenderUI() {}
 	virtual BOOL renderable_ShadowGenerate() { return FALSE; };
 	virtual BOOL renderable_ShadowReceive() { return FALSE; };
+	// the renderable whose draw carries this one, null when it draws alone
+	virtual IRenderable* renderable_Root() { return nullptr; }
+	// the game object id a draw of this renderable belongs to, u16(-1) for none
+	virtual u16 renderable_ObjectID() { return u16(-1); }
 
 	virtual float GetHotness() { return 0.0; }			//--DSR-- HeatVision
 	virtual float GetTransparency() { return 0.0; }		//--DSR-- HeatVision

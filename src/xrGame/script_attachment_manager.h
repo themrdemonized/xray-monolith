@@ -112,6 +112,8 @@ private:
 
 	u16 m_type;
 	u8 m_hud_category;
+	// id of the game object whose draw last drew this attachment, u16(-1) for none
+	u16 m_owner_id;
 	script_attachment* m_parent_attachment;
 	CGameObject* m_parent_object;
 	CGameObject* m_toplevel_parent;
@@ -168,6 +170,8 @@ public:
 	bool spatial_GetVisible();
 	virtual IRenderable* dcast_Renderable() { return this; }
 	virtual ICollidable* dcast_Collidable() { return this; }
+	virtual IRenderable* renderable_Root();
+	virtual u16 renderable_ObjectID() { return m_owner_id; }
 
 	virtual void renderable_Render(IDSGraphManager* DM);
 	void Render(IKinematics* model, const Fmatrix& parent_transform, IDSGraphManager* DM);
