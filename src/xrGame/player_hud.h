@@ -310,7 +310,7 @@ struct attachable_hud_item
 
 	//runtime positioning
 	Fmatrix m_attach_offset;
-	Fmatrix m_item_transform;
+	Fmatrix m_item_transform, m_item_transform_prev;
 
     // ver; final anim speed holder for use in motion mark timing scaling
     float final_anim_speed;
@@ -318,7 +318,7 @@ struct attachable_hud_item
 	player_hud_motion_container* m_hand_motions;
 
 	attachable_hud_item(player_hud* pparent) : m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
-		m_model(nullptr), m_attach_place_idx(0) {
+		m_model(nullptr), m_attach_place_idx(0), m_attach_offset(Fidentity), m_item_transform(Fidentity), m_item_transform_prev(Fidentity), m_measures(), m_hand_motions(nullptr) {
 	}
 	~attachable_hud_item();
 	void load(const shared_str& sect_name);
@@ -424,8 +424,8 @@ public:
 		m_attached_items[SCOPE_ATTACH_IDX] = NULL;
 	};
 
-	Fmatrix m_transform;
-	Fmatrix m_transform_2;
+	Fmatrix m_transform, m_transform_prev;
+	Fmatrix m_transform_2, m_transform_2_prev;
 
 	Fmatrix m_attach_offset;
 	Fmatrix m_attach_offset_2;

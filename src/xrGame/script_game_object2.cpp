@@ -436,6 +436,23 @@ void CScriptGameObject::SetActorDirection(const Fvector& dir)
 	SetActorDirection(dir.x, dir.y, dir.z);
 }
 
+Fvector CScriptGameObject::GetActorDirection()
+{
+    Fvector res = { 0.f, 0.f, 0.f };
+
+    CActor* actor = smart_cast<CActor*>(&object());
+    if (actor)
+    {
+        CCameraBase* cam = actor->cam_Active();
+        res.set(cam->yaw, cam->pitch, cam->roll);
+    }
+    else
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "ScriptGameObject : attempt to call GetActorDirection method for non-actor object");
+
+    return res;
+}
+
 void CScriptGameObject::DisableHitMarks(bool disable)
 {
 	CActor* actor = smart_cast<CActor*>(&object());

@@ -76,7 +76,7 @@ public:
 
 	void Prefetch();
 	void Prefetch_One(LPCSTR N, bool assert = true);
-	bool Exists(LPCSTR N);
+	bool Exists(LPCSTR N, bool no_prefetch = false);
 	void ClearPool(BOOL b_complete);
 
 	void dump();

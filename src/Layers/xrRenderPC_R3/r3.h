@@ -357,7 +357,7 @@ public:
 	virtual void models_Prefetch();
 	virtual void models_PrefetchOne(LPCSTR name, bool assert = true);
 	virtual void models_Clear(BOOL b_complete);
-	virtual bool models_Exists(LPCSTR name);
+	virtual bool models_Exists(LPCSTR name, bool no_prefetch = false);
 	
 	// anglobes: Sun Values
 	virtual Fvector GetSunPosition()
