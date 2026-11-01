@@ -225,6 +225,30 @@ namespace ShaderBus
 		return false;
 	}
 
+	// the obj_tint lane as of the last per-frame update, null until a shader declares it or a script registers it
+	extern ENGINE_API const lane* tint_lane;
+
+	// the object's own obj_tint value or the bus_force value, false for an object with neither
+	inline bool object_tint(const object_values* block, Fvector4& tint)
+	{
+		const lane* l = tint_lane;
+		if (!l)
+			return false;
+		if (l->bound_forced)
+		{
+			tint = l->bound;
+			return true;
+		}
+		if (block)
+			for (u32 i = 0; i < block->values.size(); ++i)
+				if (block->values[i].lane == l->index)
+				{
+					tint = block->values[i].value;
+					return true;
+				}
+		return false;
+	}
+
 	// lanes are never removed so a returned pointer stays valid for the process lifetime
 	ENGINE_API lane* declare(LPCSTR hlsl_name, u32 rows, u8 kind);
 	// logs once per constant name why the bus will not bind it
