@@ -14,6 +14,7 @@
 #include "SkeletonCustom.h"
 #include "../../xrEngine/fmesh.h"
 #include "flod.h"
+#include "particlegroup.h"
 
 #include "../../xrEngine/xr_object.h"
 
@@ -295,6 +296,41 @@ void CDSGraphManager::r_dsgraph_render_bus_mask()
 	bus_mask_bind(saved);
 	r_dsgraph_render_graph<true>(RGraph.mapDynamicPasses, 0, true, false);
 	bus_mask_unbind(saved);
+}
+
+// tagged world particles of queue 1 over the object mask, before their own draw clears the queue
+void CDSGraphManager::r_dsgraph_render_bus_particles()
+{
+	PROF_EVENT("r_dsgraph_render_bus_particles");
+	ID3DRenderTargetView* saved[4];
+	bool bound = false;
+	for (auto& packet : RGraph.mapDynamicPasses[1][0])
+	{
+		auto& item = packet.item;
+		if (!item.bus_tag || !item.pVisual->dcast_ParticleCustom() || item.pVisual->dcast_ParticleCustom()->GetHudMode())
+			continue;
+		if (!bound)
+		{
+			bus_mask_bind(saved);
+			bound = true;
+		}
+		RCache.set_States(packet.pState);
+		RCache.set_GS(packet.pGS);
+#ifdef USE_DX11
+		RCache.set_HS(packet.pHS);
+		RCache.set_DS(packet.pDS);
+#endif
+		RCache.set_VS(packet.pVS);
+		RCache.set_Constants(packet.pCS);
+		RCache.set_Textures(packet.pTextures);
+		RCache.set_xform_world(*item.pMatrix);
+		RImplementation.apply_object(item.pObject);
+		RImplementation.apply_lmaterial();
+		bus_mask_apply_particle(item.bus_tag);
+		item.pVisual->Render(calcLOD(item.ssa, item.pVisual->vis.sphere.R));
+	}
+	if (bound)
+		bus_mask_unbind(saved);
 }
 #endif
 
@@ -849,7 +885,12 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 								T->update(renderable);
 						}
 #endif
-						if (i_mask[CDSGraphManager::fl_normal] && !(spatial->spatial.type & STYPE_PARTICLE))
+#if RENDER==R_R1
+						const bool bind = !(spatial->spatial.type & STYPE_PARTICLE);
+#else
+						const bool bind = !(spatial->spatial.type & STYPE_PARTICLE) || (renderable->renderable.bus_mask & bus_live_bits);
+#endif
+						if (i_mask[CDSGraphManager::fl_normal] && bind)
 							set_Object(renderable);
 
 						renderable->renderable_Render(dcast_IPortalTraverser());
@@ -862,7 +903,7 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 								++dbg->dynamic_rendered_noopt;
 						}
 
-						if (i_mask[CDSGraphManager::fl_normal] && !(spatial->spatial.type & STYPE_PARTICLE))
+						if (i_mask[CDSGraphManager::fl_normal] && bind)
 							set_Object();
 						break;
 					}
