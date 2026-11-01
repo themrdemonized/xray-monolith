@@ -136,12 +136,14 @@ namespace ShaderBus
 		u8 buffer_kind;
 		// a compute pass writes the buffer as of the last per-frame update
 		bool buffer_gpu;
+		// a compute pass of the owner dispatches from the buffer as of the last per-frame update
+		bool buffer_args;
 		// latched again after the frame callbacks
 		bool late;
 
 		lane() : rows_declared(0), shared(nullptr), readback(nullptr), objects(0), changes(0), writes(0), refusals(0), refusal(nullptr), last_change_frame(0), bound_frame(0), index(0),
 		         nonce(0), kind(kind_float), declared_kinds(0), role(0), registered(false), is_forced(false),
-		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), buffer_gpu(false), late(false)
+		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), buffer_gpu(false), buffer_args(false), late(false)
 		{
 			pending.set(0.f, 0.f, 0.f, 0.f);
 			bound.set(0.f, 0.f, 0.f, 0.f);
@@ -439,6 +441,14 @@ namespace ShaderBus
 		u8 blend;
 		u16 group_x;
 		u16 group_y;
+		// a compute pass into a buffer lane can dispatch over a grid sized like a target
+		bool grid;
+		u8 grid_size;
+		u16 grid_w;
+		u16 grid_h;
+		// a compute pass can take its group counts from a row of a uint buffer lane
+		shared_str indirect;
+		u32 indirect_row;
 		bool svp;
 		bool enabled;
 		bool released;

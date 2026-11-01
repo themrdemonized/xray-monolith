@@ -231,6 +231,7 @@ void R_constant_table::merge(R_constant_table* T)
 			C->samp = src->samp;
 			C->dimension = src->dimension;
 			C->return_type = src->return_type;
+			C->components = src->components;
 			table_tmp.push_back(C);
 		}
 		else

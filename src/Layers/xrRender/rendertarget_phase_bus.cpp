@@ -8,7 +8,8 @@ u32 bus_target_clears(const shared_str& id);
 void fix_texture_name(LPSTR fn);
 bool bus_slot_fits(u32 slot);
 #ifdef USE_DX11
-bool bus_buffer_uav(const shared_str& id, ID3D11UnorderedAccessView*& uav, u32& rows, CTexture*& alias);
+bool bus_buffer_uav(const shared_str& id, bool scalar, ID3D11UnorderedAccessView*& uav, u32& rows, CTexture*& alias);
+ID3D11Buffer* bus_buffer_args(const shared_str& id, const shared_str& owner, u32 row);
 #endif
 
 // compiles one script pass from its own pixel shader over the stock screen space vertex shader, or from its compute shader
@@ -22,6 +23,7 @@ public:
 	u8 uav_slots[ShaderBus::max_pass_outputs];
 	u8 uav_return[ShaderBus::max_pass_outputs];
 	u8 uav_dimension[ShaderBus::max_pass_outputs];
+	u8 uav_components[ShaderBus::max_pass_outputs];
 
 	CBlender_bus_pass() : spec(nullptr), image(nullptr), reads_image(false) {}
 
@@ -63,6 +65,7 @@ public:
 				R_constant* u = C.r_Constant(own);
 				uav_return[i] = u ? u->return_type : 0;
 				uav_dimension[i] = u ? u->dimension : 0;
+				uav_components[i] = u ? u->components : 0;
 				if (!u || u->type != RC_dx11UAV)
 					reason.printf("output '%s' is not a RWTexture2D or RWBuffer of the pass", own);
 				else if (u->samp.index - CTexture::rstCompute >= 8)
@@ -121,6 +124,7 @@ struct bus_pass_run
 	bool reads_image;
 	bool writes_scene;
 	bool writes_buffer;
+	bool scalar;
 	u8 uav_slots[ShaderBus::max_pass_outputs];
 	u32 enables;
 	u32 clears;
@@ -223,6 +227,11 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 			reason.printf("output '%s' is not a buffer lane of '%s'", p.outputs[0].c_str(), p.owner.c_str());
 		return;
 	}
+	if (p.grid)
+	{
+		reason = "a grid, which only a compute pass into a buffer lane takes";
+		return;
+	}
 
 	CRT* first = bus_target_rt(p.outputs[0], false);
 	for (u32 i = 0; i < p.output_count; ++i)
@@ -285,6 +294,7 @@ void bus_passes_update()
 		// a buffer lane set this frame gets its view at the next latch, the dispatch asks for it every run
 		const ShaderBus::lane* l = p.cs.size() && p.output_count == 1 ? ShaderBus::find(p.outputs[0].c_str()) : nullptr;
 		r.writes_buffer = l && l->buffer_rows;
+		r.scalar = false;
 		r.enables = 0;
 		r.clears = 0;
 		r.runs = 0;
@@ -318,11 +328,24 @@ void bus_passes_update()
 			if (!reason.size() && r.writes_buffer && blender.uav_return[0] != (uint_lane ? D3D_RETURN_TYPE_UINT : D3D_RETURN_TYPE_FLOAT))
 				reason.printf("output '%s' returns %s, the lane holds %s", p.outputs[0].c_str(), uint_lane ? "float4" : "uint4",
 				              uint_lane ? "uint4" : "float4");
+			// a uint lane takes four components a row or one an element, a float lane four
+			const u8 components = blender.uav_components[0];
+			if (!reason.size() && r.writes_buffer && components != 4 && !(uint_lane && components == 1))
+				reason.printf("output '%s' is not a RWBuffer<uint4>, RWBuffer<uint> or RWBuffer<float4>", p.outputs[0].c_str());
+			r.scalar = r.writes_buffer && uint_lane && components == 1;
 			// a buffer lane takes a RWBuffer, a target a RWTexture2D
 			const u8 dimension = r.writes_buffer ? D3D_SRV_DIMENSION_BUFFER : D3D_SRV_DIMENSION_TEXTURE2D;
 			for (u32 o = 0; !reason.size() && p.cs.size() && o < p.output_count; ++o)
 				if (blender.uav_dimension[o] != dimension)
 					reason.printf("output '%s' is not a %s of the pass", p.outputs[o].c_str(), r.writes_buffer ? "RWBuffer" : "RWTexture2D");
+			// a lane a compute pass of the owner writes keeps its kind, other float lanes skip at the dispatch
+			const ShaderBus::lane* args = p.indirect.size() ? ShaderBus::find(p.indirect.c_str()) : nullptr;
+			bool args_locked = false;
+			for (u32 k = 0; args && args->buffer_rows && args->kind != ShaderBus::kind_uint && k < passes.size(); ++k)
+				args_locked |= !passes[k].released && passes[k].cs.size() && passes[k].output_count == 1 && passes[k].outputs[0] == p.indirect &&
+				               passes[k].owner == p.owner;
+			if (!reason.size() && args_locked)
+				reason.printf("indirect lane '%s' holds float4 rows, the counts need uint4", p.indirect.c_str());
 #endif
 			r.reads_image = blender.reads_image;
 			memcpy(r.uav_slots, blender.uav_slots, sizeof(r.uav_slots));
@@ -393,9 +416,13 @@ static void bus_pass_compute(bus_pass_run& r)
 	ID3D11UnorderedAccessView* uav = nullptr;
 	u32 rows = 0;
 	CTexture* alias = nullptr;
-	// a buffer without its compute view yet, or with more groups than one dispatch takes, skips the run
-	if (r.writes_buffer && (!bus_buffer_uav(r.spec.outputs[0], uav, rows, alias) || !uav ||
-		(rows + r.spec.group_x - 1) / r.spec.group_x > D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION))
+	// a buffer without its compute view yet, or with more row groups than one dispatch takes, skips the run
+	if (r.writes_buffer && (!bus_buffer_uav(r.spec.outputs[0], r.scalar, uav, rows, alias) || !uav ||
+		(!r.spec.grid && !r.spec.indirect.size() && (rows + r.spec.group_x - 1) / r.spec.group_x > D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION)))
+		return;
+	// a pass whose args lane has no buffer or no such row yet skips the run
+	ID3D11Buffer* args = r.spec.indirect.size() ? bus_buffer_args(r.spec.indirect, r.spec.owner, r.spec.indirect_row) : nullptr;
+	if (r.spec.indirect.size() && !args)
 		return;
 
 	for (u32 o = 0; o < 4; ++o)
@@ -426,7 +453,21 @@ static void bus_pass_compute(bus_pass_run& r)
 		HW.pContext->CSSetUnorderedAccessViews(r.uav_slots[o], 1, r.writes_buffer ? &uav : &out[o]->pUAView, nullptr);
 	const u32 gx = r.spec.group_x;
 	const u32 gy = r.spec.group_y;
-	if (r.writes_buffer)
+	if (args)
+		RCache.ComputeIndirect(args, r.spec.indirect_row * 16);
+	else if (r.spec.grid)
+	{
+		// the grid follows the target size rule
+		u32 w = r.spec.grid_w, h = r.spec.grid_h;
+		if (r.spec.grid_size != ShaderBus::size_fixed)
+		{
+			const u32 shift = r.spec.grid_size == ShaderBus::size_half ? 1 : r.spec.grid_size == ShaderBus::size_quarter ? 2 : 0;
+			w = _max(Device.dwWidth >> shift, 1u);
+			h = _max(Device.dwHeight >> shift, 1u);
+		}
+		RCache.Compute((w + gx - 1) / gx, (h + gy - 1) / gy, 1);
+	}
+	else if (r.writes_buffer)
 		RCache.Compute((rows + gx - 1) / gx, 1, 1);
 	else
 		RCache.Compute((out[0]->dwWidth + gx - 1) / gx, (out[0]->dwHeight + gy - 1) / gy, 1);
