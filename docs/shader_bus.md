@@ -75,13 +75,13 @@ From version `8` on DX10 and DX11, a shader that declares `Texture2D bus_<id>` g
 `$user$bus_<id>` bound without a `.s`, in every blender, the engine's own C++ blenders included.
 A texture the `.s` binds to the same slot wins.
 
-From version `8` on DX11, a lane can also be a typed buffer of up to 65,536 rows, for data past
+From version `8` on DX10 and DX11, a lane can also be a typed buffer of up to 65,536 rows, for data past
 the 4096 rows of a constant lane. `Buffer<float4> bus_<id>` reads a float lane and
 `Buffer<uint4> bus_<id>` a uint lane. Any `Buffer` with a float or uint return type binds, over a
 four component view, so a narrower type reads the leading components. `Load(i)` reads row `i`,
 a row the script never set reads `0, 0, 0, 0`, and the buffer is empty until the script calls
 `set_buffer` (see Buffer lanes). A float declaration reads the buffer while the lane holds float
-rows and a uint declaration while it holds uint rows. DX10 refuses a buffer with a log line.
+rows and a uint declaration while it holds uint rows.
 
 ```hlsl
 #if defined(SHADER_BUS) && SHADER_BUS >= 8
@@ -168,7 +168,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
 | `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. A target or history lane refuses. The first refusal on each lane logs a line |
 | `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene` or `backbuffer`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
-| `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
+| `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX10 and DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
 | `shader_bus.set_late(token, on)` | `true` if the token is valid and the lane is not shared. From the next frame on, `true` copies the lane again after the frame callbacks, so a write from those callbacks reaches the same frame's draws, and `false` stops it. The first refusal on each lane logs a line. See Late lanes |
 | `shader_bus.register_target(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id over 27 characters or one the engine reserves, an id another `owner` or another kind of lane holds, a renderer without targets, 16 live targets or targets that would pass 1024 MB. See Render targets and passes |
 | `shader_bus.register_pass(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id the engine reserves or another `owner` or kind of lane holds, a renderer without passes, a `cs` pass on a renderer without compute, or 32 live passes. See Render targets and passes |
@@ -189,9 +189,14 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.has(id)` | `true` for a lane a script registered or a shader declared, so a declared lane nobody registered answers `true` while `owner_of` gives `nil` |
 | `shader_bus.describe(id)` | the description string, or `nil` for an id with no registered lane, the description of the first `owner` on a shared lane |
 | `shader_bus.owner_of(id)` | the `owner` string, or `nil` for an id with no registered lane, the first `owner` on a shared lane |
+| `shader_bus.last_refusal(id)` | a short fixed reason for the kind of the last refused call on `id`, a write or a registration, or `nil` when `id` is not among the last 64 ids refused. A write reason is the text after "refused" in its log line, a registration reason need not match its log line, and a refused history lane of `register_target` is kept under the target id too |
 | `shader_bus.stats(id)` | `ok, changes, last_change_frame, bound_frame, writes` |
 | `shader_bus.list()` | rows for the registered lanes, then the twelve legacy lanes |
 | `shader_bus.list(true)` | the same, plus a row for every lane a shader declared that nobody registered |
+| `shader_bus.values()` | a table from lane id to an array of four numbers `{ x, y, z, w }` by position, uint bits on a uint lane, the bound value of every lane a script registered or a shader declared, as `get` and `get_uint` give it by the lane's kind, read under one lock. The twelve legacy lanes are not in it |
+| `shader_bus.gpu_lanes()` | `true` on a renderer with readbacks and `cs` passes, DX11 only |
+| `shader_bus.targets()` | `true` on a renderer with render targets and passes, DX10 and DX11 |
+| `shader_bus.masks()` | `true` when mask tags can reach the mask target, DX10 and DX11 on a device created with MSAA off. `vid_restart` keeps the MSAA the device was created with. With MSAA on `register_mask` still returns a token, but no tag draws. See Masks |
 | `shader_bus.version()` | `8` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
@@ -205,7 +210,8 @@ object lane), `shared` (`true` for a shared lane), `writers` (how many tokens a 
 handed out, `1` for a registered lane that is not shared), `texture` (the texture the lane shows,
 empty for none), `readback` (`none`, `ok`, `refused` or `lost`, see Readback), `buffer_rows` (the
 rows of a buffer lane as of the last frame, `0` for a lane that is not one), `late` (the last
-`set_late` value, the lane latches late from the next frame) and, on a legacy row only,
+`set_late` value, the lane latches late from the next frame), `refusals` (how many writes the lane
+refused) and `refusal` (the reason of the last one, empty for none), and, on a legacy row only,
 `writer`. Registered rows come first (declared rows too, with the
 `true` argument), then the twelve legacy rows, and a legacy row only appears if that console
 command still exists on the running exe.
@@ -215,7 +221,8 @@ A row also has `role` (`target`, `history` or `pass` for the lanes of Render tar
 `format`, `bytes`, `history` and `target_state` (`pending`, `ready` or `released`), with the size
 and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
 (`pending`, `ready`, `failed` or `off`) and `reason`, the text of the failure and empty
-otherwise, and from its spec `ps` or `cs`, `outputs`, `inputs` and on a `cs` pass `group`.
+otherwise, `fails` (how many builds of the pass failed since it was registered with this spec),
+and from its spec `ps` or `cs`, `outputs`, `inputs` and on a `cs` pass `group`.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
@@ -387,7 +394,7 @@ last tagged draw whose depth equals the depth buffer there, so only the visible 
 the tags of two draws never combine. A pixel where nothing tagged drew reads `0`.
 
 The target exists while a shader declares `bus_engine_hud_mask` or a mod holds a live mask bit,
-and it needs MSAA off. With MSAA on the engine logs one `!` line and keeps no target, and without a
+and it needs MSAA off. With MSAA on the engine logs one `!` line and keeps no target, `masks()` returns `false`, and without a
 target the texture reads `0`. The target is cleared every frame. The HUD bits draw with the HUD
 and the world tags right after the G-buffer, so the G-buffer's own draws cannot read this frame's
 tags, while passes from the `gbuffer` stage on and the lighting, combine and post shaders can. A
@@ -465,12 +472,13 @@ bit from the lane and tests it against the mask.
 | call | returns |
 |---|---|
 | `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
-| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object or a `ScriptAttachment`. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. A particles object, `nil` or a released token returns `false` |
+| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object or a `ScriptAttachment`. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. A particles object, `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal of a particles object or a lane that is not a mask logs a line on each lane |
 | `shader_bus.get_mask(obj)` | the live mask bits `obj` carries, `0` for none or `nil` |
 | `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere and the lane reads `0`. The bit returns to the pool after the next level load, and until then `register_mask` with the same id and `owner` takes it back, with the objects that still carry it |
 
 A mask lane takes no other write: `set`, `set_uint`, `set_array`, `set_array_uint`, `set_texture`,
-`set_readback` and `set_buffer` refuse it, and the first refusal logs a line. Its `list` row has
+`set_readback` and `set_buffer` refuse it, and the first refusal logs a line.
+Its `list` row has
 `role` `mask` and `mask_bit`, the bit it holds, until a released bit returns to the pool. An exe
 before version `8` has no `register_mask`, so check `shader_bus.register_mask ~= nil` before
 calling it.
@@ -493,7 +501,7 @@ A mask says which objects a mod tagged. To give each object its own data, a mod 
 lane that holds the object's slot with a buffer lane that holds the slot's rows. The mod owns the
 slots, and the bus never tells a script that an object went away, so the mod frees its slots
 itself. Slot 0 stays unused, since a draw of an object with no value reads the lane's own value,
-which is `0`. Buffer lanes need DX11.
+which is `0`. Buffer lanes need DX10 or DX11.
 
 ```lua
 local slot_lane, rows_lane = nil, nil
@@ -661,7 +669,7 @@ end
 
 Limits:
 - 65,536 rows a lane and 16 MiB over every buffer lane, at most 4096 rows in one `set_array` call.
-- DX11 only. Every other renderer refuses `set_buffer`.
+- DX10 and DX11. The DX9 renderers refuse `set_buffer`. Only DX11 runs a `cs` pass that writes one.
 - The buffer keeps its rows over a level change and a device reset.
 - A frame on which the lane changed uploads the whole buffer once.
 - An older exe has no `set_buffer`, so check `shader_bus.set_buffer ~= nil` before calling it.
@@ -968,8 +976,10 @@ the lane and the engine stops uploading it, and a buffer starts at zero each tim
 | renderer | what works |
 |---|---|
 | DX11 | everything above |
-| DX10 | targets, history and pixel passes. A `cs` pass and buffer lanes are refused |
+| DX10 | targets, history, pixel passes and buffer lanes a shader reads. A `cs` pass and `set_readback` are refused |
 | DX9 | `register_target` and `register_pass` return `nil` with one `!` line |
+
+A script can ask before it registers. `gpu_lanes()` is `true` on DX11, `targets()` on DX10 and DX11, and `masks()` on DX10 and DX11 when the device was created with MSAA off.
 
 ---
 
@@ -1011,8 +1021,9 @@ that file's name.
 Every rejection, a bad id, a missing or oversized `owner`, an oversized description, a collision
 with a different `owner`, and every successful registration print through the normal log every time
 they happen, as does the once per command and writer nudge for the legacy console lanes. A `bus_`
-shader constant the bus cannot bind prints once per name with the reason. When a
-level finishes loading, a lane that a shader declared and nobody registered is warned as
+shader constant the bus cannot bind prints once per name with the reason. A refused write prints
+once per lane, while `refusals` in `list()` counts every one and `last_refusal` keeps the reason of
+the last. When a level finishes loading, a lane that a shader declared and nobody registered is warned as
 `declared by a shader and registered by nobody`, which is how a missing mod dependency shows up
 in a plain log with no console commands needed. A lane `bus_force` still overrides is warned the same
 way with its forced value, so a forgotten `bus_force` shows up after a reload. The full dump of every lane
@@ -1132,4 +1143,5 @@ exes from version `7` on pass.
 - **The mask target needs MSAA off.** With MSAA on the engine logs one `!` line, keeps no target,
   and the mask reads `0`.
 - **A mask lane holds only its bit.** `set`, `set_uint`, the row calls, `set_texture`,
-  `set_readback` and `set_buffer` refuse it, so it reads the bit `register_mask` wrote, or `0` after `release_mask`.
+  `set_readback` and `set_buffer` refuse it, so it reads the bit `register_mask`
+  wrote, or `0` after `release_mask`.

@@ -17,7 +17,7 @@ static bool bus_mask_begin()
 	const bool held = hud || ShaderBus::mask_live_bits() != 0;
 
 	CRenderTarget* T = RImplementation.Target;
-	const bool msaa = RImplementation.o.dx10_msaa;
+	const bool msaa = !ShaderBus::mask_drawable();
 	static bool msaa_logged = false;
 	if (held && msaa && !msaa_logged)
 	{

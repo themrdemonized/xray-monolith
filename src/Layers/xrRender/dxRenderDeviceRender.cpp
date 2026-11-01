@@ -329,16 +329,20 @@ static void bus_readback_release()
 		bus_readback_land(bus_readback_rings[i].lane, ShaderBus::readback_none, 0);
 	}
 }
+#endif
 
+#if defined(USE_DX10) || defined(USE_DX11)
 // a buffer lane's GPU copy, its view behind $user$busbuf_<id> or $user$busbufu_<id> and the change it holds
 struct bus_buffer_slot
 {
 	ShaderBus::lane* lane;
 	ref_texture alias;
-	ID3D11Buffer* buffer;
-	ID3D11ShaderResourceView* view;
+	ID3DBuffer* buffer;
+	ID3DShaderResourceView* view;
+#if defined(USE_DX11)
 	// the compute view of a buffer a compute pass writes, null for one the rows upload into
 	ID3D11UnorderedAccessView* uav;
+#endif
 	bool gpu;
 	u32 rows;
 	u8 kind;
@@ -373,7 +377,9 @@ static void bus_buffers_update()
 		{
 			if (slot->alias)
 				slot->alias->surface_set(nullptr);
+#if defined(USE_DX11)
 			_RELEASE(slot->uav);
+#endif
 			_RELEASE(slot->view);
 			_RELEASE(slot->buffer);
 			slot->rows = l->buffer_bound;
@@ -387,21 +393,29 @@ static void bus_buffers_update()
 			xr_sprintf(alias, uint_rows ? "$user$busbufu_%s" : "$user$busbuf_%s", l->id.c_str());
 			slot->alias.create(alias);
 
-			D3D11_BUFFER_DESC bd = {};
+			D3D_BUFFER_DESC bd = {};
 			bd.ByteWidth = l->buffer_bound * 16;
-			bd.Usage = D3D11_USAGE_DEFAULT;
-			bd.BindFlags = D3D11_BIND_SHADER_RESOURCE | (slot->gpu ? D3D11_BIND_UNORDERED_ACCESS : 0);
-			D3D11_SHADER_RESOURCE_VIEW_DESC vd = {};
+			bd.Usage = D3D_USAGE_DEFAULT;
+			bd.BindFlags = D3D_BIND_SHADER_RESOURCE;
+			D3D_SHADER_RESOURCE_VIEW_DESC vd = {};
 			vd.Format = uint_rows ? DXGI_FORMAT_R32G32B32A32_UINT : DXGI_FORMAT_R32G32B32A32_FLOAT;
-			vd.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+			vd.ViewDimension = D3D_SRV_DIMENSION_BUFFER;
 			vd.Buffer.NumElements = l->buffer_bound;
+#if defined(USE_DX11)
+			if (slot->gpu)
+				bd.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 			D3D11_UNORDERED_ACCESS_VIEW_DESC ud = {};
 			ud.Format = vd.Format;
 			ud.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 			ud.Buffer.NumElements = l->buffer_bound;
-			if (FAILED(HW.pDevice->CreateBuffer(&bd, nullptr, &slot->buffer)) ||
-				FAILED(HW.pDevice->CreateShaderResourceView(slot->buffer, &vd, &slot->view)) ||
-				(slot->gpu && FAILED(HW.pDevice->CreateUnorderedAccessView(slot->buffer, &ud, &slot->uav))))
+			const bool made = SUCCEEDED(HW.pDevice->CreateBuffer(&bd, nullptr, &slot->buffer)) &&
+				SUCCEEDED(HW.pDevice->CreateShaderResourceView(slot->buffer, &vd, &slot->view)) &&
+				(!slot->gpu || SUCCEEDED(HW.pDevice->CreateUnorderedAccessView(slot->buffer, &ud, &slot->uav)));
+#else
+			const bool made = SUCCEEDED(HW.pDevice->CreateBuffer(&bd, nullptr, &slot->buffer)) &&
+				SUCCEEDED(HW.pDevice->CreateShaderResourceView(slot->buffer, &vd, &slot->view));
+#endif
+			if (!made)
 			{
 				Msg("! [SHADER-BUS] lane '%s' buffer of %u rows could not be created", l->id.c_str(), l->buffer_bound);
 				_RELEASE(slot->view);
@@ -409,15 +423,17 @@ static void bus_buffers_update()
 				continue;
 			}
 			slot->alias->view_set(slot->buffer, slot->view);
+#if defined(USE_DX11)
 			// a buffer a compute pass writes starts at zero bits on every create, in either format
 			static const UINT zero[4] = {};
 			if (slot->uav)
 				HW.pContext->ClearUnorderedAccessViewUint(slot->uav, zero);
+#endif
 		}
 
 		if (slot->buffer && !slot->gpu && slot->uploaded != l->changes && !l->rows_bound.empty())
 		{
-			D3D11_BOX box = { 0, 0, 0, _min(u32(l->rows_bound.size()), l->buffer_bound) * 16, 1, 1 };
+			D3D_BOX box = { 0, 0, 0, _min(u32(l->rows_bound.size()), l->buffer_bound) * 16, 1, 1 };
 			HW.pContext->UpdateSubresource(slot->buffer, 0, &box, &l->rows_bound[0], 0, 0);
 			slot->uploaded = l->changes;
 		}
@@ -432,13 +448,16 @@ static void bus_buffers_release()
 		bus_buffer_slot& slot = bus_buffer_slots[i];
 		if (slot.alias)
 			slot.alias->surface_set(nullptr);
+#if defined(USE_DX11)
 		_RELEASE(slot.uav);
+#endif
 		_RELEASE(slot.view);
 		_RELEASE(slot.buffer);
 		slot.rows = 0;
 	}
 }
 
+#if defined(USE_DX11)
 // the UAV, rows and alias of a buffer lane, false for a lane with no buffer
 bool bus_buffer_uav(const shared_str& id, ID3D11UnorderedAccessView*& uav, u32& rows, CTexture*& alias)
 {
@@ -456,7 +475,6 @@ bool bus_buffer_uav(const shared_str& id, ID3D11UnorderedAccessView*& uav, u32& 
 }
 #endif
 
-#if defined(USE_DX10) || defined(USE_DX11)
 // a script render target and its history copy
 struct bus_target_slot
 {
@@ -694,9 +712,11 @@ void dxRenderDeviceRender::OnDeviceDestroy(BOOL bKeepTextures)
 	m_SelectionShader.destroy();
 
 	bus_textures_release();
-#if defined(USE_DX11)
+#if defined(USE_DX10) || defined(USE_DX11)
 	bus_buffers_release();
 	bus_buffer_slots.clear();
+#endif
+#if defined(USE_DX11)
 	bus_readback_release();
 	bus_readback_rings.clear();
 #endif
@@ -728,8 +748,10 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 #endif // DEBUG
 
 	bus_textures_release();
-#if defined(USE_DX11)
+#if defined(USE_DX10) || defined(USE_DX11)
 	bus_buffers_release();
+#endif
+#if defined(USE_DX11)
 	bus_readback_release();
 #endif
 #if defined(USE_DX10) || defined(USE_DX11)
@@ -837,7 +859,9 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 	ShaderBus::enable_gpu_lanes();
 #endif
 #if defined(USE_DX10) || defined(USE_DX11)
+	ShaderBus::enable_buffers();
 	ShaderBus::enable_mask();
+	ShaderBus::set_mask_msaa(RImplementation.o.dx10_msaa);
 	ShaderBus::set_enable_targets(true);
 #endif
 
@@ -1036,10 +1060,8 @@ void dxRenderDeviceRender::Begin()
 	RCache.set_CullMode(CULL_CCW);
 	if (HW.Caps.SceneMode) overdrawBegin();
 	bus_textures_update();
-#if defined(USE_DX11)
-	bus_buffers_update();
-#endif
 #if defined(USE_DX10) || defined(USE_DX11)
+	bus_buffers_update();
 	bus_targets_update();
 	bus_passes_update();
 #endif
