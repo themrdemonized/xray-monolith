@@ -599,6 +599,18 @@ static bool bus_gpu_written(const ShaderBus::lane* l)
 	return false;
 }
 
+// a live compute pass of the lane's owner dispatches from it, called under the lock
+static bool bus_args_read(const ShaderBus::lane* l)
+{
+	for (u32 i = 0; l->buffer_rows && i < g_bus_passes.size(); ++i)
+	{
+		const ShaderBus::pass_spec& p = g_bus_passes[i];
+		if (!p.released && l->kind == ShaderBus::kind_uint && p.indirect.equal(l->id) && p.owner.equal(l->owner))
+			return true;
+	}
+	return false;
+}
+
 // refuses a write a mask lane, a lane a compute pass writes or a shared lane does not take, a null gpu or shared reason skips that test
 static bool bus_refuse_unfit(ShaderBus::lane* l, LPCSTR mask, LPCSTR gpu, LPCSTR shared)
 {
@@ -1476,6 +1488,7 @@ void ShaderBus::frame_latch()
 			l->buffer_bound = l->buffer_rows;
 			l->buffer_kind = l->kind;
 			l->buffer_gpu = bus_gpu_written(l);
+			l->buffer_args = bus_args_read(l);
 			g_bus_buffers.push_back(l);
 		}
 
@@ -1938,7 +1951,9 @@ static bool bus_same_target(const ShaderBus::target_spec& a, const ShaderBus::ta
 static bool bus_same_pass(const ShaderBus::pass_spec& a, const ShaderBus::pass_spec& b)
 {
 	if (a.stage != b.stage || a.order != b.order || !a.ps.equal(b.ps) || !a.cs.equal(b.cs) || a.output_count != b.output_count ||
-	    a.inputs.size() != b.inputs.size() || a.blend != b.blend || a.group_x != b.group_x || a.group_y != b.group_y || a.svp != b.svp)
+	    a.inputs.size() != b.inputs.size() || a.blend != b.blend || a.group_x != b.group_x || a.group_y != b.group_y || a.svp != b.svp ||
+	    a.grid != b.grid || a.grid_size != b.grid_size || a.grid_w != b.grid_w || a.grid_h != b.grid_h || !a.indirect.equal(b.indirect) ||
+	    a.indirect_row != b.indirect_row)
 		return false;
 	for (u32 i = 0; i < a.output_count; ++i)
 		if (!a.outputs[i].equal(b.outputs[i]))
@@ -1975,6 +1990,18 @@ static LPCSTR bus_pass_refusal(const ShaderBus::pass_spec& spec)
 		return "a blend other than none, add or alpha";
 	if (spec.cs.size() && (spec.group_x < 1 || spec.group_x > 1024 || spec.group_y < 1 || spec.group_y > 1024))
 		return "a compute group side outside 1 to 1024";
+	if (spec.grid && !spec.cs.size())
+		return "a grid, which only a compute pass takes";
+	if (spec.grid && spec.grid_size == ShaderBus::size_fixed &&
+	    (spec.grid_w < 1 || spec.grid_w > 4096 || spec.grid_h < 1 || spec.grid_h > 4096))
+		return "a grid side outside 1 to 4096";
+	if (spec.indirect.size() && !spec.cs.size())
+		return "an indirect lane, which only a compute pass takes";
+	if (spec.indirect.size() && spec.grid)
+		return "an indirect lane beside a grid";
+	for (u32 i = 0; i < spec.output_count && spec.indirect.size(); ++i)
+		if (spec.outputs[i].equal(spec.indirect))
+			return "an indirect lane that is also an output";
 	return nullptr;
 }
 
@@ -2106,13 +2133,21 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 		LPCSTR why = !sorted.cs.size() ? ", which only a compute pass writes"
 		             : sorted.output_count > 1 ? " beside other outputs"
 		             : xr_strcmp(g_bus_lanes[found]->owner, owner) ? " of another owner"
-		             : sorted.group_y != 1 ? ", its group takes y = 1" : nullptr;
+		             : !sorted.grid && !sorted.indirect.size() && sorted.group_y != 1 ? ", its group takes y = 1" : nullptr;
 		if (why)
 		{
 			ShaderBus::note_refusal(id, "an output is a buffer lane it cannot write");
 			Msg("! [SHADER-BUS] pass '%s' refused, output '%s' is a buffer lane%s", id, sorted.outputs[i].c_str(), why);
 			return 0;
 		}
+	}
+	// the indirect lane is a buffer lane of the pass's owner
+	const int args = sorted.indirect.size() ? bus_find(sorted.indirect.c_str()) : -1;
+	if (args >= 0 && g_bus_lanes[args]->buffer_rows && xr_strcmp(g_bus_lanes[args]->owner, owner))
+	{
+		ShaderBus::note_refusal(id, "an indirect lane of another owner");
+		Msg("! [SHADER-BUS] pass '%s' refused, indirect lane '%s' is a buffer lane of another owner", id, sorted.indirect.c_str());
+		return 0;
 	}
 	if (!bus_role_free(id, owner, role_pass) || !bus_room(id, nullptr))
 		return 0;

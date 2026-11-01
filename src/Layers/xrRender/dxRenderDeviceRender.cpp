@@ -409,8 +409,11 @@ struct bus_buffer_slot
 #if defined(USE_DX11)
 	// the compute view of a buffer a compute pass writes, null for one the rows upload into
 	ID3D11UnorderedAccessView* uav;
+	// a uint buffer as one uint an element, four a row, for atomics
+	ID3D11UnorderedAccessView* uav_scalar;
 #endif
 	bool gpu;
+	bool args;
 	u32 rows;
 	u8 kind;
 	u32 uploaded;
@@ -440,18 +443,20 @@ static void bus_buffers_update()
 			slot->lane = l;
 		}
 
-		if (slot->rows != l->buffer_bound || slot->kind != l->buffer_kind || slot->gpu != l->buffer_gpu)
+		if (slot->rows != l->buffer_bound || slot->kind != l->buffer_kind || slot->gpu != l->buffer_gpu || slot->args != l->buffer_args)
 		{
 			if (slot->alias)
 				slot->alias->surface_set(nullptr);
 #if defined(USE_DX11)
 			_RELEASE(slot->uav);
+			_RELEASE(slot->uav_scalar);
 #endif
 			_RELEASE(slot->view);
 			_RELEASE(slot->buffer);
 			slot->rows = l->buffer_bound;
 			slot->kind = l->buffer_kind;
 			slot->gpu = l->buffer_gpu;
+			slot->args = l->buffer_args;
 			slot->uploaded = l->changes - 1;
 			++slot->creates;
 
@@ -471,13 +476,19 @@ static void bus_buffers_update()
 #if defined(USE_DX11)
 			if (slot->gpu)
 				bd.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
+			if (slot->args)
+				bd.MiscFlags = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
 			D3D11_UNORDERED_ACCESS_VIEW_DESC ud = {};
 			ud.Format = vd.Format;
 			ud.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 			ud.Buffer.NumElements = l->buffer_bound;
+			D3D11_UNORDERED_ACCESS_VIEW_DESC us = ud;
+			us.Format = DXGI_FORMAT_R32_UINT;
+			us.Buffer.NumElements = l->buffer_bound * 4;
 			const bool made = SUCCEEDED(HW.pDevice->CreateBuffer(&bd, nullptr, &slot->buffer)) &&
 				SUCCEEDED(HW.pDevice->CreateShaderResourceView(slot->buffer, &vd, &slot->view)) &&
-				(!slot->gpu || SUCCEEDED(HW.pDevice->CreateUnorderedAccessView(slot->buffer, &ud, &slot->uav)));
+				(!slot->gpu || SUCCEEDED(HW.pDevice->CreateUnorderedAccessView(slot->buffer, &ud, &slot->uav))) &&
+				(!slot->gpu || !uint_rows || SUCCEEDED(HW.pDevice->CreateUnorderedAccessView(slot->buffer, &us, &slot->uav_scalar)));
 #else
 			const bool made = SUCCEEDED(HW.pDevice->CreateBuffer(&bd, nullptr, &slot->buffer)) &&
 				SUCCEEDED(HW.pDevice->CreateShaderResourceView(slot->buffer, &vd, &slot->view));
@@ -485,6 +496,10 @@ static void bus_buffers_update()
 			if (!made)
 			{
 				Msg("! [SHADER-BUS] lane '%s' buffer of %u rows could not be created", l->id.c_str(), l->buffer_bound);
+#if defined(USE_DX11)
+				_RELEASE(slot->uav);
+				_RELEASE(slot->uav_scalar);
+#endif
 				_RELEASE(slot->view);
 				_RELEASE(slot->buffer);
 				continue;
@@ -517,6 +532,7 @@ static void bus_buffers_release()
 			slot.alias->surface_set(nullptr);
 #if defined(USE_DX11)
 		_RELEASE(slot.uav);
+		_RELEASE(slot.uav_scalar);
 #endif
 		_RELEASE(slot.view);
 		_RELEASE(slot.buffer);
@@ -526,19 +542,32 @@ static void bus_buffers_release()
 
 #if defined(USE_DX11)
 // the UAV, rows and alias of a buffer lane, false for a lane with no buffer
-bool bus_buffer_uav(const shared_str& id, ID3D11UnorderedAccessView*& uav, u32& rows, CTexture*& alias)
+bool bus_buffer_uav(const shared_str& id, bool scalar, ID3D11UnorderedAccessView*& uav, u32& rows, CTexture*& alias)
 {
 	for (u32 i = 0; i < bus_buffer_slots.size(); ++i)
 	{
 		const bus_buffer_slot& slot = bus_buffer_slots[i];
 		if (!slot.rows || !slot.lane->id.equal(id))
 			continue;
-		uav = slot.uav;
+		uav = scalar ? slot.uav_scalar : slot.uav;
 		rows = slot.rows;
 		alias = slot.alias._get();
 		return true;
 	}
 	return false;
+}
+
+// the buffer a compute pass of the owner dispatches from, null until it holds the row
+ID3D11Buffer* bus_buffer_args(const shared_str& id, const shared_str& owner, u32 row)
+{
+	for (u32 i = 0; i < bus_buffer_slots.size(); ++i)
+	{
+		const bus_buffer_slot& slot = bus_buffer_slots[i];
+		if (!slot.rows || !slot.lane->id.equal(id))
+			continue;
+		return slot.args && row < slot.rows && slot.kind == ShaderBus::kind_uint && slot.lane->owner.equal(owner) ? slot.buffer : nullptr;
+	}
+	return nullptr;
 }
 
 // copies the rows a lane reads from a buffer lane into a free staging slot of its ring

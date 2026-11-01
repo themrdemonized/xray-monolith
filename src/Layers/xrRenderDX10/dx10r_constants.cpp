@@ -305,6 +305,7 @@ BOOL R_constant_table::parseResources(ID3DShaderReflection* pReflection, int Res
 			L.cls = type;
 			C->dimension = u8(ResDesc.Dimension);
 			C->return_type = u8(ResDesc.ReturnType);
+			C->components = u8(((ResDesc.uFlags & D3D_SIF_TEXTURE_COMPONENTS) >> 2) + 1);
 			table.push_back(C);
 		}
 		else
