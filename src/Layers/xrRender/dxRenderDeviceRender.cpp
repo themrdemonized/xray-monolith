@@ -73,10 +73,12 @@ static void bus_textures_update()
 }
 
 #if defined(USE_DX11)
+CRT* bus_target_rt(const shared_str& id, bool prev);
+
 // one staging copy of a readback block and the frame, level and request it was taken for
 struct bus_readback_slot
 {
-	ID3D11Texture2D* staging;
+	ID3D11Resource* staging;
 	u32 frame;
 	u32 epoch;
 	u32 generation;
@@ -115,6 +117,92 @@ static void bus_readback_land(ShaderBus::lane* l, u8 state, u32 frame)
 	r.landed_new = true;
 }
 
+// the lane's ring, added on its first copy
+static bus_readback_ring* bus_readback_ring_of(ShaderBus::lane* l)
+{
+	for (u32 k = 0; k < bus_readback_rings.size(); ++k)
+		if (bus_readback_rings[k].lane == l)
+			return &bus_readback_rings[k];
+	bus_readback_rings.push_back(bus_readback_ring());
+	bus_readback_ring* ring = &bus_readback_rings.back();
+	ring->lane = l;
+	return ring;
+}
+
+// copies one lane's block of res into a free staging slot of its ring
+static void bus_readback_copy(ShaderBus::lane* l, ID3D11Resource* res)
+{
+	const ShaderBus::lane_readback& r = *l->readback;
+	D3D_TEXTURE2D_DESC desc;
+	static_cast<ID3D11Texture2D*>(res)->GetDesc(&desc);
+	const bool readable = desc.SampleDesc.Count == 1 && (desc.Format == DXGI_FORMAT_R8G8B8A8_UNORM ||
+		desc.Format == DXGI_FORMAT_R16G16B16A16_FLOAT || desc.Format == DXGI_FORMAT_R10G10B10A2_UNORM ||
+		desc.Format == DXGI_FORMAT_R16G16_FLOAT || desc.Format == DXGI_FORMAT_R16_FLOAT || desc.Format == DXGI_FORMAT_R32_FLOAT ||
+		desc.Format == DXGI_FORMAT_R32G32B32A32_FLOAT || desc.Format == DXGI_FORMAT_R11G11B10_FLOAT);
+
+	bus_readback_ring* ring = bus_readback_ring_of(l);
+
+	if (!readable)
+	{
+		if (!ring->warned)
+			Msg("! [SHADER-BUS] lane '%s' readback refused, the source is multisampled or in format %u",
+			    l->id.c_str(), u32(desc.Format));
+		ring->warned = true;
+		bus_readback_land(l, ShaderBus::readback_refused, Device.dwFrame);
+		return;
+	}
+
+	// the block stays inside the target, centred on the texel under x, y
+	const u32 w = _min(u32(r.w), desc.Width);
+	const u32 h = _min(u32(r.h), desc.Height);
+	const u32 left = u32(clampr(int(r.x * float(desc.Width)) - int(w / 2), 0, int(desc.Width - w)));
+	const u32 top = u32(clampr(int(r.y * float(desc.Height)) - int(h / 2), 0, int(desc.Height - h)));
+
+	if (ring->format != desc.Format || ring->w != w || ring->h != h)
+	{
+		bus_readback_free(*ring);
+		ring->format = desc.Format;
+		ring->w = w;
+		ring->h = h;
+	}
+
+	bus_readback_slot* slot = nullptr;
+	for (u32 k = 0; k < ShaderBus::readback_ring && !slot; ++k)
+		if (!ring->slots[k].busy)
+			slot = &ring->slots[k];
+	if (!slot)
+		return;
+
+	if (!slot->staging)
+	{
+		D3D_TEXTURE2D_DESC sd;
+		sd.Width = w;
+		sd.Height = h;
+		sd.MipLevels = 1;
+		sd.ArraySize = 1;
+		sd.SampleDesc.Count = 1;
+		sd.SampleDesc.Quality = 0;
+		sd.Format = desc.Format;
+		sd.Usage = D3D_USAGE_STAGING;
+		sd.BindFlags = 0;
+		sd.CPUAccessFlags = D3D_CPU_ACCESS_READ;
+		sd.MiscFlags = 0;
+		ID3D11Texture2D* staging = nullptr;
+		if (FAILED(HW.pDevice->CreateTexture2D(&sd, 0, &staging)))
+			return;
+		slot->staging = staging;
+	}
+
+	D3D11_BOX box = { left, top, 0, left + w, top + h, 1 };
+	HW.pContext->CopySubresourceRegion(slot->staging, 0, 0, 0, 0, res, 0, &box);
+	slot->frame = Device.dwFrame;
+	slot->epoch = ShaderBus::level_epoch();
+	slot->generation = r.generation;
+	slot->busy = true;
+}
+
+static void bus_readback_copy_rows(ShaderBus::lane* l);
+
 // copies the block of every armed lane reading this source, null reads the back buffer
 void bus_readback_capture(u32 source, ID3D11Resource* res)
 {
@@ -127,101 +215,45 @@ void bus_readback_capture(u32 source, ID3D11Resource* res)
 	u32 first = 0;
 	while (first < lanes.size() && lanes[first]->readback->source != source)
 		++first;
-	if (first == lanes.size())
-		return;
 
 	ID3DTexture2D* buffer = nullptr;
-	if (!res)
-	{
-		if (FAILED(HW.m_pSwapChain->GetBuffer(0, __uuidof(ID3DTexture2D), (LPVOID*)&buffer)))
-			return;
+	if (first < lanes.size() && !res && SUCCEEDED(HW.m_pSwapChain->GetBuffer(0, __uuidof(ID3DTexture2D), (LPVOID*)&buffer)))
 		res = buffer;
-	}
 
-	D3D_TEXTURE2D_DESC desc;
-	static_cast<ID3D11Texture2D*>(res)->GetDesc(&desc);
-	const bool readable = desc.SampleDesc.Count == 1 && (desc.Format == DXGI_FORMAT_R8G8B8A8_UNORM ||
-		desc.Format == DXGI_FORMAT_R16G16B16A16_FLOAT || desc.Format == DXGI_FORMAT_R10G10B10A2_UNORM);
-
-	for (u32 i = first; i < lanes.size(); ++i)
-	{
-		ShaderBus::lane* l = lanes[i];
-		const ShaderBus::lane_readback& r = *l->readback;
-		if (r.source != source)
-			continue;
-
-		bus_readback_ring* ring = nullptr;
-		for (u32 k = 0; k < bus_readback_rings.size() && !ring; ++k)
-			if (bus_readback_rings[k].lane == l)
-				ring = &bus_readback_rings[k];
-		if (!ring)
-		{
-			bus_readback_rings.push_back(bus_readback_ring());
-			ring = &bus_readback_rings.back();
-			ring->lane = l;
-		}
-
-		if (!readable)
-		{
-			if (!ring->warned)
-				Msg("! [SHADER-BUS] lane '%s' readback refused, the source is multisampled or in format %u",
-				    l->id.c_str(), u32(desc.Format));
-			ring->warned = true;
-			bus_readback_land(l, ShaderBus::readback_refused, Device.dwFrame);
-			continue;
-		}
-
-		// the block stays inside the target, centred on the texel under x, y
-		const u32 w = _min(u32(r.w), desc.Width);
-		const u32 h = _min(u32(r.h), desc.Height);
-		const u32 left = u32(clampr(int(r.x * float(desc.Width)) - int(w / 2), 0, int(desc.Width - w)));
-		const u32 top = u32(clampr(int(r.y * float(desc.Height)) - int(h / 2), 0, int(desc.Height - h)));
-
-		if (ring->format != desc.Format || ring->w != w || ring->h != h)
-		{
-			bus_readback_free(*ring);
-			ring->format = desc.Format;
-			ring->w = w;
-			ring->h = h;
-		}
-
-		bus_readback_slot* slot = nullptr;
-		for (u32 k = 0; k < ShaderBus::readback_ring && !slot; ++k)
-			if (!ring->slots[k].busy)
-				slot = &ring->slots[k];
-		if (!slot)
-			continue;
-
-		if (!slot->staging)
-		{
-			D3D_TEXTURE2D_DESC sd;
-			sd.Width = w;
-			sd.Height = h;
-			sd.MipLevels = 1;
-			sd.ArraySize = 1;
-			sd.SampleDesc.Count = 1;
-			sd.SampleDesc.Quality = 0;
-			sd.Format = desc.Format;
-			sd.Usage = D3D_USAGE_STAGING;
-			sd.BindFlags = 0;
-			sd.CPUAccessFlags = D3D_CPU_ACCESS_READ;
-			sd.MiscFlags = 0;
-			if (FAILED(HW.pDevice->CreateTexture2D(&sd, 0, &slot->staging)))
-			{
-				slot->staging = nullptr;
-				continue;
-			}
-		}
-
-		D3D11_BOX box = { left, top, 0, left + w, top + h, 1 };
-		HW.pContext->CopySubresourceRegion(slot->staging, 0, 0, 0, 0, res, 0, &box);
-		slot->frame = Device.dwFrame;
-		slot->epoch = ShaderBus::level_epoch();
-		slot->generation = r.generation;
-		slot->busy = true;
-	}
+	for (u32 i = first; res && i < lanes.size(); ++i)
+		if (lanes[i]->readback->source == source)
+			bus_readback_copy(lanes[i], res);
 
 	_RELEASE(buffer);
+
+	if (source != ShaderBus::readback_backbuffer)
+		return;
+
+	// targets copy after the frame's last pass, with the back buffer
+	for (u32 i = 0; i < lanes.size(); ++i)
+	{
+		const ShaderBus::lane_readback& r = *lanes[i]->readback;
+		if (r.source == ShaderBus::readback_buffer)
+			bus_readback_copy_rows(lanes[i]);
+		if (r.source != ShaderBus::readback_target && r.source != ShaderBus::readback_history)
+			continue;
+		CRT* rt = bus_target_rt(r.source_id, r.source == ShaderBus::readback_history);
+		if (rt && rt->pSurface)
+			bus_readback_copy(lanes[i], rt->pSurface);
+	}
+}
+
+// an unsigned float of five exponent bits and m mantissa bits
+static float bus_small_float(u32 v, u32 m)
+{
+	const u32 e = v >> m;
+	const u32 f = v & ((1u << m) - 1);
+	if (e == 0)
+		return float(f) / float(1u << (14 + m));
+	const u32 bits = (e == 31 ? 255u << 23 : (e + 112) << 23) | (f << (23 - m));
+	float out;
+	CopyMemory(&out, &bits, sizeof(out));
+	return out;
 }
 
 // decodes the copies the GPU has finished, oldest first, without waiting on one
@@ -236,6 +268,7 @@ static void bus_readback_poll()
 		ShaderBus::lane_readback& r = *ring.lane->readback;
 		if (r.source == ShaderBus::readback_off)
 		{
+			r.landed_inflight = 0;
 			bus_readback_free(ring);
 			bus_readback_rings.erase(bus_readback_rings.begin() + i);
 			continue;
@@ -288,6 +321,34 @@ static void bus_readback_poll()
 						           float((v >> 20) & 1023) / 1023.f, float(v >> 30) / 3.f);
 					}
 					break;
+				case DXGI_FORMAT_R32G32B32A32_FLOAT:
+				case DXGI_FORMAT_UNKNOWN:
+					CopyMemory(dst, src, ring.w * 16);
+					break;
+				case DXGI_FORMAT_R32_FLOAT:
+					for (u32 x = 0; x < ring.w; ++x)
+						dst[x].set(((const float*)src)[x], 0.f, 0.f, 1.f);
+					break;
+				case DXGI_FORMAT_R16_FLOAT:
+				case DXGI_FORMAT_R16G16_FLOAT:
+				{
+					const u32 n = ring.format == DXGI_FORMAT_R16G16_FLOAT ? 2 : 1;
+					for (u32 x = 0; x < ring.w; ++x)
+					{
+						float v[2] = { 0.f, 0.f };
+						D3DXFloat16To32Array(v, (const D3DXFLOAT16*)src + x * n, n);
+						dst[x].set(v[0], v[1], 0.f, 1.f);
+					}
+					break;
+				}
+				case DXGI_FORMAT_R11G11B10_FLOAT:
+					for (u32 x = 0; x < ring.w; ++x)
+					{
+						const u32 v = ((const u32*)src)[x];
+						dst[x].set(bus_small_float(v & 2047, 6), bus_small_float((v >> 11) & 2047, 6),
+						           bus_small_float(v >> 22, 5), 1.f);
+					}
+					break;
 				default:
 					D3DXFloat16To32Array(&dst->x, (const D3DXFLOAT16*)src, ring.w * 4);
 					break;
@@ -317,6 +378,11 @@ static void bus_readback_poll()
 			}
 			bus_readback_land(ring.lane, ShaderBus::readback_ok, slot->frame);
 		}
+
+		u8 busy = 0;
+		for (u32 k = 0; k < ShaderBus::readback_ring; ++k)
+			busy += ring.slots[k].busy ? 1 : 0;
+		r.landed_inflight = busy;
 	}
 }
 
@@ -327,6 +393,7 @@ static void bus_readback_release()
 	{
 		bus_readback_free(bus_readback_rings[i]);
 		bus_readback_land(bus_readback_rings[i].lane, ShaderBus::readback_none, 0);
+		bus_readback_rings[i].lane->readback->landed_inflight = 0;
 	}
 }
 #endif
@@ -472,6 +539,60 @@ bool bus_buffer_uav(const shared_str& id, ID3D11UnorderedAccessView*& uav, u32& 
 		return true;
 	}
 	return false;
+}
+
+// copies the rows a lane reads from a buffer lane into a free staging slot of its ring
+static void bus_readback_copy_rows(ShaderBus::lane* l)
+{
+	const ShaderBus::lane_readback& r = *l->readback;
+	const bus_buffer_slot* buffer = nullptr;
+	for (u32 i = 0; i < bus_buffer_slots.size() && !buffer; ++i)
+		if (bus_buffer_slots[i].buffer && bus_buffer_slots[i].lane->id.equal(r.source_id))
+			buffer = &bus_buffer_slots[i];
+	if (!buffer || r.first >= buffer->rows)
+		return;
+	const u32 count = _min(u32(r.count), buffer->rows - r.first);
+
+	bus_readback_ring* ring = bus_readback_ring_of(l);
+	if (buffer->kind == ShaderBus::kind_uint && r.reduce != ShaderBus::reduce_none)
+	{
+		if (!ring->warned)
+			Msg("! [SHADER-BUS] lane '%s' readback refused, a reduce of uint rows", l->id.c_str());
+		ring->warned = true;
+		bus_readback_land(l, ShaderBus::readback_refused, Device.dwFrame);
+		return;
+	}
+
+	if (ring->format != DXGI_FORMAT_UNKNOWN || ring->w != count)
+	{
+		bus_readback_free(*ring);
+		ring->format = DXGI_FORMAT_UNKNOWN;
+		ring->w = count;
+		ring->h = 1;
+	}
+
+	bus_readback_slot* slot = nullptr;
+	for (u32 k = 0; k < ShaderBus::readback_ring && !slot; ++k)
+		if (!ring->slots[k].busy)
+			slot = &ring->slots[k];
+	if (!slot)
+		return;
+
+	if (!slot->staging)
+	{
+		const D3D11_BUFFER_DESC sd = { count * 16, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ, 0, 0 };
+		ID3D11Buffer* staging = nullptr;
+		if (FAILED(HW.pDevice->CreateBuffer(&sd, 0, &staging)))
+			return;
+		slot->staging = staging;
+	}
+
+	D3D11_BOX box = { r.first * 16, 0, 0, (r.first + count) * 16, 1, 1 };
+	HW.pContext->CopySubresourceRegion(slot->staging, 0, 0, 0, 0, buffer->buffer, 0, &box);
+	slot->frame = Device.dwFrame;
+	slot->epoch = ShaderBus::level_epoch();
+	slot->generation = r.generation;
+	slot->busy = true;
 }
 #endif
 

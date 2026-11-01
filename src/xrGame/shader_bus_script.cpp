@@ -261,6 +261,14 @@ static bool bus_set_readback(u32 token, LPCSTR source, float x, float y, double 
 	return ShaderBus::set_readback(token, source, x, y, width, height, reduce);
 }
 
+static bool bus_set_readback_rows(u32 token, LPCSTR source, double first, double count, LPCSTR reduce)
+{
+	u32 row, rows;
+	if (!bus_uint_value(first, row) || !bus_uint_value(count, rows))
+		return ShaderBus::refuse_write(token, "a readback row that is not a whole number");
+	return ShaderBus::set_readback_rows(token, source, row, rows, reduce);
+}
+
 static bool bus_readback_texel(LPCSTR id, u32 i, float& x, float& y, float& z, float& w, u32& frame)
 {
 	Fvector4 v;
@@ -285,6 +293,35 @@ static bool bus_get_readback_row(LPCSTR id, double i, float& x, float& y, float&
 {
 	u32 texel;
 	return bus_readback_texel(id, bus_uint_value(i, texel) ? texel : u32(-1), x, y, z, w, frame);
+}
+
+// raw unsigned values of a result read from uint rows
+static bool bus_readback_texel_uint(LPCSTR id, u32 i, u32& x, u32& y, u32& z, u32& w, u32& frame)
+{
+	Fvector4 v;
+	frame = 0;
+	const bool found = ShaderBus::get_readback(id, i, v, frame);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	u32 raw[4];
+	CopyMemory(raw, &v, sizeof(raw));
+	x = raw[0];
+	y = raw[1];
+	z = raw[2];
+	w = raw[3];
+	return found;
+}
+
+static bool bus_get_readback_uint(LPCSTR id, u32& x, u32& y, u32& z, u32& w, u32& frame)
+{
+	return bus_readback_texel_uint(id, 0, x, y, z, w, frame);
+}
+
+static bool bus_get_readback_uint_row(LPCSTR id, double i, u32& x, u32& y, u32& z, u32& w, u32& frame)
+{
+	u32 texel;
+	return bus_readback_texel_uint(id, bus_uint_value(i, texel) ? texel : u32(-1), x, y, z, w, frame);
 }
 
 static bool bus_set_buffer(u32 token, double rows)
@@ -804,6 +841,7 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["writers"] = ShaderBus::writer_count(l);
 		row["texture"] = l->texture_bound.size() ? l->texture_bound.c_str() : "";
 		row["readback"] = l->readback ? readback_states[l->readback->state] : "none";
+		row["readback_inflight"] = l->readback ? u32(l->readback->inflight) : 0u;
 		row["buffer_rows"] = l->buffer_bound;
 		row["late"] = l->late;
 		row["refusals"] = l->refusals;
@@ -927,6 +965,11 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("get_readback", &bus_get_readback,
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
 		def("get_readback", &bus_get_readback_row,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>() + pure_out_value<7>()),
+		def("set_readback_rows", &bus_set_readback_rows),
+		def("get_readback_uint", &bus_get_readback_uint,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("get_readback_uint", &bus_get_readback_uint_row,
 		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>() + pure_out_value<7>()),
 		def("set_buffer", &bus_set_buffer),
 		def("set_late", &bus_set_late),

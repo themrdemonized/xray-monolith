@@ -167,7 +167,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.set_object(token, obj, x, y, z, w)` | `true` if the token is valid, the lane id starts `obj_`, `obj` is a game object, a `ScriptAttachment` or a particles object and all four values are finite. Draws of that object read the value from the next frame on, until `clear_object` or the object goes away. The first refusal on each lane logs a line |
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
 | `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. A target or history lane refuses. The first refusal on each lane logs a line |
-| `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene` or `backbuffer`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
+| `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene`, `backbuffer`, a render target id or its `<id>_prev`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
 | `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX10 and DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
 | `shader_bus.set_late(token, on)` | `true` if the token is valid and the lane is not shared. From the next frame on, `true` copies the lane again after the frame callbacks, so a write from those callbacks reaches the same frame's draws, and `false` stops it. The first refusal on each lane logs a line. See Late lanes |
 | `shader_bus.register_target(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id over 27 characters or one the engine reserves, an id another `owner` or another kind of lane holds, a renderer without targets, 16 live targets or targets that would pass 1024 MB. See Render targets and passes |
@@ -177,6 +177,9 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.release_target(token)` | `true` if the token is a target. The target and its history are freed and the id can be registered again |
 | `shader_bus.get_readback(id)` | `ok, x, y, z, w, frame`, texel 0 of the lane's last readback result and the frame it was captured on, `false` with zeros while there is no result |
 | `shader_bus.get_readback(id, i)` | the same for texel `i` (0-based, row-major) of a `none` result, `false` past the last texel. A reduced result has only texel `0` |
+| `shader_bus.set_readback_rows(token, source, first, count, reduce)` | `true` if the token is valid and `source` is a buffer lane. Arms a readback of `count` rows, `1` to `1024`, from row `first` of the buffer, read after the frame's last pass. `reduce` as for `set_readback`, refused for uint rows. See Readback |
+| `shader_bus.get_readback_uint(id)` | `ok, x, y, z, w, frame` as unsigned integers, for a result read from uint rows |
+| `shader_bus.get_readback_uint(id, i)` | the same for row `i` of the result |
 | `shader_bus.get_pass_time(id)` | `ok, x, y, z, w, frame`, the `pass_time` of the pass's last run and the frame it ran in, `false` for a pass that has not run since it last registered (see pass_time) |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
 | `shader_bus.get_uint(id)` | `ok, a, b, c, d`, the bound value read as four unsigned integers |
@@ -208,7 +211,8 @@ last write stored, or what a shader declared before any write), `declared_kinds`
 every kind a shader declared the lane as), `objects` (how many objects have their own value on an
 object lane), `shared` (`true` for a shared lane), `writers` (how many tokens a shared lane has
 handed out, `1` for a registered lane that is not shared), `texture` (the texture the lane shows,
-empty for none), `readback` (`none`, `ok`, `refused` or `lost`, see Readback), `buffer_rows` (the
+empty for none), `readback` (`none`, `ok`, `refused` or `lost`, see Readback), `readback_inflight`
+(the copies taken and not yet decoded, `0` to `3`), `buffer_rows` (the
 rows of a buffer lane as of the last frame, `0` for a lane that is not one), `late` (the last
 `set_late` value, the lane latches late from the next frame), `refusals` (how many writes the lane
 refused) and `refusal` (the reason of the last one, empty for none), and, on a legacy row only,
@@ -257,6 +261,12 @@ line and `nil`, never a fatal. A script checks for an engine lane with
 `shader_bus.owner_of("engine_sun_los") == "engine"`. The prefix also covers the texture
 `$user$bus_engine_scene_copy`, which a pass reads as `s_image` at the `scene` stage (see Render
 targets and passes). `register_target` and `register_pass` refuse an `engine_` id too.
+
+On DX11 the engine also keeps a render target a pass can list in `inputs`,
+`$user$ssfx_motion_vectors`, with four 16-bit float channels, multisampled under MSAA. It holds
+whatever the shaders write into it, and the engine gives its channels no meaning. The stock shaders
+never write it. The engine clears it each frame only when `shaders\r3\screenspace_mvectors.h`
+exists, so without that file it is never cleared.
 
 ### Console lanes
 
@@ -477,7 +487,7 @@ bit from the lane and tests it against the mask.
 | `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere and the lane reads `0`. The bit returns to the pool after the next level load, and until then `register_mask` with the same id and `owner` takes it back, with the objects that still carry it |
 
 A mask lane takes no other write: `set`, `set_uint`, `set_array`, `set_array_uint`, `set_texture`,
-`set_readback` and `set_buffer` refuse it, and the first refusal logs a line.
+`set_readback`, `set_readback_rows` and `set_buffer` refuse it, and the first refusal logs a line.
 Its `list` row has
 `role` `mask` and `mask_bit`, the bit it holds, until a released bit returns to the pool. An exe
 before version `8` has no `register_mask`, so check `shader_bus.register_mask ~= nil` before
@@ -625,12 +635,20 @@ if ok and device().frame - frame < 10 then level_light = 0.2126 * r + 0.7152 * g
 | `light` | the light accumulation before the combine, linear and unbounded |
 | `scene` | the combined scene before bloom |
 | `backbuffer` | the finished frame before the UI |
+| `<target id>` or `<target id>_prev` | a render target of the bus or its history, after the frame's last pass |
+
+`set_readback_rows` reads rows of a buffer lane instead of a block of texels, one result texel a
+row in order. Rows past the end of the buffer are left out of the result: a `count` that runs past
+the end is cut short, and a `first` past the end is accepted, copies nothing and leaves the result
+`none`. A `first` of 65536 or more is refused, as no buffer holds that many rows. A reduce of uint
+rows is refused with one log line.
 
 The block is `w` by `h` texels centred on the texel under `x, y` of the target, moved inward where
 it would cross an edge. The result holds every texel in rows, left to right and top to bottom,
 for `none`, or one texel with the per component mean, minimum or maximum of the block for `mean`,
 `min` and `max`. Each texel is `x, y, z, w` as the red, green, blue and alpha of the target, from
-`0` to `1` for the 8 and 10 bit targets.
+`0` to `1` for the `rgba8` and `rgb10a2` targets. A component the target's format lacks reads `0`,
+and a missing alpha `1`.
 
 `frame` is the `device().frame` of the frame the block was captured on. A result arrives two to
 three frames after its capture, and a script that needs a fresh value compares `frame` with
@@ -641,24 +659,26 @@ The `readback` key of a `list` row says where the lane stands:
 - `none`, no result yet, after a change of request, a level load or a device reset, or for a lane
   that never armed one
 - `ok`, `get_readback` has a result
-- `refused`, the source cannot be read back, a multisampled target or a format the engine cannot
-  decode, with one log line until the lane disarms
+- `refused`, the source cannot be read back, a multisampled source or a reduce of uint rows, with
+  one log line until the lane disarms
 - `lost`, the last copy failed, and `get_readback` returns `false` until the next result
 
 Limits:
 - 16 armed lanes, at most 32 texels a side, and at most 3 copies in flight per lane. A lane whose
   copies are all still in flight skips the copy that frame.
-- DX11 only. Every other renderer refuses `set_readback`.
+- DX11 only. Every other renderer refuses `set_readback` and `set_readback_rows`.
 - A level load and a device reset drop every result. Frames that skip Present, such as second
   viewport frames, capture nothing.
 - The block reads whatever the frame drew there, the player's hands and weapon included.
+- A target source copies with the back buffer, and stops landing while the target is released or
+  not yet made.
 - An older exe has no `set_readback`, so check `shader_bus.set_readback ~= nil` before calling it.
 
 ### Buffer lanes
 
 `set_buffer` makes a lane a buffer that a `Buffer<float4>` or `Buffer<uint4>` declaration reads,
 and `set_array` or `set_array_uint` fill its rows as on any lane. Row 0 is still the value `set`
-writes.
+writes. A script reads rows a compute pass wrote with `set_readback_rows`.
 
 ```lua
 local token = shader_bus.register("marks", "My Mod", "marker positions")
@@ -1143,5 +1163,5 @@ exes from version `7` on pass.
 - **The mask target needs MSAA off.** With MSAA on the engine logs one `!` line, keeps no target,
   and the mask reads `0`.
 - **A mask lane holds only its bit.** `set`, `set_uint`, the row calls, `set_texture`,
-  `set_readback` and `set_buffer` refuse it, so it reads the bit `register_mask`
+  `set_readback`, `set_readback_rows` and `set_buffer` refuse it, so it reads the bit `register_mask`
   wrote, or `0` after `release_mask`.
