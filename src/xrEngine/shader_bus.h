@@ -486,9 +486,10 @@ namespace ShaderBus
 	ENGINE_API bool get_gpu_status(const shared_str& id, gpu_status& status);
 	ENGINE_API bool target_get(const shared_str& id, target_spec& out);
 	ENGINE_API bool pass_get(const shared_str& id, pass_spec& out);
-	// the render side notes every pass run, get_pass_time gives the last pass_time and its frame
+	// the render side notes every pass run, get_pass_time gives the last pass_time and the frames since it
+	// as of the last per-frame update
 	ENGINE_API void set_pass_time(const shared_str& id, const Fvector4& time, u32 frame);
-	ENGINE_API bool get_pass_time(LPCSTR id, Fvector4& time, u32& frame);
+	ENGINE_API bool get_pass_time(LPCSTR id, Fvector4& time, u32& frames);
 
 	ENGINE_API void dump();
 	ENGINE_API int version();
