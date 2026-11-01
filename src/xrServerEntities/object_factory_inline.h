@@ -107,6 +107,11 @@ IC int CObjectFactory::script_clsid(const CLASS_ID& clsid) const
 	return (int(I - clsids().begin()));
 }
 
+IC int CObjectFactory::script_clsid(LPCSTR classname)
+{
+    return script_clsid(TEXT2CLSID(classname));
+}
+
 #ifndef NO_XR_GAME
 IC CObjectFactory::CLIENT_BASE_CLASS* CObjectFactory::client_object(const CLASS_ID& clsid) const
 {

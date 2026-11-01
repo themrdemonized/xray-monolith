@@ -260,6 +260,7 @@ void attachable_hud_item::update(bool bForce)
 		m_item_transform.mulB_43(hud_rotation);
 	}
 	else {
+        m_item_transform_prev = m_item_transform;
 		m_parent->calc_transform(m_attach_place_idx, m_attach_offset, m_item_transform, m_measures.m_bLeadGunLeftHand);
 		m_upd_firedeps_frame = Device.dwFrame;
 	}
@@ -573,6 +574,10 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	strconcat(sizeof(val_name), val_name, "attach_mount_hud_offset_rot", _prefix);
 	m_hands_offset[1][7] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 
+    //custom HUD offset
+    m_hands_offset[0][8] = Fvector().set(0, 0, 0);
+    m_hands_offset[1][8] = Fvector().set(0, 0, 0);
+
 	m_fFreelookZOffset = READ_IF_EXISTS(pSettings, r_float, sect_name, "freelook_z_offset_mul", 0.f);
 	m_bLeadGunLeftHand = READ_IF_EXISTS(pSettings, r_bool, sect_name, "lh_lead_gun", false);
 
@@ -723,9 +728,11 @@ player_hud::player_hud()
 	m_attach_offset.identity();
 	m_attach_offset_2.identity();
 	m_transform.identity();
+	m_transform_prev.identity();
 	m_transform_2.identity();
 	m_ik_shoulder_reference[0].identity();
 	m_ik_shoulder_reference[1].identity();
+	m_transform_2_prev.identity();
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
 	script_anim_offset_factor = 0.f;
@@ -1555,7 +1562,9 @@ void player_hud::update(const Fmatrix& cam_trans)
 	m_attach_offset_2.setHPB(m2rot.x, m2rot.y, m2rot.z);
 	m_attach_offset_2.translate_over(m2pos);
 
+	m_transform_prev = m_transform;
 	m_transform.mul(trans, m_attach_offset);
+	m_transform_2_prev = m_transform_2;
 	m_transform_2.mul(trans_2, m_attach_offset_2);
 
 	for (int i = 0; i < 8; ++i)

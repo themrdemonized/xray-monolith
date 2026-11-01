@@ -2,6 +2,7 @@
 #include "MainMenu.h"
 #include "UI/UIDialogWnd.h"
 #include "ui/UIMessageBoxEx.h"
+#include "UI3dStatic.h"
 #include "../xrEngine/xr_IOConsole.h"
 #include "../xrEngine/IGame_Level.h"
 #include "../xrEngine/CameraManager.h"
@@ -432,10 +433,15 @@ void CMainMenu::OnRender()
 	if (use_reshade)
 		render_reshade_effects();
 
+	const bool render_pp_ui = OnRenderPPUI_query();
+	if (render_pp_ui)
+		CUI3dStatic::PrepareAtlas();
+
 	Render->Render();
 
-	if (!OnRenderPPUI_query())
+	if (!render_pp_ui)
 	{
+		CUI3dStatic::PrepareAtlas();
 		DoRenderDialogs();
 		UI().RenderFont();
 		draw_wnds_rects();
