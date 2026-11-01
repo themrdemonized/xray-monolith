@@ -49,7 +49,7 @@ public:
 	virtual void Compile(CBlender_Compile& C)
 	{
 		IBlender::Compile(C);
-		if (C.iElement != 0)
+		if (C.iElement > (spec->pingpong.size() ? 1 : 0))
 			return;
 
 		const BOOL blend = spec->blend != ShaderBus::blend_none;
@@ -88,12 +88,23 @@ public:
 			// alpha holds the specular, an alpha blended light pass keeps it
 			if (light && spec->blend == ShaderBus::blend_alpha)
 				C.r_ColorWriteEnable(true, true, true, false);
-			for (u32 i = 0; !writes_scene && i < spec->output_count; ++i)
+			for (u32 i = 0; !spec->pingpong.size() && !writes_scene && i < spec->output_count; ++i)
 			{
 				string64 own;
 				xr_sprintf(own, "bus_%s", spec->outputs[i].c_str());
 				if (C.r_Constant(own))
 					reason.printf("it reads its own output '%s'", spec->outputs[i].c_str());
+			}
+			// a pingpong pass reads the run before, the partner in element 0 and the output in element 1
+			if (spec->pingpong.size())
+			{
+				string64 own, texture;
+				xr_sprintf(own, "bus_%s", spec->outputs[0].c_str());
+				xr_sprintf(texture, "$user$bus_%s", C.iElement ? spec->outputs[0].c_str() : spec->pingpong.c_str());
+				bind(C, own, texture);
+				xr_sprintf(own, "bus_%s", spec->pingpong.c_str());
+				if (C.r_Constant(own))
+					reason.printf("it reads its pingpong target '%s'", spec->pingpong.c_str());
 			}
 		}
 		bool lists_image = false;
@@ -134,6 +145,8 @@ struct bus_pass_run
 	bool writes_buffer;
 	bool scalar;
 	u8 uav_slots[ShaderBus::max_pass_outputs];
+	// outputs with a mip chain, a bit each
+	u8 mips;
 	u32 enables;
 	u32 clears;
 	u32 runs;
@@ -182,6 +195,15 @@ static bool bus_pass_less(const bus_pass_run& a, const bus_pass_run& b)
 	return xr_strcmp(a.spec.id, b.spec.id) < 0;
 }
 
+// the live spec of a target id, null for none
+static const ShaderBus::target_spec* bus_target_spec(const xr_vector<ShaderBus::target_spec>& targets, const shared_str& id)
+{
+	for (u32 k = 0; k < targets.size(); ++k)
+		if (targets[k].id == id && !targets[k].released)
+			return &targets[k];
+	return nullptr;
+}
+
 // why a pass cannot run before it compiles, empty when it can
 static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, const xr_vector<ShaderBus::target_spec>& targets, shared_str& reason)
 {
@@ -194,6 +216,11 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 	if (r.writes_scene && p.stage == ShaderBus::stage_lighting && !RImplementation.o.fp16_blend)
 	{
 		reason = "light passes cannot blend under -r4xx";
+		return;
+	}
+	if (p.pingpong.size() && r.writes_scene)
+	{
+		reason = "repeated pixel passes cannot write the scene";
 		return;
 	}
 
@@ -244,6 +271,16 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 				return;
 			}
 		}
+		if (p.pingpong.size())
+		{
+			string64 pong;
+			xr_sprintf(pong, "$user$bus_%s", p.pingpong.c_str());
+			if (!xr_strcmp(name, pong))
+			{
+				reason.printf("it reads its pingpong target '%s'", p.pingpong.c_str());
+				return;
+			}
+		}
 	}
 
 	if (r.writes_scene)
@@ -261,12 +298,12 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 	}
 
 	CRT* first = bus_target_rt(p.outputs[0], false);
+	const ShaderBus::target_spec* own = nullptr;
 	for (u32 i = 0; i < p.output_count; ++i)
 	{
-		const ShaderBus::target_spec* t = nullptr;
-		for (u32 k = 0; k < targets.size(); ++k)
-			if (targets[k].id == p.outputs[i] && !targets[k].released)
-				t = &targets[k];
+		const ShaderBus::target_spec* t = bus_target_spec(targets, p.outputs[i]);
+		if (i == 0)
+			own = t;
 		CRT* rt = bus_target_rt(p.outputs[i], false);
 		if (!t || !rt || t->owner != p.owner)
 			reason.printf("output '%s' is not a target of '%s'", p.outputs[i].c_str(), p.owner.c_str());
@@ -277,6 +314,18 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		if (reason.size())
 			return;
 	}
+	if (!p.pingpong.size())
+		return;
+
+	// the partner takes every other run, so it matches the output
+	const ShaderBus::target_spec* t = bus_target_spec(targets, p.pingpong);
+	CRT* rt = bus_target_rt(p.pingpong, false);
+	if (!t || !rt || t->owner != p.owner)
+		reason.printf("pingpong '%s' is not a target of '%s'", p.pingpong.c_str(), p.owner.c_str());
+	else if (rt->dwWidth != first->dwWidth || rt->dwHeight != first->dwHeight || t->format != own->format || t->mips != own->mips)
+		reason.printf("pingpong '%s' differs from its output", p.pingpong.c_str());
+	else if (p.svp && t->history)
+		reason.printf("svp passes cannot write history target '%s'", p.pingpong.c_str());
 }
 
 // drops every pass shader and the scene scratch so none outlives a reset or the device, the next Begin rebuilds them
@@ -323,6 +372,7 @@ void bus_passes_update()
 		const ShaderBus::lane* l = p.cs.size() && p.output_count == 1 ? ShaderBus::find(p.outputs[0].c_str()) : nullptr;
 		r.writes_buffer = l && l->buffer_rows;
 		r.scalar = false;
+		r.mips = 0;
 		r.enables = 0;
 		r.clears = 0;
 		r.runs = 0;
@@ -378,6 +428,12 @@ void bus_passes_update()
 #endif
 			r.reads_image = blender.reads_image;
 			memcpy(r.uav_slots, blender.uav_slots, sizeof(r.uav_slots));
+			for (u32 o = 0; o < p.output_count && !r.writes_scene && !r.writes_buffer; ++o)
+			{
+				const ShaderBus::target_spec* t = bus_target_spec(targets, p.outputs[o]);
+				if (t && t->mips)
+					r.mips |= u8(1 << o);
+			}
 		}
 		CRT* scene = bus_scene_target(p.stage);
 		if (!reason.size() && r.reads_image && scene && scene->fmt != RImplementation.Target->rt_Generic_0->fmt)
@@ -416,8 +472,8 @@ void bus_passes_update()
 		std::sort(bus_runs[s].begin(), bus_runs[s].end(), bus_pass_less);
 }
 
-// moves the run counters of a pass, gives its pass_time and notes it for get_pass_time
-static void bus_pass_time(bus_pass_run& r, Fvector4& t)
+// moves the run counters of a pass, gives its pass_time and notes it for get_pass_time when note is set
+static void bus_pass_time(bus_pass_run& r, Fvector4& t, bool note = true)
 {
 	const u32 clears = r.writes_scene ? 0 : bus_target_clears(r.spec.outputs[0]);
 	if (clears != r.clears)
@@ -435,7 +491,19 @@ static void bus_pass_time(bus_pass_run& r, Fvector4& t)
 	r.last_frame = Device.dwFrame;
 	++r.runs;
 	t.set(dt, frames, runs_since, seed);
-	ShaderBus::set_pass_time(r.spec.id, t, Device.dwFrame);
+	if (note)
+		ShaderBus::set_pass_time(r.spec.id, t, Device.dwFrame);
+}
+
+// fills the chain of each output with mips from level 0
+static void bus_pass_mips(const bus_pass_run& r, CRT* const* out)
+{
+	for (u32 o = 0; o < ShaderBus::max_pass_outputs; ++o)
+		if (r.mips & (1 << o))
+		{
+			RCache.unbind_texture(&*out[o]->pTexture);
+			HW.pContext->GenerateMips(out[o]->pTexture->get_SRView());
+		}
 }
 
 #ifdef USE_DX11
@@ -482,29 +550,40 @@ static void bus_pass_compute(bus_pass_run& r)
 		HW.pContext->CSSetUnorderedAccessViews(r.uav_slots[o], 1, r.writes_buffer ? &uav : &out[o]->pUAView, nullptr);
 	const u32 gx = r.spec.group_x;
 	const u32 gy = r.spec.group_y;
-	if (args)
-		RCache.ComputeIndirect(args, r.spec.indirect_row * 16);
-	else if (r.spec.grid)
+	// each dispatch sees what the one before wrote
+	for (u32 k = 0; k < r.spec.runs; ++k)
 	{
-		// the grid follows the target size rule
-		u32 w = r.spec.grid_w, h = r.spec.grid_h;
-		if (r.spec.grid_size != ShaderBus::size_fixed)
+		if (k)
 		{
-			const u32 shift = r.spec.grid_size == ShaderBus::size_half ? 1 : r.spec.grid_size == ShaderBus::size_quarter ? 2 : 0;
-			w = _max(Device.dwWidth >> shift, 1u);
-			h = _max(Device.dwHeight >> shift, 1u);
+			bus_pass_time(r, t, false);
+			RCache.set_c("pass_time", t.x, t.y, t.z, t.w);
 		}
-		RCache.Compute((w + gx - 1) / gx, (h + gy - 1) / gy, 1);
+		if (args)
+			RCache.ComputeIndirect(args, r.spec.indirect_row * 16);
+		else if (r.spec.grid)
+		{
+			// the grid follows the target size rule
+			u32 w = r.spec.grid_w, h = r.spec.grid_h;
+			if (r.spec.grid_size != ShaderBus::size_fixed)
+			{
+				const u32 shift = r.spec.grid_size == ShaderBus::size_half ? 1 : r.spec.grid_size == ShaderBus::size_quarter ? 2 : 0;
+				w = _max(Device.dwWidth >> shift, 1u);
+				h = _max(Device.dwHeight >> shift, 1u);
+			}
+			RCache.Compute((w + gx - 1) / gx, (h + gy - 1) / gy, 1);
+		}
+		else if (r.writes_buffer)
+			RCache.Compute((rows + gx - 1) / gx, 1, 1);
+		else
+			RCache.Compute((out[0]->dwWidth + gx - 1) / gx, (out[0]->dwHeight + gy - 1) / gy, 1);
 	}
-	else if (r.writes_buffer)
-		RCache.Compute((rows + gx - 1) / gx, 1, 1);
-	else
-		RCache.Compute((out[0]->dwWidth + gx - 1) / gx, (out[0]->dwHeight + gy - 1) / gy, 1);
 
 	ID3D11UnorderedAccessView* none = nullptr;
 	for (u32 o = 0; o < r.spec.output_count; ++o)
 		HW.pContext->CSSetUnorderedAccessViews(r.uav_slots[o], 1, &none, nullptr);
 	RCache.clear_cs_resources();
+	if (r.mips)
+		bus_pass_mips(r, out);
 }
 #endif
 
@@ -562,6 +641,22 @@ void CRenderTarget::phase_bus(u32 stage)
 				bus_target_rotate(r.spec.outputs[o]);
 				out[o] = bus_target_rt(r.spec.outputs[o], false);
 			}
+		// a pingpong pass alternates its output with the partner, an odd count starts the partner as a copy of the output
+		CRT* const own = out[0];
+		CRT* pong = nullptr;
+		if (r.spec.pingpong.size())
+		{
+			bus_target_rotate(r.spec.pingpong);
+			pong = bus_target_rt(r.spec.pingpong, false);
+			if (!pong)
+				continue;
+			if (r.spec.runs & 1)
+			{
+				RCache.set_RT(nullptr);
+				RCache.unbind_texture(&*pong->pTexture);
+				HW.pContext->CopyResource(pong->pSurface, own->pSurface);
+			}
+		}
 		if (out[0])
 		{
 			w = out[0]->dwWidth;
@@ -583,22 +678,47 @@ void CRenderTarget::phase_bus(u32 stage)
 		Fvector4 t;
 		bus_pass_time(r, t);
 
-		// the quad covers the screen in screen pixels, the viewport scales it to the target
+		// the quad covers the pass's rectangle in screen pixels, the viewport scales it to the target
 		u32 offset = 0;
 		const float sw = float(Device.dwWidth);
 		const float sh = float(Device.dwHeight);
+		const float u0 = r.spec.rect.x;
+		const float v0 = r.spec.rect.y;
+		const float u1 = _min(u0 + r.spec.rect.z, 1.f);
+		const float v1 = _min(v0 + r.spec.rect.w, 1.f);
 		FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(4, g_combine->vb_stride, offset);
-		pv->set(0, sh, EPS_S, 1.0f, 0, 0.0f, 1.0f); pv++;
-		pv->set(0, 0, EPS_S, 1.0f, 0, 0.0f, 0.0f); pv++;
-		pv->set(sw, sh, EPS_S, 1.0f, 0, 1.0f, 1.0f); pv++;
-		pv->set(sw, 0, EPS_S, 1.0f, 0, 1.0f, 0.0f); pv++;
+		pv->set(u0 * sw, v1 * sh, EPS_S, 1.0f, 0, u0, v1); pv++;
+		pv->set(u0 * sw, v0 * sh, EPS_S, 1.0f, 0, u0, v0); pv++;
+		pv->set(u1 * sw, v1 * sh, EPS_S, 1.0f, 0, u1, v1); pv++;
+		pv->set(u1 * sw, v0 * sh, EPS_S, 1.0f, 0, u1, v0); pv++;
 		RCache.Vertex.Unlock(4, g_combine->vb_stride);
 
-		RCache.set_Element(r.shader->E[0]);
-		RCache.set_CullMode(CULL_NONE);
-		RCache.set_c("pass_time", t.x, t.y, t.z, t.w);
-		RCache.set_Geometry(g_combine);
-		RCache.Render(D3DPT_TRIANGLELIST, offset, 0, 4, 0, 2);
+		// the last run is element 0 into the output
+		for (u32 k = 0; k < r.spec.runs; ++k)
+		{
+			const u32 e = pong ? (r.spec.runs - 1 - k) & 1 : 0;
+			if (pong)
+			{
+				out[0] = e ? pong : own;
+				RCache.unbind_texture(&*out[0]->pTexture);
+			}
+			if (pong || k)
+				for (u32 o = 0; o < 4; ++o)
+					RCache.set_RT(out[o] ? out[o]->pRT : nullptr, o);
+			if (k)
+				bus_pass_time(r, t, false);
+			RCache.set_Element(r.shader->E[e]);
+			RCache.set_CullMode(CULL_NONE);
+			RCache.set_c("pass_time", t.x, t.y, t.z, t.w);
+			RCache.set_Geometry(g_combine);
+			RCache.Render(D3DPT_TRIANGLELIST, offset, 0, 4, 0, 2);
+			if (r.mips)
+			{
+				for (u32 o = 0; o < 4; ++o)
+					RCache.set_RT(nullptr, o);
+				bus_pass_mips(r, out);
+			}
+		}
 	}
 
 	for (u32 i = 0; i < 4; ++i)

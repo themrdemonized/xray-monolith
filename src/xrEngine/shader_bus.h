@@ -415,6 +415,8 @@ namespace ShaderBus
 		u16 height;
 		u8 format;
 		bool history;
+		// a full mip chain the engine fills after every write
+		bool mips;
 		bool released;
 		Fvector4 clear;
 		// moves when the owner changes the spec, the render side then recreates and clears
@@ -439,6 +441,8 @@ namespace ShaderBus
 		u8 output_count;
 		xr_vector<pass_input> inputs;
 		u8 blend;
+		// the part of the outputs a pixel pass shades, x, y, w, h in texture coordinates
+		Fvector4 rect;
 		u16 group_x;
 		u16 group_y;
 		// a compute pass into a buffer lane can dispatch over a grid sized like a target
@@ -450,6 +454,9 @@ namespace ShaderBus
 		shared_str indirect;
 		u32 indirect_row;
 		bool svp;
+		// runs a frame takes, and the target a repeated pixel pass alternates with its output
+		u8 runs;
+		shared_str pingpong;
 		bool enabled;
 		bool released;
 		// moves at registration and at every enable, the next run is a first run
@@ -470,6 +477,8 @@ namespace ShaderBus
 
 	// rgba8 rgb10a2 r11g11b10f rg16f r16f r32f rgba16f rgba32f, in that order
 	ENGINE_API LPCSTR target_format_name(u8 format);
+	// texels of a w x h target, its mip chain included
+	ENGINE_API u32 target_texels(u32 w, u32 h, bool mips);
 	ENGINE_API u32 register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const target_spec& spec);
 	ENGINE_API u32 register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const pass_spec& spec);
 	ENGINE_API bool enable_pass(u32 token, bool on);
