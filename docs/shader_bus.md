@@ -222,12 +222,13 @@ command still exists on the running exe.
 
 A row also has `role` (`target`, `history` or `pass` for the lanes of Render targets and passes,
 `mask` for a mask lane with its bit in `mask_bit`, see Masks, and empty for a plain lane). A target row and its history row `<id>_prev` carry `width`, `height`,
-`format`, `bytes`, `history` and `target_state` (`pending`, `ready` or `released`), with the size
-and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
+`format`, `bytes`, `history`, `mips` and `target_state` (`pending`, `ready` or `released`), with the size
+and bytes `0` until the target exists and `bytes` covering the mip chain. A pass row carries `stage`, `order`, `pass_state`
 (`pending`, `ready`, `failed`, `off` for a disabled pass or `released`) and `reason`, the text of
 the failure and empty otherwise, `fails` (how many builds of the pass failed since it was registered
-with this spec), and from its spec `ps` or `cs`, `outputs`, `inputs`, `blend`,
-`svp` and on a `cs` pass `group`, and `grid` and `indirect` when the spec gave one.
+with this spec), and from its spec `ps` or `cs`, `outputs`, `inputs`, `blend`, `rect` when the spec gave one smaller than the output,
+`svp`, `runs` when it is above `1`, `pingpong` when the spec gave one, and on a `cs` pass `group`,
+and `grid` and `indirect` when the spec gave one.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
@@ -853,6 +854,7 @@ local target = shader_bus.register_target("frost", "My Mod", "frost mask", {
 | `size` | `"screen"` (the default), `"half"`, `"quarter"` or `{ w, h }`, each side a whole number from `1` to `4096` |
 | `format` | `rgba8` (the default), `rgb10a2`, `r11g11b10f`, `rg16f`, `r16f`, `r32f`, `rgba16f` or `rgba32f` |
 | `history` | `true` keeps last frame's copy, default `false` |
+| `mips` | `true` gives the target and its history a full mip chain, filled from the top level after every pass that writes the target, default `false` |
 | `clear` | a number for all four channels or a table of up to four numbers, default `0` |
 
 A spec field that is not valid refuses the call with a log line that cites the field. A target
@@ -867,6 +869,11 @@ again with the same spec changes nothing and returns the same token.
 The history copy runs once a frame, just before the first pass that writes the target, and never
 on a second viewport frame. A target no pass writes never copies. A pass that reads a target
 before its writer has run in the same frame sees the last frame's value.
+
+A target with `mips` reads its smaller levels through `SampleLevel`, or `Sample` with `smp_linear`,
+which filters between levels. The engine fills them after each pass that writes the target and
+after each clear, so a pass that writes only part of the target still gets levels made from the
+whole of it. A readback of the target reads the top level.
 
 History is a plain copy, so a texel of `bus_<id>_prev` holds what that spot of the screen held last
 frame, and a history read at the pass's own texture coordinate trails while the camera turns.
@@ -896,9 +903,9 @@ float4 main(p_screen I) : SV_Target
 ```
 
 `release_target` frees the target and its history. Live targets together may take 1024 MB, a
-history target counted twice, sized at the resolution in effect when the target registers. A
-call that would pass that is refused with a log line, and a call that does not grow the target
-always passes.
+history target counted twice and a target with `mips` by its whole chain, about a third more for a screen-shaped target,
+sized at the resolution in effect when the target registers. A call that would pass that is
+refused with a log line, and a call that does not grow the target always passes.
 
 ### Passes
 
@@ -915,14 +922,20 @@ shader_bus.register_pass("frost_grow", "My Mod", "grows and melts the frost", {
 | `outputs` | required, 1 to 4 ids of the owner's targets that share one size, or the single output `"scene"` on a `scene` or `post` pass, or the single output `"albedo"` on a `gbuffer` pass, which draws into the G-buffer albedo with the pass's `blend` and leaves its alpha, the gloss, as it was (`none` replaces the colour, `add` and `alpha` combine with it), or the single output `"light"` on a `lighting` pass with blend `add` or `alpha`, which blends into the light accumulation (see Stages), or on a `cs` pass one buffer lane of the owner |
 | `inputs` | a table from an HLSL texture variable to a texture or render target name, at most 16. A `Texture2D bus_<id>` the shader declares needs no entry |
 | `blend` | `none` (the default), `add` or `alpha`, how a pixel pass combines with what its outputs hold |
+| `rect` | on a pixel pass, `{ x, y, w, h }` in the pass's texture coordinates, 0 to 1 from the top left. The pass shades only that part of its outputs and leaves the rest as it was, default the whole output. A different `rect` is a changed spec and restarts the pass |
 | `group` | required on a `cs` pass, the thread group size `{ x, y }`, each side from `1` to `1024` |
 | `grid` | on a `cs` pass into a buffer lane, the dispatch grid as a target `size`, `"screen"`, `"half"`, `"quarter"` or `{ w, h }`, see Compute |
 | `indirect` | on a `cs` pass, `{ lane, row }`, a uint buffer lane of its owner whose row gives the dispatch's group counts, see Compute |
 | `svp` | `true` also runs the pass on a second viewport frame, default `false` |
+| `runs` | how many times the pass runs in a row each frame, `1` to `16`, default `1`, see Repeat |
+| `pingpong` | on a pixel pass with `runs` above `1`, a target of its owner with the size, format and `mips` of its one output, see Repeat |
 
 A pass shader compiles with the defines the renderer gives its stock shaders, `SHADER_BUS`,
 `USE_MSAA` and `MSAA_SAMPLES` among them. A pixel pass draws over the stock `stub_screen_space`
-vertex shader, so it takes `p_screen` and samples with `I.tc0`. The first output is
+vertex shader, so it takes `p_screen` and samples with `I.tc0`. With `rect` the engine draws the
+same quad cut to the rectangle, so `I.tc0` and `SV_Position` read as they would without it, and a pixel
+is shaded when its centre is inside. For exact edges give `x` and `w` in steps of one over the
+output's width, and `y` and `h` in steps of one over its height. The first output is
 `SV_Target0`. Textures bind to `t0` to `t15`. The shader of the pass above is
 `shaders\r3\myfrost.ps`:
 
@@ -954,7 +967,7 @@ the log, and it draws nothing. The reasons are:
 - its shader file is missing, or a texture variable sits past `t15` or a UAV past `u7`
 - an output is not a live target of the pass's `owner`, or the outputs differ in size
 - it reads its own output, through `inputs` or by declaring `Texture2D bus_<output>`
-- it reads the scene it writes
+- it reads its `pingpong` target, or the scene it writes
 - a constant the pass binds as a texture is not a texture, or an `smp_` constant is not a sampler
 - a `cs` pass writes `"scene"`, or an `svp` pass writes a history target
 - a `lighting` pass writes `"light"` under `-r4xx`, which emulates a GPU that cannot blend 16-bit float targets
@@ -965,6 +978,8 @@ the log, and it draws nothing. The reasons are:
   `owner`
 - `indirect` points at a lane that a `cs` pass of the `owner`, this one included, writes as float4
   rows, the counts need uint4
+- a pass with `pingpong` writes the scene, its `pingpong` is not a target of the `owner`, it differs
+  from the output in size, format or mips, or it is a history target under `svp`
 - the compute shader could not be created
 - `s_image` is misused, see `s_image`
 
@@ -1019,10 +1034,25 @@ On a pass's first run, on the first run after an enable and on the first run aft
 cleared, `x` is the frame time and `y` is `1`. A pass that writes a buffer lane counts the buffer
 being created again as a clear.
 
+A repeated pass counts every run: `z` moves each run, `w` is `1` only on the first run after a
+clear, and later runs in the frame read `x` and `y` as `0`. `get_pass_time` answers with the first
+run of the frame.
+
 `shader_bus.get_pass_time(id)` returns `ok, x, y, z, w, frames`, the `pass_time` of the pass's
 last run and the frames since it ran, or `false` for a pass that has not run since it last
 registered. It answers as of the start of the frame, the same from every callback and on the
 multithreaded exe, so a pass that runs every frame reads `1`.
+
+### Repeat
+
+With `runs = n` the engine runs the pass `n` times in a row each frame. A `cs` pass, and a pixel
+pass without `pingpong`, runs in place, and a dispatch sees what the one before wrote. A pixel pass
+with `pingpong` reads the run before through `Texture2D bus_<id>` of its one output, which only
+such a pass may declare, and the engine alternates the output and the `pingpong` target so the
+last run lands in the output. The first run reads what the output held before the pass, and
+afterwards the `pingpong` target holds the run before the last. `bus_<id>_prev` stays last frame's
+for both. A `pingpong` pass cannot read `bus_<pingpong>`, blend, or write the scene, albedo or
+light, and an odd `n` costs one copy of the output.
 
 ### Compute
 
@@ -1056,9 +1086,11 @@ below.
 - 16 live targets, 32 live passes, 4 outputs and 16 inputs a pass. A released target or pass
   stops counting.
 - A target side from `1` to `4096`, a compute group side from `1` to `1024`.
-- 1024 MB over all live targets, a history target counted twice.
+- 1024 MB over all live targets, a history target counted twice and a target with `mips` by its
+  whole chain, about a third more for a screen-shaped target.
 - Texture slots `t0` to `t15` and UAV slots `u0` to `u7`.
 - A target id of at most 27 characters.
+- A pass runs at most 16 times a frame.
 
 ### Renderers
 

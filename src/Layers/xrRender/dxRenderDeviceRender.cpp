@@ -674,6 +674,17 @@ static void bus_target_clear(bus_target_slot& s)
 	HW.pContext->ClearRenderTargetView(s.cur->pRT, &s.spec.clear.x);
 	if (s.prev)
 		HW.pContext->ClearRenderTargetView(s.prev->pRT, &s.spec.clear.x);
+	// every level holds the clear until the first write
+	if (s.spec.mips)
+	{
+		RCache.unbind_texture(&*s.cur->pTexture);
+		HW.pContext->GenerateMips(s.cur->pTexture->get_SRView());
+		if (s.prev)
+		{
+			RCache.unbind_texture(&*s.prev->pTexture);
+			HW.pContext->GenerateMips(s.prev->pTexture->get_SRView());
+		}
+	}
 	s.clears = ++bus_target_clear_serial;
 }
 
@@ -758,14 +769,18 @@ static void bus_targets_update()
 			xr_sprintf(name, "$user$bus_%s", t.id.c_str());
 			s.uav = uav;
 #ifdef USE_DX11
-			s.cur.create(name, w, h, bus_target_format(t.format), 1, uav);
+			s.cur.create(name, w, h, bus_target_format(t.format), 1, uav, t.mips);
 #else
-			s.cur.create(name, w, h, bus_target_format(t.format));
+			s.cur.create(name, w, h, bus_target_format(t.format), 1, t.mips);
 #endif
 			if (t.history)
 			{
 				xr_strcat(name, "_prev");
-				s.prev.create(name, w, h, bus_target_format(t.format));
+#ifdef USE_DX11
+				s.prev.create(name, w, h, bus_target_format(t.format), 1, false, t.mips);
+#else
+				s.prev.create(name, w, h, bus_target_format(t.format), 1, t.mips);
+#endif
 			}
 			bus_target_clear(s);
 			bus_target_slots.push_back(s);
@@ -774,7 +789,7 @@ static void bus_targets_update()
 		status.state = ShaderBus::gpu_ready;
 		status.width = w;
 		status.height = h;
-		status.bytes = w * h * bus_target_texel_bytes(t.format) * (t.history ? 2 : 1);
+		status.bytes = ShaderBus::target_texels(w, h, t.mips) * bus_target_texel_bytes(t.format) * (t.history ? 2 : 1);
 		ShaderBus::set_gpu_status(t.id, status);
 	}
 }
