@@ -61,12 +61,13 @@ class ECORE_API R_bus_object
 	ShaderBus::lane* lanes[ShaderBus::max_object_lanes];
 	u32 count;
 	bool object_applied;
+	IRenderable* drawn;
 
 	void write_object(IRenderable* O);
 	void write_defaults();
 
 public:
-	R_bus_object() { unmap(); }
+	R_bus_object() : drawn(nullptr) { unmap(); }
 	void unmap()
 	{
 		count = 0;
@@ -74,7 +75,9 @@ public:
 	}
 	// writes the lane's value and keeps the constant for the draws of this table
 	void map(R_constant* C, ShaderBus::lane* l);
-	ICF void apply(IRenderable* O) { if (count) write_object(O); }
+	ICF void apply(IRenderable* O) { drawn = O; if (count) write_object(O); }
+	// the object of the draw in flight, for draws that read its values themselves
+	IRenderable* object() const { return drawn; }
 	ICF void apply_static() { if (count) write_defaults(); }
 };
 

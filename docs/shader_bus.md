@@ -157,8 +157,8 @@ Do not test the token against `0`, which is truthy in Lua.
 
 | call | returns |
 |---|---|
-| `shader_bus.register(id, owner, description)` | a token, or a hard fatal, with both `owner` strings and both script paths, if the id is already registered with a different `owner`, or with the lane's `owner` strings if the lane is shared and is not `obj_hotness`. A bad id, a missing `owner`, an `owner` over 64 characters, a description over 256 characters, an `engine_` or `cvar_` id or a full bus returns `nil` with a log line (once per game for a full bus), so check the token before using it |
-| `shader_bus.try_register(id, owner, description)` | a token, or `nil` if the id is already registered with a different `owner` or under the same rules as `register`. A shared lane other than `obj_hotness` returns `nil` with a log line |
+| `shader_bus.register(id, owner, description)` | a token, or a hard fatal, with both `owner` strings and both script paths, if the id is already registered with a different `owner`, or with the lane's `owner` strings if the lane is shared and is not `obj_hotness` or `obj_tint`. A bad id, a missing `owner`, an `owner` over 64 characters, a description over 256 characters, an `engine_` or `cvar_` id or a full bus returns `nil` with a log line (once per game for a full bus), so check the token before using it |
+| `shader_bus.try_register(id, owner, description)` | a token, or `nil` if the id is already registered with a different `owner` or under the same rules as `register`. A shared lane other than `obj_hotness` or `obj_tint` returns `nil` with a log line |
 | `shader_bus.register_shared(id, owner, description)` | the token of this `owner` on a shared lane, or `nil` with a log line if a script took the lane with `register` or `try_register`, or under the same rules as `register`. See Shared lanes |
 | `shader_bus.set(token, x, y, z, w)` | `true` if the token is valid and all four values are finite. A NaN or infinite value is dropped, the lane keeps its last value, and the first refusal on each lane logs a line |
 | `shader_bus.set_array(token, first, rows)` | `true` if the token is valid, `first` is a whole number from `0`, `rows` is a non-empty array of rows `{x, y, z, w}` (a missing component reads `0`), every value is finite and the last row is below row 4096, or below the size `set_buffer` gave a larger buffer lane. One call writes at most 4096 rows. Writes `rows[1]` to row `first` (0-based, the HLSL element index) onward and leaves other rows as they were. Row 0 is the value `set` writes, so `set` and `set_array` from row 0 overwrite each other. The first refusal on each lane logs a line |
@@ -386,6 +386,29 @@ Limits:
 - One lane serves every mod, and no mod can pull an object below the value another mod gave it.
 - An exe before version `5` treats `obj_hotness` as an ordinary object lane that `L_hotness` never
   reads.
+
+### Particle tint
+
+The object lane `obj_tint` tints particles. Once a script has given a particles object its own
+value with `set_object`, the engine multiplies the colour of each of its particles by `x`, `y` and
+`z` and the alpha by `w` before they draw, so every particle shader that reads the vertex colour
+shows the tint, the stock ones included. Each channel stays within `0` to `1`, so a value above `1`
+brightens a channel only up to full. A particles object without its own value draws as before,
+`clear_object` restores it, and the lane value `set` writes tints nothing. Once a shader declares
+the lane or a script registers it, `bus_force obj_tint x y z w` tints every particle drawn for an object until
+`bus_release`.
+
+The lane is shared from the start, so every mod gets its own token and a particles object draws with
+the per component largest value any mod gave it (see Shared lanes). On this lane `register` and
+`try_register` return a token of the shared lane too, the same as `register_shared`.
+
+```lua
+local token = shader_bus.register_shared("obj_tint", "My Mod", "particle tint")
+if token then shader_bus.set_object(token, particles, 1, 0.4, 0.4, 1) end
+```
+
+A particle draw reads any `obj_` lane like other object draws, so a shader pack with its own
+particle shaders can declare `uniform float4 bus_obj_<id>;` and read the effect's own value there.
 
 ### Masks
 
