@@ -474,10 +474,31 @@ static int bus_read_name(const ::luabind::object& value, LPCSTR const* names, in
 	return -1;
 }
 
+static LPCSTR bus_sizes[] = { "screen", "half", "quarter" };
+
+// a target size of a Lua value, a size name or { w, h }, false for anything else
+static bool bus_read_size(const ::luabind::object& size, u8& kind, u16& w, u16& h)
+{
+	if (size.type() == LUA_TTABLE)
+	{
+		u32 x, y;
+		if (!bus_read_side(size[1], 4096, x) || !bus_read_side(size[2], 4096, y))
+			return false;
+		kind = ShaderBus::size_fixed;
+		w = u16(x);
+		h = u16(y);
+		return true;
+	}
+	const int i = bus_read_name(size, bus_sizes, 3);
+	if (i < 0)
+		return false;
+	kind = u8(i < 3 ? i : ShaderBus::size_screen);
+	return true;
+}
+
 // the target spec of a Lua table, the name of the first bad field or null
 static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_spec& t)
 {
-	static LPCSTR sizes[] = { "screen", "half", "quarter" };
 	t.size = ShaderBus::size_screen;
 	t.width = 0;
 	t.height = 0;
@@ -487,23 +508,8 @@ static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_s
 	if (spec.type() != LUA_TTABLE)
 		return "spec";
 
-	::luabind::object size = spec["size"];
-	if (size.type() == LUA_TTABLE)
-	{
-		u32 w, h;
-		if (!bus_read_side(size[1], 4096, w) || !bus_read_side(size[2], 4096, h))
-			return "size";
-		t.size = ShaderBus::size_fixed;
-		t.width = u16(w);
-		t.height = u16(h);
-	}
-	else
-	{
-		const int i = bus_read_name(size, sizes, 3);
-		if (i < 0)
-			return "size";
-		t.size = u8(i < 3 ? i : ShaderBus::size_screen);
-	}
+	if (!bus_read_size(spec["size"], t.size, t.width, t.height))
+		return "size";
 
 	LPCSTR formats[ShaderBus::target_format_count];
 	for (u32 i = 0; i < ShaderBus::target_format_count; ++i)
@@ -557,6 +563,11 @@ static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec&
 	p.output_count = 0;
 	p.group_x = 0;
 	p.group_y = 0;
+	p.grid = false;
+	p.grid_size = ShaderBus::size_screen;
+	p.grid_w = 0;
+	p.grid_h = 0;
+	p.indirect_row = 0;
 	p.svp = false;
 	p.enabled = true;
 	p.released = false;
@@ -633,6 +644,28 @@ static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec&
 		p.group_x = u16(x);
 		p.group_y = u16(y);
 	}
+
+	::luabind::object grid = spec["grid"];
+	if (grid.type() != LUA_TNIL)
+	{
+		if (!bus_read_size(grid, p.grid_size, p.grid_w, p.grid_h))
+			return "grid";
+		p.grid = true;
+	}
+
+	::luabind::object indirect = spec["indirect"];
+	if (indirect.type() == LUA_TTABLE)
+	{
+		::luabind::object lane = indirect[1];
+		::luabind::object at = indirect[2];
+		if (lane.type() != LUA_TSTRING || at.type() != LUA_TNUMBER || !bus_uint_value(::luabind::object_cast<double>(at), p.indirect_row))
+			return "indirect";
+		p.indirect = ::luabind::object_cast<LPCSTR>(lane);
+		if (!p.indirect.size())
+			return "indirect";
+	}
+	else if (indirect.type() != LUA_TNIL)
+		return "indirect";
 
 	::luabind::object svp = spec["svp"];
 	if (svp.type() == LUA_TBOOLEAN)
@@ -774,6 +807,22 @@ static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus:
 		group[1] = u32(p.group_x);
 		group[2] = u32(p.group_y);
 		row["group"] = group;
+	}
+	if (p.grid && p.grid_size == ShaderBus::size_fixed)
+	{
+		::luabind::object grid = ::luabind::newtable(L);
+		grid[1] = u32(p.grid_w);
+		grid[2] = u32(p.grid_h);
+		row["grid"] = grid;
+	}
+	else if (p.grid)
+		row["grid"] = bus_sizes[p.grid_size];
+	if (p.indirect.size())
+	{
+		::luabind::object indirect = ::luabind::newtable(L);
+		indirect[1] = p.indirect.c_str();
+		indirect[2] = p.indirect_row;
+		row["indirect"] = indirect;
 	}
 }
 

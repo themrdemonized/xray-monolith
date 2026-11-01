@@ -226,7 +226,8 @@ A row also has `role` (`target`, `history` or `pass` for the lanes of Render tar
 and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
 (`pending`, `ready`, `failed` or `off`) and `reason`, the text of the failure and empty
 otherwise, `fails` (how many builds of the pass failed since it was registered with this spec),
-and from its spec `ps` or `cs`, `outputs`, `inputs` and on a `cs` pass `group`.
+and from its spec `ps` or `cs`, `outputs`, `inputs` and on a `cs` pass `group`, and `grid` and
+`indirect` when the spec gave one.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
@@ -884,6 +885,8 @@ shader_bus.register_pass("frost_grow", "My Mod", "grows and melts the frost", {
 | `inputs` | a table from an HLSL texture variable to a texture or render target name, at most 16. A `Texture2D bus_<id>` the shader declares needs no entry |
 | `blend` | `none` (the default), `add` or `alpha`, how a pixel pass combines with what its outputs hold |
 | `group` | required on a `cs` pass, the thread group size `{ x, y }`, each side from `1` to `1024` |
+| `grid` | on a `cs` pass into a buffer lane, the dispatch grid as a target `size`, `"screen"`, `"half"`, `"quarter"` or `{ w, h }`, see Compute |
+| `indirect` | on a `cs` pass, `{ lane, row }`, a uint buffer lane of its owner whose row gives the dispatch's group counts, see Compute |
 | `svp` | `true` also runs the pass on a second viewport frame, default `false` |
 
 A pass shader compiles with the defines the renderer gives its stock shaders, `SHADER_BUS`,
@@ -922,6 +925,9 @@ the log, and it draws nothing. The reasons are:
 - it reads its own output, through `inputs` or by declaring `Texture2D bus_<output>`
 - a `cs` pass writes `"scene"`, or an `svp` pass writes a history target
 - a `cs` shader does not declare each output as a `RWTexture2D` or `RWBuffer` called `bus_<id>`
+- a `cs` pass declares its buffer lane as anything but `RWBuffer<float4>` for a float lane, or
+  `RWBuffer<uint4>` or `RWBuffer<uint>` for a uint lane
+- a `cs` pass with a `grid` writes targets instead of a buffer lane
 - `s_image` is misused, see `s_image`
 
 ### Stages
@@ -979,8 +985,22 @@ writes it, even a disabled one, and it is created again, and so cleared, when th
 A `cs` pass can instead write one buffer lane of its owner, which `set_buffer` made, through
 `RWBuffer<float4> bus_<id>` for a float lane or `RWBuffer<uint4> bus_<id>` for a uint lane.
 The buffer lane is then the pass's only output, `group` is `{ x, 1 }`, and the dispatch runs one
-thread per row. While the pass lives `set`, `set_uint`, `set_array` and `set_array_uint` refuse
+thread per row. With `grid`, sized like a target's `size`, the dispatch covers that grid in groups
+of `group` instead, and `group` may have any `y`. Declared as `RWBuffer<uint> bus_<id>`, a uint
+lane holds four elements a row, row `r` component `c` at `4 * r + c`, and takes `InterlockedAdd`
+and the other atomics, which `RWBuffer<uint4>` does not. While the pass lives `set`, `set_uint`, `set_array` and `set_array_uint` refuse
 the lane and the engine stops uploading it, and a buffer starts at zero each time it is created.
+
+With `indirect = { lane, row }` a `cs` pass takes its group counts from `x`, `y` and `z` of row
+`row` (0-based) of a uint buffer lane of its owner, read on the GPU when the pass runs, so a `cs`
+pass earlier in the frame can write them. The lane cannot also be an output of the pass and cannot
+go with `grid`, a buffer lane of another owner refuses the pass, and a buffer lane output then
+takes any `group` `y`. The pass fails when a `cs` pass writes the lane as float rows, and skips
+while the lane is not a uint buffer lane of its owner or has no buffer or no such row. A lane
+becomes an args buffer while a pass of its owner dispatches from it, even a disabled one, and its
+buffer is created again when that changes, which clears a lane a `cs` pass writes and uploads the
+rows of any other again. The engine cannot check counts the GPU writes, so keep each at 65535 or
+below.
 
 ### Limits
 
