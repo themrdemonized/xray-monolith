@@ -799,7 +799,7 @@ local function add_pass(s, id)
 	if bus.pass_time then
 		local ok, x, y, z, w, ran = shader_bus.get_pass_time(id)
 		add_detail("pass_time", ok and string_format("(%s ms, %.0f, %.0f, %.0f)", pass_ms_text(x), y, z, w) or "not run")
-		add_detail("ran", ok and ran_text(device().frame - ran) or "never")
+		add_detail("ran", ok and ran_text(ran) or "never")
 	end
 	if s.reason and s.reason ~= "" then add_detail("reason", s.reason) end
 end
@@ -1090,7 +1090,7 @@ local function gpu_cells(lane)
 end
 
 -- the cells of a pass or compute pass list, pass_time as the pass last ran
-local function pass_texts(list, compute, frame)
+local function pass_texts(list, compute)
 	for i = 1, #list do
 		local lane = list[i]
 		local s = lane.spec
@@ -1111,9 +1111,9 @@ local function pass_texts(list, compute, frame)
 		local ok, x, y, z, w, ran
 		if bus.pass_time then ok, x, y, z, w, ran = shader_bus.get_pass_time(lane.id) end
 		t[k + 2] = ok and pass_ms_text(x) or "n/a"
-		t[k + 3] = ok and ran_text(frame - ran) or "never"
+		t[k + 3] = ok and ran_text(ran) or "never"
 		key[k + 2] = ok and not bad(x) and x or -1
-		key[k + 3] = ok and frame - ran or math_huge
+		key[k + 3] = ok and ran or math_huge
 		t[k + 4] = esc(s.reason or "")
 		t.clr, t.failed = state_color(s.pass_state), s.pass_state == "failed"
 	end
@@ -1176,7 +1176,7 @@ local function gpu_texts(now, name)
 	elseif name == "masks" then
 		mask_texts(list)
 	else
-		pass_texts(list, name == "compute", device().frame)
+		pass_texts(list, name == "compute")
 	end
 
 	local bar, top, shown = GPU_TAB[name].bar, 0, 0
