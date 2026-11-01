@@ -914,11 +914,8 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 								T->update(renderable);
 						}
 #endif
-#if RENDER==R_R1
-						const bool bind = !(spatial->spatial.type & STYPE_PARTICLE);
-#else
-						const bool bind = !(spatial->spatial.type & STYPE_PARTICLE) || (renderable->renderable.bus_mask & bus_live_bits);
-#endif
+						const bool bind = !(spatial->spatial.type & STYPE_PARTICLE) || renderable->renderable.bus_values || (renderable->renderable.bus_mask & bus_live_bits)
+							|| (ShaderBus::tint_lane && ShaderBus::tint_lane->bound_forced);
 						if (i_mask[CDSGraphManager::fl_normal] && bind)
 							set_Object(renderable);
 
