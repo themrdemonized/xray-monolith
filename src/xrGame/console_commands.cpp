@@ -50,6 +50,7 @@
 #include "inventory_upgrade_manager.h"
 
 #include "ai_debug_variables.h"
+#include "ai_debug_draw.h"
 #include "../xrphysics/console_vars.h"
 #include <sstream>
 #include "..\xrCore\LocatorAPI.h"
@@ -2644,6 +2645,14 @@ void CCC_RegisterCommands()
     CMD3(CCC_Mask, "ai_draw_game_graph_objects", &psAI_Flags, aiDrawGameGraphObjects);
     CMD3(CCC_Mask, "ai_draw_game_graph_real_pos", &psAI_Flags, aiDrawGameGraphRealPos);
     CMD3(CCC_Mask, "ai_draw_visibility_rays", &psAI_Flags, aiDrawVisibilityRays);
+    CMD3(CCC_Mask, "ai_draw_aim", &psAI_DrawFlags, aiDrawAim);
+    CMD3(CCC_Mask, "ai_draw_fire", &psAI_DrawFlags, aiDrawFire);
+    CMD3(CCC_Mask, "ai_draw_memory", &psAI_DrawFlags, aiDrawMemory);
+    CMD3(CCC_Mask, "ai_draw_sound", &psAI_DrawFlags, aiDrawSound);
+    CMD3(CCC_Mask, "ai_draw_info", &psAI_DrawFlags, aiDrawInfo);
+    CMD3(CCC_Mask, "ai_draw_nearby_only", &psAI_DrawFlags, aiDrawNearbyOnly);
+    CMD4(CCC_Float, "ai_draw_nearby_distance", &psAI_DrawNearbyDistance, 1.f, 500.f);
+    CMD3(CCC_Mask, "ai_dbg_visibility_log", &psAI_DrawFlags, aiDbgVisibilityLog);
 
     /////////////////////////////////////////////HIT ANIMATION////////////////////////////////////////////////////
     //float						power_factor				= 2.f;

@@ -199,10 +199,6 @@ void CPHWorld::Create(bool mt, CObjectSpace* os, CObjectList* lo, CRenderDeviceB
 
 	Device().AddSeqFrame(this, mt);
 
-#if defined(DEBUG) || defined(DEBUG_DRAW)
-	Device().seqRender.Add(this, 0);
-#endif
-
 	//m_commander							=xr_new<CPHCommander>();
 	//dVector3 extensions={2048,256,2048};
 	/*
@@ -271,9 +267,6 @@ void CPHWorld::Destroy()
  //	Device().seqFrameMT.Remove	(this);
 	//	Device().seqFrame.Remove		(this);
 
-#if defined(DEBUG) || defined(DEBUG_DRAW)
-	Device().seqRender.Remove(this);
-#endif
 	Device().RemoveSeqFrame(this);
 	b_exist = false;
 }

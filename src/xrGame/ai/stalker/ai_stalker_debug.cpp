@@ -56,6 +56,7 @@
 #include "../../smart_cover_planner_target_selector.h"
 #include "../../ui_base.h"
 #include "../../doors_actor.h"
+#include "../../ai_debug_draw.h"
 
 CActor *g_debug_actor = 0;
 
@@ -940,6 +941,9 @@ void CAI_Stalker::dbg_draw_vision	()
 {
 	VERIFY						(!!psAI_Flags.is(aiVision));
 
+	if (!ai_debug_draw::npc_passes_filter(this))
+		return;
+
 	if (!smart_cast<CGameObject*>(Level().CurrentEntity()))
 		return;
 
@@ -963,10 +967,12 @@ void CAI_Stalker::dbg_draw_vision	()
 	float						y = (1.f - v_res.y)/2.f * (Device.dwHeight);
 
 	CNotYetVisibleObject		*object = memory().visual().not_yet_visible_object(smart_cast<CGameObject*>(Level().CurrentEntity()));
+	float const					value = object ? object->m_value : 0.f;
+	float const					threshold = memory().visual().visibility_threshold();
 	string64					out_text;
-	xr_sprintf						(out_text,"%.2f",object ? object->m_value : 0.f);
+	xr_sprintf						(out_text,"%.2f / %.2f",value,threshold);
 
-	UI().Font().pFontMedium->SetColor	(D3DCOLOR_RGBA(255,0,0,95));
+	UI().Font().pFontMedium->SetColor	(value >= threshold ? D3DCOLOR_RGBA(0,255,0,160) : D3DCOLOR_RGBA(255,0,0,95));
 	UI().Font().pFontMedium->OutSet	(x,y);
 	UI().Font().pFontMedium->OutNext	(out_text);
 }
@@ -1030,6 +1036,28 @@ void fill_points			(CCustomMonster *self, const Fvector &position, const Fvector
 	pick_distance					= params.m_pick_distance;
 }
 
+static void collect_static_hit_ranges(const Fvector &start, const Fvector &direction, float distance, u32 flags, xr_vector<float> &ranges)
+{
+	ranges.clear			();
+	collide::rq_results		results;
+	collide::ray_defs		ray_defs(start,direction,distance,flags,collide::rqtStatic);
+	Level().ObjectSpace.RayQuery(results,ray_defs,NULL,NULL,NULL,NULL);
+	if (!results.r_count())
+		return;
+
+	for (collide::rq_result *I = results.r_begin(), *E = results.r_end(); I != E; ++I)
+		ranges.push_back	(I->range);
+}
+
+// Draws the result of the real vision trace stored by Feel::Vision::o_trace:
+//	blue box			eye (ray start)
+//	green line / box	ray reached the tested point, nothing in the way
+//	yellow				reached it through semi-transparent materials (vis < 1)
+//	red					blocked by the main ray (static / objects / obstacles) or the cached blocking triangle
+//	orange				main ray passed, blocked by an object flagged visible-for-AI
+//	small cyan boxes	surfaces along the ray (re-cast with the vision transparency rules)
+//	magenta boxes		back faces hit only with culling off: one-way surfaces the NPC sees through
+//	grey line			target is outside the view frustum, nothing is traced
 void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::rq_results& rq_storage)
 {
 	typedef Feel::Vision::feel_visible_Item		feel_visible_Item;
@@ -1046,47 +1074,73 @@ void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::
 			}
 		}
 	}
-	
-	if (!item)
+
+	CDebugRenderer			&renderer = Level().debug_renderer();
+
+	if (!item) {
+		Fvector				center;
+		object->Center		(center);
+		renderer.draw_line	(Fidentity,self->eye_matrix.c,center,D3DCOLOR_XRGB(96,96,96), false);
 		return;
-
-	Fvector					start_position = self->eye_matrix.c;
-	Fvector					dest_position = item->cp_LAST;
-	Fvector					direction = Fvector().sub(dest_position,start_position);
-	float					distance = direction.magnitude();
-	direction.normalize		();
-	float					pick_distance = flt_max;
-	rq_storage.r_clear		();
-	COLLIDE_POINTS			points;
-	points.push_back		(start_position);
-	fill_points				(
-		self,
-		start_position,
-		direction,
-		distance,
-		rq_storage,
-		points,
-		pick_distance
-	);
-
-	if (fsimilar(pick_distance,distance) && !dest_position.similar(points.back()))
-		points.push_back	(dest_position);
-
-	VERIFY					(points.size() > 1);
-	
-	Fvector					size = Fvector().set(.05f,.05f,.05f);
-	Level().debug_renderer().draw_aabb	(points.front(),size.x,size.y,size.z,D3DCOLOR_XRGB(0,0,255), false);
-
-	{
-		COLLIDE_POINTS::const_iterator	I = points.begin() + 1;
-		COLLIDE_POINTS::const_iterator	E = points.end();
-		for ( ; I != E; ++I) {
-			Level().debug_renderer().draw_line	(Fidentity,*(I-1),*I,D3DCOLOR_XRGB(0,255,0), false);
-			Level().debug_renderer().draw_aabb	(*I,size.x,size.y,size.z,D3DCOLOR_XRGB(0,255,0), false);
-		}
 	}
 
-	Level().debug_renderer().draw_aabb	(points.back(),size.x,size.y,size.z,D3DCOLOR_XRGB(255,0,0), false);
+	if (!item->dbg_time || (Feel::dbg_trace_no_cform == item->dbg_result))
+		return;
+
+	Fvector const			start_position = item->dbg_src;
+	Fvector const			dest_position = item->dbg_dst;
+	Fvector					direction = Fvector().sub(dest_position,start_position);
+	float const				distance = direction.magnitude();
+	if (fis_zero(distance))
+		return;
+	direction.div			(distance);
+
+	u32						color;
+	switch (item->dbg_result) {
+		case Feel::dbg_trace_attenuated			: color = D3DCOLOR_XRGB(255,255,0);	break;
+		case Feel::dbg_trace_blocked			:
+		case Feel::dbg_trace_blocked_cached_tri	: color = D3DCOLOR_XRGB(255,0,0);	break;
+		case Feel::dbg_trace_blocked_object		: color = D3DCOLOR_XRGB(255,144,0);	break;
+		default									: color = D3DCOLOR_XRGB(0,255,0);	break;
+	}
+
+	renderer.draw_aabb		(start_position,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,255), false);
+
+	bool const				blocked = (Feel::dbg_trace_blocked == item->dbg_result) || (Feel::dbg_trace_blocked_cached_tri == item->dbg_result) || (Feel::dbg_trace_blocked_object == item->dbg_result);
+	if (blocked && (item->dbg_block_range >= 0.f) && (item->dbg_block_range < distance)) {
+		Fvector const		block_position = Fvector().mad(start_position,direction,item->dbg_block_range);
+		renderer.draw_line	(Fidentity,start_position,block_position,D3DCOLOR_XRGB(0,255,0), false);
+		renderer.draw_line	(Fidentity,block_position,dest_position,color, false);
+		renderer.draw_aabb	(block_position,.08f,.08f,.08f,color, false);
+	}
+	else
+		renderer.draw_line	(Fidentity,start_position,dest_position,color, false);
+
+	renderer.draw_aabb		(dest_position,.05f,.05f,.05f,color, false);
+
+	// surfaces along the ray
+	COLLIDE_POINTS			points;
+	float					pick_distance = flt_max;
+	rq_storage.r_clear		();
+	fill_points				(self,start_position,direction,distance,rq_storage,points,pick_distance);
+	for (COLLIDE_POINTS::const_iterator I = points.begin(), E = points.end(); I != E; ++I)
+		renderer.draw_aabb	(*I,.03f,.03f,.03f,D3DCOLOR_XRGB(0,255,255), false);
+
+	// one-way surfaces: static triangles only hit with back-face culling off
+	xr_vector<float>		culled, unculled;
+	collect_static_hit_ranges(start_position,direction,distance,CDB::OPT_CULL,culled);
+	collect_static_hit_ranges(start_position,direction,distance,0,unculled);
+	for (xr_vector<float>::const_iterator I = unculled.begin(), E = unculled.end(); I != E; ++I) {
+		bool				front_face = false;
+		for (xr_vector<float>::const_iterator J = culled.begin(), JE = culled.end(); J != JE; ++J)
+			if (fsimilar(*I,*J,.005f)) {
+				front_face	= true;
+				break;
+			}
+
+		if (!front_face)
+			renderer.draw_aabb	(Fvector().mad(start_position,direction,*I),.1f,.1f,.1f,D3DCOLOR_XRGB(255,0,255), false);
+	}
 }
 
 void CAI_Stalker::dbg_draw_visibility_rays	()
@@ -1094,12 +1148,13 @@ void CAI_Stalker::dbg_draw_visibility_rays	()
 	if (!g_Alive())
 		return;
 
+	if (!ai_debug_draw::npc_passes_filter(this))
+		return;
+
 	const CEntityAlive		*enemy = memory().enemy().selected() ? memory().enemy().selected() : Actor();
 	if (enemy) {
-		if (memory().visual().visible_now(enemy)) {
-			collide::rq_results	rq_storage;
-			draw_visiblity_rays	(this,enemy,rq_storage);
-		}
+		collide::rq_results	rq_storage;
+		draw_visiblity_rays	(this,enemy,rq_storage);
 	}
 }
 

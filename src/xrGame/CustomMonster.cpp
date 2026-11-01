@@ -56,6 +56,7 @@
 #if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #   include "animation_movement_controller.h"
+#	include "ai_debug_draw.h"
 #endif // DEBUG
 
 #ifdef HOLDERCUSTOM_NEW
@@ -1163,6 +1164,12 @@ void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::
 
 void CCustomMonster::dbg_draw_frustum_self()
 {
+	if (!ai_debug_draw::npc_passes_filter(this))
+		return;
+
+	// detection-range arc: the detection meter only fills for targets inside it
+	ai_debug_draw::draw_detection_arc(this);
+
 	float new_range = eye_range, new_fov = eye_fov;
 
 	if (g_Alive())

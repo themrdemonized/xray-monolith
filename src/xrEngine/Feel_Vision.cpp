@@ -24,12 +24,18 @@ namespace Feel
 		Vision::feel_visible_Item* item;
 		float vis;
 		float vis_threshold;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		float dbg_block_range;
+#endif
 
 		SFeelParam(Vision* _parent, Vision::feel_visible_Item* _item, float _vis_threshold) : parent(_parent),
 		                                                                                      item(_item), vis(1.f),
 		                                                                                      vis_threshold(
 			                                                                                      _vis_threshold)
 		{
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+			dbg_block_range = -1.f;
+#endif
 		}
 	};
 
@@ -46,6 +52,10 @@ namespace Feel
 			fp->item->Cache.verts[1].set(V[T->verts[1]]);
 			fp->item->Cache.verts[2].set(V[T->verts[2]]);
 		}
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		if (fp->vis <= fp->vis_threshold)
+			fp->dbg_block_range = result.range;
+#endif
 		return (fp->vis > fp->vis_threshold);
 	}
 
@@ -73,6 +83,15 @@ namespace Feel
 		I.fuzzy = -EPS_S;
 		I.cp_LP = O->get_new_local_point_on_mesh(I.bone_id);
 		I.cp_LAST = O->get_last_local_point_on_mesh(I.cp_LP, I.bone_id);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		I.dbg_src.set(0, 0, 0);
+		I.dbg_dst.set(0, 0, 0);
+		I.dbg_vis = 0.f;
+		I.dbg_block_range = -1.f;
+		I.dbg_time = 0;
+		I.dbg_result = dbg_trace_none;
+		I.dbg_cached = false;
+#endif
 	}
 
 	void Vision::o_delete(CObject* O)
@@ -189,6 +208,10 @@ namespace Feel
 			if (0 == I->O->CFORM())
 			{
 				I->fuzzy = -1;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_result = dbg_trace_no_cform;
+				I->dbg_time = Device.dwTimeGlobal;
+#endif
 				continue;
 			}
 
@@ -206,6 +229,15 @@ namespace Feel
 			if (fis_zero(D.magnitude()))
 			{
 				I->fuzzy = 1.f;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_src = P;
+				I->dbg_dst = OP;
+				I->dbg_vis = 1.f;
+				I->dbg_block_range = -1.f;
+				I->dbg_result = dbg_trace_near;
+				I->dbg_cached = false;
+				I->dbg_time = Device.dwTimeGlobal;
+#endif
 				continue;
 			}
 
@@ -218,12 +250,20 @@ namespace Feel
 				                     collide::rq_target(
 					                     collide::rqtStatic | /**/collide::rqtObject | /**/collide::rqtObstacle));
 				SFeelParam feel_params(this, &*I, vis_threshold);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				bool dbg_cached = false;
+				bool dbg_cached_tri = false;
+				float dbg_object_range = -1.f;
+#endif
 				// check cache
 				if (I->Cache.result && I->Cache.similar(P, D, f))
 				{
 					// similar with previous query
 					feel_params.vis = I->Cache_vis;
 					// Log("cache 0");
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+					dbg_cached = true;
+#endif
 				}
 				else
 				{
@@ -232,6 +272,10 @@ namespace Feel
 					{
 						feel_params.vis = 0.f;
 						// Log("cache 1");
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+						dbg_cached_tri = true;
+						feel_params.dbg_block_range = _range;
+#endif
 					}
 					else
 					{
@@ -288,8 +332,35 @@ namespace Feel
 						continue;
 
 					collision_found = true;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+					if (RQR.r_count())
+						dbg_object_range = RQR.r_begin()->range;
+#endif
 					break;
 				}
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_src = P;
+				I->dbg_dst = OP;
+				I->dbg_vis = feel_params.vis;
+				I->dbg_cached = dbg_cached;
+				I->dbg_time = Device.dwTimeGlobal;
+				if (feel_params.vis < feel_params.vis_threshold)
+				{
+					I->dbg_result = u8(dbg_cached_tri ? dbg_trace_blocked_cached_tri : dbg_trace_blocked);
+					I->dbg_block_range = feel_params.dbg_block_range;
+				}
+				else if (collision_found)
+				{
+					I->dbg_result = dbg_trace_blocked_object;
+					I->dbg_block_range = dbg_object_range;
+				}
+				else
+				{
+					I->dbg_result = u8((feel_params.vis < 1.f - EPS_L) ? dbg_trace_attenuated : dbg_trace_visible);
+					I->dbg_block_range = -1.f;
+				}
+#endif
 
 				if (collision_found)
 					feel_params.vis = 0.f;
@@ -311,6 +382,15 @@ namespace Feel
 			else
 			{
 				// VISIBLE, 'cause near
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_src = P;
+				I->dbg_dst = OP;
+				I->dbg_vis = 1.f;
+				I->dbg_block_range = -1.f;
+				I->dbg_result = dbg_trace_near;
+				I->dbg_cached = false;
+				I->dbg_time = Device.dwTimeGlobal;
+#endif
 				I->fuzzy += fuzzy_update_vis * dt;
 				clamp(I->fuzzy, -.5f, 1.f);
 			}

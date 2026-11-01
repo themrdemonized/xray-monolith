@@ -1349,6 +1349,7 @@
     <ClInclude Include="Level_Bullet_Manager.h" />
     <ClInclude Include="level_changer.h" />
     <ClInclude Include="level_debug.h" />
+    <ClInclude Include="ai_debug_draw.h" />
     <ClInclude Include="level_graph.h" />
     <ClInclude Include="level_graph_inline.h" />
     <ClInclude Include="level_graph_space.h" />
@@ -2565,6 +2566,10 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <ClCompile Include="ai\stalker\ai_stalker_debug.cpp">
+      <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
+    </ClCompile>
+    <ClCompile Include="ai_debug_draw.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>

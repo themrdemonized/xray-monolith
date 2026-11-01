@@ -143,7 +143,7 @@ void CExplosiveRocket::PH_Ch_CrPr			()
 #if defined(DEBUG) || defined(DEBUG_DRAW)
 void CExplosiveRocket::OnRender				()
 {
-	//inherited::OnRender			();
+	inherited::OnRender			();
 }
 #endif
 

@@ -55,6 +55,7 @@
 #include "ui/UIPdaWnd.h"
 #include "UICursor.h"
 #include "debug_renderer.h"
+#include "ai_debug_draw.h"
 #include "LevelDebugScript.h"
 #include "script_attachment_manager.h"
 #include "script_light_inline.h"
@@ -1388,6 +1389,21 @@ void CLevel::OnRender()
                 monster->dbg_draw_frustum_self();
         }
     }
+
+    // line primitives must be queued before debug_renderer().render() to show up this frame
+    if (psAI_Flags.test(aiDrawVisibilityRays))
+    {
+        for (u32 I = 0; I < Level().Objects.o_count(); I++)
+        {
+            CObject* object = Objects.o_get_by_iterator(I);
+            CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(object);
+            if (!stalker)
+                continue;
+            stalker->dbg_draw_visibility_rays();
+        }
+    }
+
+    ai_debug_draw::render();
 #endif
 	debug_renderer().render();
 #if defined(DEBUG) || defined(DEBUG_DRAW)
@@ -1407,18 +1423,6 @@ void CLevel::OnRender()
             if (!stalker)
                 continue;
             stalker->dbg_draw_vision();
-        }
-    }
-
-    if (psAI_Flags.test(aiDrawVisibilityRays))
-    {
-        for (u32 I = 0; I < Level().Objects.o_count(); I++)
-        {
-            CObject* object = Objects.o_get_by_iterator(I);
-            CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(object);
-            if (!stalker)
-                continue;
-            stalker->dbg_draw_visibility_rays();
         }
     }
 #endif
