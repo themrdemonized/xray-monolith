@@ -698,7 +698,7 @@ static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
 	row["target_state"] = released ? "released" : found ? bus_gpu_states[s.state] : "pending";
 }
 
-static void bus_list_pass(::luabind::object& row, const ShaderBus::lane* l)
+static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus::lane* l)
 {
 	ShaderBus::pass_spec p;
 	ShaderBus::gpu_status s;
@@ -709,6 +709,40 @@ static void bus_list_pass(::luabind::object& row, const ShaderBus::lane* l)
 	row["order"] = p.order;
 	row["pass_state"] = p.released || !p.enabled ? "off" : found ? bus_gpu_states[s.state] : "pending";
 	row["reason"] = found && s.reason.size() ? s.reason.c_str() : "";
+
+	// the shader, outputs, inputs and compute group as the spec gave them
+	if (p.cs.size())
+		row["cs"] = p.cs.c_str();
+	else
+		row["ps"] = p.ps.c_str();
+	::luabind::object outputs = ::luabind::newtable(L);
+	for (u32 i = 0; i < p.output_count; ++i)
+		outputs[i + 1] = p.outputs[i].c_str();
+	row["outputs"] = outputs;
+	::luabind::object inputs = ::luabind::newtable(L);
+	for (u32 i = 0; i < p.inputs.size(); ++i)
+		inputs[p.inputs[i].hlsl.c_str()] = p.inputs[i].texture.c_str();
+	row["inputs"] = inputs;
+	if (p.cs.size())
+	{
+		::luabind::object group = ::luabind::newtable(L);
+		group[1] = u32(p.group_x);
+		group[2] = u32(p.group_y);
+		row["group"] = group;
+	}
+}
+
+static bool bus_get_pass_time(LPCSTR id, float& x, float& y, float& z, float& w, u32& frame)
+{
+	Fvector4 t;
+	t.set(0.f, 0.f, 0.f, 0.f);
+	frame = 0;
+	const bool found = ShaderBus::get_pass_time(id, t, frame);
+	x = t.x;
+	y = t.y;
+	z = t.z;
+	w = t.w;
+	return found;
 }
 
 static int bus_version()
@@ -753,7 +787,7 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		if (l->role == ShaderBus::role_target || l->role == ShaderBus::role_history)
 			bus_list_target(row, l);
 		else if (l->role == ShaderBus::role_pass)
-			bus_list_pass(row, l);
+			bus_list_pass(L, row, l);
 		else if (l->role == ShaderBus::role_mask)
 		{
 			const int bit = ShaderBus::mask_bit((u32(l->nonce) << 16) | u32(l->index));
@@ -856,6 +890,8 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("enable_pass", &bus_enable_pass),
 		def("release_pass", &bus_release_pass),
 		def("release_target", &bus_release_target),
+		def("get_pass_time", &bus_get_pass_time,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
 		def("register_mask", &bus_register_mask, raw<1>()),
 		def("set_mask", &bus_set_mask),
 		def("get_mask", &bus_get_mask),

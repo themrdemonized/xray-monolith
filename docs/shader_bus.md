@@ -177,6 +177,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.release_target(token)` | `true` if the token is a target. The target and its history are freed and the id can be registered again |
 | `shader_bus.get_readback(id)` | `ok, x, y, z, w, frame`, texel 0 of the lane's last readback result and the frame it was captured on, `false` with zeros while there is no result |
 | `shader_bus.get_readback(id, i)` | the same for texel `i` (0-based, row-major) of a `none` result, `false` past the last texel. A reduced result has only texel `0` |
+| `shader_bus.get_pass_time(id)` | `ok, x, y, z, w, frame`, the `pass_time` of the pass's last run and the frame it ran in, `false` for a pass that has not run since it last registered (see pass_time) |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
 | `shader_bus.get_uint(id)` | `ok, a, b, c, d`, the bound value read as four unsigned integers |
 | `shader_bus.get_row(id, i)` | `ok, x, y, z, w`, bound row `i` (0-based), `0, 0, 0, 0` for a row never set, `false` past the rows a shader declared or `set_buffer` sized. Row 0 always answers, like `get`. On a uint lane the values are the raw unsigned integers |
@@ -214,7 +215,7 @@ A row also has `role` (`target`, `history` or `pass` for the lanes of Render tar
 `format`, `bytes`, `history` and `target_state` (`pending`, `ready` or `released`), with the size
 and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
 (`pending`, `ready`, `failed` or `off`) and `reason`, the text of the failure and empty
-otherwise.
+otherwise, and from its spec `ps` or `cs`, `outputs`, `inputs` and on a `cs` pass `group`.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
@@ -703,13 +704,22 @@ mod behavior.
 
 `imgui_shader_bus.script` adds a live lane monitor to the ImGui overlay. Open the overlay with the
 `editor` key (bind it in the key settings) or `rs_editor`, then pick Debug > Shader bus. The menu
-opens two windows and has the same toggles as the panel buttons.
+opens the panel and the HUD and has the same toggles as the panel toolbar.
 
-- **Panel** is a window in the overlay. It lists every lane, filtered by `owner` (`all`, `orphan`
-  for a lane a shader declared and nobody registered, `legacy`, `read`, `unread` or one `owner`),
-  by a text match on the id or `owner` and by `live` (lanes that changed since the monitor opened),
-  and sorted by id, `owner`, last change or change count. The pin box marks a lane for the strip
-  view. Clicking a lane opens its detail: description, the script that registered it (or the last
+- **Panel** is one dockable window in the overlay. A toolbar holds Snapshot, Freeze, HUD, Strip,
+  Dump and Copy, a filter that matches the id or `owner` on every tab (`Ctrl+F` focuses it) and a
+  `(?)` legend of the colours and icons. Below it the tabs Lanes, Targets, Passes, Compute and Masks
+  each show a table on the left and the selected row's detail on the right, and only the open tab
+  reads and redraws its rows. Every table scrolls under a frozen header and id column, and its
+  columns resize, reorder and hide from the header's right click menu. A click on a header sorts
+  by that column, a second click turns the order round, and on the other tabs a third click goes
+  back to the default order. A right click on a row offers Pin, Copy id, Copy value (Copy row on
+  the other tabs), Force current value and Release.
+- **Lanes** lists every lane, filtered by `owner` (`all`, `orphan` for a lane a shader declared
+  and nobody registered, `legacy`, `read`, `unread` or one `owner`), by the text filter and by
+  `live` (lanes that changed since the monitor opened), and sorted by id, `owner`, last change or
+  change count. The pin icon marks a lane for the strip view. A NaN or infinite value shows on a
+  red cell. Clicking a lane opens its detail: description, the script that registered it (or the last
   writer of a legacy lane), kind, rows, objects, texture, forced, bound and pending values, the
   session min and max and the counters. A lane with rows lists every row shaders declare,
   scrolling past eight, and `matrix view` groups them by four, with row `j` of matrix `k` labelled
@@ -720,34 +730,49 @@ opens two windows and has the same toggles as the panel buttons.
   monitor reads these only while a lane is selected, ten times a second, and for rows only the
   rows the list shows. With the panel focused, `L` switches the HUD between table
   and strip and `F` freezes sampling.
+- **Targets**, **Passes**, **Compute** and **Masks** list the render targets, the pixel and
+  compute passes and the mask lanes. Targets shows each target's size, format, bytes with a bar
+  against the largest target, history and state. Passes and Compute list the passes in the order
+  they run, with stage, order, state, shader, the compute group, outputs, inputs, the time between
+  the last two runs from `pass_time` (`dt ms`), the frames since the last run (`ran`) and the
+  reason a pass failed. A failed state shows on a red cell. Masks shows each mask lane's bit,
+  value, the game objects that carry the bit with a bar
+  against the largest count, and its state. The object count reads 1,024 object ids a frame while
+  the Masks tab is open and changes when a pass over every id ends, about a second at 60 frames a
+  second, and leaves out attachments. The detail of a target, pass or mask adds its spec, and a
+  pass's detail its last `pass_time`.
 - **HUD** draws over the game with the overlay hidden: the table view in the top left corner, at
   most 40 lanes, or the strip view in the top right with no header, showing pinned lanes or every lane when none
   is pinned. It takes
   no input, and it does not draw while the game is paused, which includes an alt-tab unless the
   game is set to stay active in the background.
 
-Columns are `pin`, `lane`, `owner`, `kind`, `x y z w`, `age` (since the last change), `chg` (the
-engine change count, or changes the monitor saw on a legacy lane), `wr` (writes), `bnd` (frames
-since a shader last read the lane, `never` or `stale`). A lane id ending in `!` has had a NaN
-or infinite value, which shows red. A changed lane flashes for half a second. Declared lanes show
-orange and legacy lanes grey. `kind` reads `f` or `u` (float or uint, uint values print in hex in
+Columns are `pin`, `lane`, `value` (the four components with zeros dimmed, after a colour swatch
+on a float lane), `owner`, `kind`, `age` (since the last change), `chg` (the engine change count,
+or changes the monitor saw on a legacy lane), `wr` (writes), `bnd` (frames since a shader last read
+the lane, `never` or `stale`). `age` and `bnd` start hidden; right-click a header to show them. A
+lane id ending in `!` has had a NaN or infinite value, which shows red. A changed lane's row
+flashes amber for half a second. Declared lanes show amber and legacy lanes grey, gathered under a
+collapsed `engine legacy (n)` row. `kind` reads `f` or `u` (float or uint, uint values print in hex in
 the table and in hex and decimal in the detail), `[n]` for the rows shaders declare (values show
 row 0, the detail lists every row), `obj n` for the objects with their own value on an `obj_`
-lane (values show the lane's own value), `tex` for a lane showing a texture (its name fills `x` to
-`w`), `eng` for an engine lane, `con` for a console lane (`bus_cvar_<name>`), `frc` while
+lane (values show the lane's own value), `tex` for a lane showing a texture (its name fills the
+value cell), `eng` for an engine lane, `con` for a console lane (`bus_cvar_<name>`), `frc` while
 `bus_force` overrides the lane, and `mix` when shaders declare the lane as more than one kind or as
 another kind than the last write stored. `cvar` marks a legacy lane.
 
 Snapshot stores every value and then lists only the lanes that moved since, with deltas. Snapshot
 again to leave that view. Freeze stops sampling and keeps the values on screen. Dump prints every
-lane to the log, Copy puts the same lines on the clipboard. Force and Release in the detail run
-`bus_force` and `bus_release` on the selected lane, with four numbers for a float lane and four
-whole numbers for a uint lane.
+lane to the log, Copy puts the same lines on the clipboard. The counts under the toolbar filter
+the lists when clicked: live lanes, orphans, and failed passes and targets. Force and Release in
+the detail run `bus_force` and `bus_release` on the selected lane, target or pass, with four
+numbers for a float lane and four whole numbers up to 4294967295 for a uint lane.
 
-The filter, sort, `owner` choice, `live`, the HUD view and the pins persist in `axr_options.ltx`
-under `[imgui_shader_bus]`. Window position, size and column widths persist in ImGui's own
-`imgui.ini`. Nothing is sampled while both windows are closed. An open window samples each lane
-once per frame and redraws its text ten times a second.
+The filter, the lane sort and its direction, `owner` choice, `live`, the open tab, the HUD view and
+the pins persist in `axr_options.ltx` under `[imgui_shader_bus]`. Window position, size, column
+widths, order and visibility persist in ImGui's own `imgui.ini`. Nothing is sampled while every
+window is closed. The Lanes tab and the HUD sample each lane once per frame, the other tabs sample
+the selected lane and, on Masks, the mask lanes. Open tables redraw their text ten times a second.
 
 Past 64 lanes the monitor spreads its reads over frames. Each frame it reads the lanes of the rows
 it shows, the selected lane and 64 more in turn, and the panel draws only the rows in its scroll
@@ -912,6 +937,9 @@ A pixel or compute shader declares `uniform float4 pass_time;`:
 On a pass's first run, on the first run after an enable and on the first run after its outputs
 cleared, `x` is the frame time and `y` is `1`. A pass that writes a buffer lane counts the buffer
 being created again as a clear.
+
+`shader_bus.get_pass_time(id)` returns `ok, x, y, z, w, frame`, the `pass_time` of the pass's
+last run and the frame it ran in, or `false` for a pass that has not run since it last registered.
 
 ### Compute
 
