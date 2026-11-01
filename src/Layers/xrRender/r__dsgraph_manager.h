@@ -34,6 +34,8 @@ public:
 
 	// shader bus object mask bits live this frame, read once at the render start
 	static u32								bus_live_bits;
+	// mask layer bits this frame, 0 in a second viewport frame or while no layer target exists
+	static u32								bus_layer_bits;
 	// the world pass keeps queue 0 for the object mask pass this frame
 	bool									bus_mask_on = false;
 	bool bus_mask_runs() const { return bus_mask_on; }

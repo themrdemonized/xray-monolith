@@ -512,6 +512,26 @@ void script_attachment::SetParentLevel()
 	spatial_move();
 }
 
+// a world attachment draws inside its top attachment, and that one inside its object's root
+IRenderable* script_attachment::renderable_Root()
+{
+	script_attachment* top = this;
+	script_attachment* ahead = this;
+	while (top->m_parent_attachment)
+	{
+		top = top->m_parent_attachment;
+		ahead = ahead && ahead->m_parent_attachment ? ahead->m_parent_attachment->m_parent_attachment : nullptr;
+		// a looped chain has no top and nothing draws it
+		if (ahead == top)
+			return nullptr;
+	}
+	if (top->GetType() != eSA_World)
+		return nullptr;
+	if (top->m_parent_object)
+		return top->m_parent_object->H_Root();
+	return top != this ? top : nullptr;
+}
+
 ::luabind::object script_attachment::GetParent()
 {
 	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());

@@ -108,6 +108,7 @@ public:
 	virtual void spatial_unregister();
 	virtual void spatial_move();
 	virtual IRenderable* dcast_Renderable() { return this; }
+	virtual IRenderable* renderable_Root();
 
 	virtual void renderable_Render(IDSGraphManager* DM);
 

@@ -87,7 +87,8 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
         {
             Fbox world_bb;
             world_bb.xform(pVisual->vis.box, *xform);
-            if (!RImplementation.HOM.visible(world_bb))
+            if (!RImplementation.HOM.visible(world_bb) && !(bus_layer_bits && ((val_busTag & bus_layer_bits) || ShaderBus::layer_root(val_pObject))
+                && !pVisual->dcast_ParticleCustom()))
                 return;
         }
     }

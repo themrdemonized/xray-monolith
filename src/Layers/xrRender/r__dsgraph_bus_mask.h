@@ -4,6 +4,7 @@
 #include "ResourceManager.h"
 #include "dxRenderDeviceRender.h"
 #include "../xrRenderDX10/StateManager/dx10StateCache.h"
+#include "../../xrEngine/xr_object.h"
 
 // creates and clears the shader bus mask target, true when the HUD lists redraw into it
 static bool bus_mask_begin()
@@ -13,8 +14,13 @@ static bool bus_mask_begin()
 
 	static const u32 lane = ShaderBus::register_engine("engine_hud_mask",
 		"x is 1 while the mask target holds this frame's HUD bits, else 0");
+	static const u32 ids_lane = ShaderBus::register_engine("engine_mask_ids",
+		"x is 1 while the id target holds this frame's object ids, else 0");
 	const bool hud = ShaderBus::declared(lane);
-	const bool held = hud || ShaderBus::mask_live_bits() != 0;
+	const bool ids = ShaderBus::declared(ids_lane);
+	u32 layer = 0;
+	const bool world = ShaderBus::mask_live_bits(&layer) != 0;
+	const bool held = hud || world;
 
 	CRenderTarget* T = RImplementation.Target;
 	const bool msaa = !ShaderBus::mask_drawable();
@@ -44,15 +50,55 @@ static bool bus_mask_begin()
 		}
 	}
 
+	// the id target follows the mask target while a mod holds a live bit and a shader reads the ids
+	if (!ids || !world || !T->rt_bus_mask)
+		T->rt_bus_object_id.destroy();
+	else if (!T->rt_bus_object_id)
+		T->rt_bus_object_id.create("$user$bus_engine_object_id", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
+
+	// the layer target follows the mask target while a bit on the layer is live
+	if (!layer || !T->rt_bus_mask)
+		T->rt_bus_mask_layer.destroy();
+	else if (!T->rt_bus_mask_layer)
+		T->rt_bus_mask_layer.create("$user$bus_engine_mask_layer", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
+
 	if (T->rt_bus_mask)
 	{
 		const FLOAT zero[4] = { 0.f, 0.f, 0.f, 0.f };
 		HW.pContext->ClearRenderTargetView(T->rt_bus_mask->pRT, zero);
+		if (T->rt_bus_object_id)
+			HW.pContext->ClearRenderTargetView(T->rt_bus_object_id->pRT, zero);
+		if (T->rt_bus_mask_layer)
+			HW.pContext->ClearRenderTargetView(T->rt_bus_mask_layer->pRT, zero);
 	}
 
 	if (hud)
 		ShaderBus::set(lane, T->rt_bus_mask ? 1.f : 0.f, 0.f, 0.f, 0.f);
+	if (ids)
+		ShaderBus::set(ids_lane, T->rt_bus_object_id ? 1.f : 0.f, 0.f, 0.f, 0.f);
 	return hud && T->rt_bus_mask;
+}
+
+// which target the world mask walk draws, the tags, the object ids or the layer bits
+enum { bus_pass_tag, bus_pass_id, bus_pass_layer };
+static u32 bus_mask_pass = bus_pass_tag;
+static u32 bus_mask_layer = 0;
+
+// the id + 1 of the game object a draw belongs to, 0 for a level root attachment or particles
+static u32 bus_object_id(IRenderable* object)
+{
+	CObject* o = object ? fast_dynamic_cast<CObject*>(object) : nullptr;
+	return o ? u32(o->ID()) + 1 : 0;
+}
+
+// what a tagged world draw writes in the walk that runs, 0 draws nothing
+static u32 bus_mask_value(IRenderable* object, u32 tag)
+{
+	if (bus_mask_pass == bus_pass_id)
+		return tag ? bus_object_id(object) : 0;
+	if (bus_mask_pass == bus_pass_layer)
+		return tag & bus_mask_layer;
+	return tag;
 }
 
 // mask pixel shader and states over the draw's own, after set_Element or set_States
@@ -87,8 +133,21 @@ static void bus_mask_bind(ID3DRenderTargetView* saved[4])
 	RCache.set_RT(nullptr, 3);
 }
 
+// points the world mask walk at another target, the layer pass with no depth buffer bound
+static void bus_mask_pass_begin(u32 pass, ID3DRenderTargetView* rt, u32 layer)
+{
+	bus_mask_pass = pass;
+	RCache.set_RT(rt, 0);
+	if (pass == bus_pass_layer)
+	{
+		bus_mask_layer = layer;
+		RCache.set_ZB(nullptr);
+	}
+}
+
 static void bus_mask_unbind(ID3DRenderTargetView* saved[4])
 {
+	bus_mask_pass = bus_pass_tag;
 	StateManager.SetBlendFactor(0.f);
 	for (u32 i = 0; i < 4; ++i)
 		RCache.set_RT(saved[i], i);
