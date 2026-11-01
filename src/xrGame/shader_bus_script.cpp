@@ -473,6 +473,7 @@ static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_s
 	t.height = 0;
 	t.format = 0;
 	t.history = false;
+	t.mips = false;
 	t.clear.set(0.f, 0.f, 0.f, 0.f);
 	if (spec.type() != LUA_TTABLE)
 		return "spec";
@@ -493,6 +494,12 @@ static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_s
 		t.history = ::luabind::object_cast<bool>(history);
 	else if (history.type() != LUA_TNIL)
 		return "history";
+
+	::luabind::object mips = spec["mips"];
+	if (mips.type() == LUA_TBOOLEAN)
+		t.mips = ::luabind::object_cast<bool>(mips);
+	else if (mips.type() != LUA_TNIL)
+		return "mips";
 
 	::luabind::object clear = spec["clear"];
 	if (clear.type() == LUA_TNUMBER)
@@ -538,6 +545,8 @@ static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec&
 	p.grid_h = 0;
 	p.indirect_row = 0;
 	p.svp = false;
+	p.runs = 1;
+	p.rect.set(0.f, 0.f, 1.f, 1.f);
 	p.enabled = true;
 	p.released = false;
 	p.enables = 0;
@@ -604,6 +613,25 @@ static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec&
 		return "blend";
 	p.blend = u8(blend < 3 ? blend : ShaderBus::blend_none);
 
+	::luabind::object rect = spec["rect"];
+	if (rect.type() == LUA_TTABLE)
+	{
+		float r[4];
+		for (int i = 0; i < 4; ++i)
+		{
+			::luabind::object e = rect[i + 1];
+			if (e.type() != LUA_TNUMBER)
+				return "rect";
+			r[i] = ::luabind::object_cast<float>(e);
+		}
+		::luabind::object fifth = rect[5];
+		if (fifth.type() != LUA_TNIL)
+			return "rect";
+		p.rect.set(r[0], r[1], r[2], r[3]);
+	}
+	else if (rect.type() != LUA_TNIL)
+		return "rect";
+
 	if (p.cs.size())
 	{
 		::luabind::object group = spec["group"];
@@ -641,6 +669,21 @@ static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec&
 		p.svp = ::luabind::object_cast<bool>(svp);
 	else if (svp.type() != LUA_TNIL)
 		return "svp";
+
+	::luabind::object runs = spec["runs"];
+	if (runs.type() != LUA_TNIL)
+	{
+		u32 n;
+		if (!bus_read_side(runs, 16, n))
+			return "runs";
+		p.runs = u8(n);
+	}
+
+	::luabind::object pingpong = spec["pingpong"];
+	if (pingpong.type() == LUA_TSTRING)
+		p.pingpong = ::luabind::object_cast<LPCSTR>(pingpong);
+	else if (pingpong.type() != LUA_TNIL)
+		return "pingpong";
 	return nullptr;
 }
 
@@ -740,6 +783,7 @@ static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
 	row["format"] = ShaderBus::target_format_name(t.format);
 	row["bytes"] = live ? s.bytes : 0u;
 	row["history"] = t.history;
+	row["mips"] = t.mips;
 	row["target_state"] = released ? "released" : found ? bus_gpu_states[s.state] : "pending";
 }
 
@@ -757,6 +801,19 @@ static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus:
 	row["fails"] = found ? s.fails : 0u;
 	row["blend"] = bus_blends[p.blend];
 	row["svp"] = p.svp;
+	if (p.runs > 1)
+		row["runs"] = u32(p.runs);
+	if (p.pingpong.size())
+		row["pingpong"] = p.pingpong.c_str();
+	if (p.rect.x != 0.f || p.rect.y != 0.f || p.rect.z != 1.f || p.rect.w != 1.f)
+	{
+		::luabind::object rect = ::luabind::newtable(L);
+		rect[1] = p.rect.x;
+		rect[2] = p.rect.y;
+		rect[3] = p.rect.z;
+		rect[4] = p.rect.w;
+		row["rect"] = rect;
+	}
 
 	// the shader, outputs, inputs and compute group as the spec gave them
 	if (p.cs.size())
