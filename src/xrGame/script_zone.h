@@ -33,7 +33,7 @@ public:
 	bool active_contact(u16 id) const;
 	virtual bool IsVisibleForZones() { return false; }
 	virtual bool register_schedule() const { return true; }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual	void	OnRender			();
 #endif
 DECLARE_SCRIPT_REGISTER_FUNCTION

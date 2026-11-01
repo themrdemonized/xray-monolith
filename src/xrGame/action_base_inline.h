@@ -122,7 +122,7 @@ IC void CBaseAction::set_inertia_time(u32 inertia_time)
 	m_inertia_time = inertia_time;
 }
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 TEMPLATE_SPECIALIZATION
 IC	void CBaseAction::debug_log			(const EActionStates state_state) const
 {
@@ -188,7 +188,7 @@ typename CBaseAction::_edge_value_type CBaseAction::weight(const CSConditionStat
 	return (m_weight);
 }
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 TEMPLATE_SPECIALIZATION
 IC	void CBaseAction::show			(LPCSTR offset)
 {

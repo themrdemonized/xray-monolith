@@ -8,7 +8,7 @@
 class occTri;
 
 class CHOM
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	: public pureRender
 #endif
 {
@@ -19,7 +19,7 @@ private:
 	BOOL bEnabled;
 	Fmatrix m_xform;
 	Fmatrix m_xform_01;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	u32						tris_in_frame_visible	;
 	u32						tris_in_frame			;
 #endif
@@ -59,7 +59,7 @@ public:
 	CHOM();
 	~CHOM();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void			OnRender	();
 			void			stats		();
 #endif

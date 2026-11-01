@@ -8,7 +8,7 @@
 
 #pragma once
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 IC	const CSpaceRestrictionManager::SPACE_RESTRICTIONS &CSpaceRestrictionManager::restrictions	() const
 {
 	return								(m_space_restrictions);

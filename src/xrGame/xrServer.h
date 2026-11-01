@@ -304,7 +304,7 @@ public:
 };
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		enum e_dbg_net_Draw_Flags
 		{
 

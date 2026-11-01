@@ -6,13 +6,13 @@
 #include "../xrphysics/MathUtils.h"
 #include "../xrphysics/extendedgeom.h"
 #include "../xrEngine/gamemtllib.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #	include "level.h"
 #	include "PHDebug.h"
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #endif
 
@@ -366,7 +366,7 @@ void CClimableObject::ObjectContactCallback(bool& do_colide, bool bo1, dContact&
 	VERIFY(this_object);
 	if (!this_object->BeforeLadder(ch, -0.1f)) do_colide = false;
 }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 extern	Flags32	dbg_net_Draw_Flags;
 void CClimableObject ::OnRender()
 {
@@ -374,22 +374,22 @@ void CClimableObject ::OnRender()
 
 	Fmatrix form;m_box.xform_get(form);
 	//form.mulA(XFORM());
-	Level().debug_renderer().draw_obb(XFORM(),m_box.m_halfsize,D3DCOLOR_XRGB(0,0,255));
+	Level().debug_renderer().draw_obb(XFORM(),m_box.m_halfsize,D3DCOLOR_XRGB(0,0,255), false);
 	Fvector p1,p2,d;
 	d.set(m_axis);
 	p1.add(XFORM().c,d);
 	p2.sub(XFORM().c,d);
-	Level().debug_renderer().draw_line(Fidentity,p1,p2,D3DCOLOR_XRGB(255,0,0));
+	Level().debug_renderer().draw_line(Fidentity,p1,p2,D3DCOLOR_XRGB(255,0,0), false);
 
 	d.set(m_side);
 	p1.add(XFORM().c,d);
 	p2.sub(XFORM().c,d);
-	Level().debug_renderer().draw_line(Fidentity,p1,p2,D3DCOLOR_XRGB(255,0,0));
+	Level().debug_renderer().draw_line(Fidentity,p1,p2,D3DCOLOR_XRGB(255,0,0), false);
 
 	d.set(m_norm);
 	d.mul(10.f);
 	p1.add(XFORM().c,d);
 	p2.set(XFORM().c);
-	Level().debug_renderer().draw_line(Fidentity,p1,p2,D3DCOLOR_XRGB(0,255,0));
+	Level().debug_renderer().draw_line(Fidentity,p1,p2,D3DCOLOR_XRGB(0,255,0), false);
 }
 #endif

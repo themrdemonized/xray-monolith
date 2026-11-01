@@ -17,7 +17,7 @@ class vision_client;
 
 class CVisualMemoryManager
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	friend class CAI_Stalker;
 #endif
 public:

@@ -1186,7 +1186,7 @@ void game_sv_GameState::on_death(CSE_Abstract* e_dest, CSE_Abstract* e_src)
 }
 
 //  [7/5/2005]
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 extern	Flags32	dbg_net_Draw_Flags;
 
 void		game_sv_GameState::OnRender				()

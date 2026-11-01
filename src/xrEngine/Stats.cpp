@@ -523,7 +523,7 @@ void CStats::OnDeviceDestroy()
 
 void CStats::OnRender()
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     if (g_stats_flags.is(st_sound))
     {
         CSound_stats_ext    snd_stat_ext;

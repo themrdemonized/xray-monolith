@@ -28,7 +28,7 @@ private:
 	}
 
 	//virtual		EEnvironment CheckInvironment					();
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		void		OnRender							()																													;
 #endif
 };

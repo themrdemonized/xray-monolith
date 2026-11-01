@@ -5,7 +5,7 @@
 #include "MathUtils.h"
 #include "PHWorld.h"
 #include "../xrengine/device.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "../xrEngine/Statgraph.h"
 #include "debug_output.h"
 #endif
@@ -105,7 +105,7 @@ void CElevatorState::EvaluateState()
 	VERIFY(m_ladder&&m_character);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 const char*	dbg_state[] =	{
 		"clbNone"			,				
 		"clbNearUp"			,			
@@ -119,7 +119,7 @@ const char*	dbg_state[] =	{
 void CElevatorState::SwitchState(Estate new_state)
 {
 	if (!StateSwitchInertion(new_state))return;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if(debug_output().ph_dbg_draw_mask().test(phDbgLadder))
 				Msg("%s",dbg_state[new_state]);
 #endif
@@ -269,7 +269,7 @@ void CElevatorState::UpdateClimbingCommon(const Fvector& d_to_ax, float to_ax, c
 		SwitchState((clbNoLadder));
 	if (fis_zero(ca) && d_to_ax.dotproduct(m_ladder->Norm()) < 0.f)
 	{
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(debug_output().ph_dbg_draw_mask().test(phDbgLadder))
 		{
 //.			Msg("force applied");
@@ -316,7 +316,7 @@ bool CElevatorState::GetControlDir(Fvector& dir)
 		}
 		else
 		{
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 										if(debug_output().ph_dbg_draw_mask().test(phDbgLadder))
 										{
 											Msg("no c dir");

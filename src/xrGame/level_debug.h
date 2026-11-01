@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 // Lain: added
 namespace debug { class text_tree; }

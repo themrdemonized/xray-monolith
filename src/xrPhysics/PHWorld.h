@@ -35,7 +35,7 @@ class CPHWorld : public pureFrame,
                  public IPHWorld,
                  public cphysics_scripted,
                  private xray::noncopyable
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 					, public pureRender
 #endif
 {
@@ -148,7 +148,7 @@ public:
 	}
 
 	//	void						AddCall							(CPHCondition*c,CPHAction*a);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void 				OnRender						()							;
 #endif
 	virtual void _BCL OnFrame();

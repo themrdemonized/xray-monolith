@@ -385,7 +385,7 @@ void CHOM::Enable()
 	bEnabled = m_pModel ? TRUE : FALSE;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CHOM::OnRender	()
 {
 	Raster.on_dbg_render();

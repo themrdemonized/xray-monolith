@@ -167,9 +167,10 @@ public:
 	virtual bool is_base_monster_with_enemy() { return false; }
 
 	// debug
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void		OnRender				( );
 	virtual void		OnHUDDraw				(CCustomHUD* hud);
+			void		dbg_draw_frustum_self	( );
 #endif
 
 	virtual bool bfExecMovement() { return (false); };
@@ -353,7 +354,7 @@ public:
 public:
 	virtual Fvector spatial_sector_point();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	xr_vector<trajectory_pick>			m_jump_picks;
 	xr_vector<Fvector>				m_jump_collide_tris;
 #endif // #ifdef DEBUG

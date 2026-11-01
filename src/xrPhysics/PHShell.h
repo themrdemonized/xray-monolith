@@ -42,7 +42,7 @@ class CPHShell :
 
 private:
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		IPhysicsShellHolder	*ref_object					() { return PhysicsRefObject() ;}
 #endif
 
@@ -337,7 +337,7 @@ private:
 private:
 	virtual iphysics_scripted& get_scripted() { return *this; }
 public:
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		void				dbg_draw_velocity				( float scale, u32 color );
 	virtual		void				dbg_draw_force					( float scale, u32 color );
 	virtual		void				dbg_draw_geometry				( float scale, u32 color, Flags32 flags = Flags32().assign( 0 ) ) const			;

@@ -23,9 +23,9 @@
 #include "hudsound.h"
 #include "script_game_object.h"
 
-#ifdef DEBUG
-#	include "../xrEngine/StatGraph.h"
-#	include "PHDebug.h"
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+#include "../xrEngine/StatGraph.h"
+#include "PHDebug.h"
 #endif
 
 //#include "Physics.h"
@@ -183,7 +183,7 @@ void CExplosive::net_Destroy()
 
 struct SExpQParams
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 	SExpQParams(const Fvector& ec,const Fvector& d)
 	{
@@ -226,7 +226,7 @@ ICF static BOOL grenade_hit_callback(collide::rq_result& result, LPVOID params)
 	SGameMtl* mtl = GMLib.GetMaterialByIdx(mtl_idx);
 	float shoot_factor = 1.f - mtl->fShootFactor;
 	ep.shoot_factor *= shoot_factor;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 		Fvector p;p.set(ep.l_dir);p.mul(result.range);p.add(ep.source_p);
@@ -260,7 +260,7 @@ float CExplosive::ExplosionEffect(collide::rq_results& storage, CExplosive* exp_
 		if (ph_volume < effective_volume)effective_volume = ph_volume;
 	}
 	float effect = 0.f;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 		Fmatrix dbg_box_m;dbg_box_m.set(obj_xform);
@@ -290,7 +290,7 @@ float CExplosive::ExplosionEffect(collide::rq_results& storage, CExplosive* exp_
 		if (fis_zero(mag)) return 1.f;
 
 		l_dir.mul(1.f / mag);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 			if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 			{
 			DBG_DrawPoint(l_source_p,0.1f,D3DCOLOR_XRGB(0,0,255));
@@ -299,7 +299,7 @@ float CExplosive::ExplosionEffect(collide::rq_results& storage, CExplosive* exp_
 			}
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		float l_S=effective_volume*(_abs(l_dir.dotproduct(obj_xform.i))/l_d.x+_abs(l_dir.dotproduct(obj_xform.j))/l_d.y+_abs(l_dir.dotproduct(obj_xform.k))/l_d.z);
 		float add_eff=_sqrt(l_S/max_s)*TestPassEffect(l_source_p,l_dir,mag,expl_radius,storage,blasted_obj);
 		effect+=add_eff;
@@ -316,7 +316,7 @@ float CExplosive::ExplosionEffect(collide::rq_results& storage, CExplosive* exp_
 		effect += _sqrt(l_S / max_s) * TestPassEffect(l_source_p, l_dir, mag, expl_radius, storage, blasted_obj);
 #endif
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 			Msg("damage effect %f",effect/TEST_RAYS_PER_OBJECT);
@@ -336,7 +336,7 @@ float CExplosive::TestPassEffect(const Fvector& source_p, const Fvector& dir, fl
 		VERIFY(!fis_zero(dir.square_magnitude()));
 		collide::ray_defs RD(source_p, dir, range, CDB::OPT_CULL, collide::rqtBoth);
 		VERIFY(!fis_zero(RD.dir.square_magnitude()));
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		SExpQParams			ep		(source_p,dir);
 #else
 		SExpQParams ep;
@@ -359,7 +359,7 @@ void CExplosive::Explode()
 
 	Fvector& pos = m_vExplodePos;
 	Fvector& dir = m_vExplodeDir;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 		DBG_OpenCashedDraw();
@@ -462,7 +462,7 @@ void CExplosive::Explode()
 		ActivateExplosionBox(m_vExplodeSize, m_vExplodePos);
 	STOP_PROFILE
 	//---------------------------------------------------------------------
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 		DBG_ClosedCashedDraw(100000);
@@ -740,7 +740,7 @@ void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysics
 	if (l_pGO->Visual()) l_pGO->Center(l_goPos);
 	else return; //мне непонятно зачем наносить хит от взрыва по объектам не имеющим вижуал - поэтому игнорируем
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 		DBG_OpenCashedDraw();
@@ -775,7 +775,7 @@ void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysics
 		HS.Write_Packet(P);
 		cast_game_object()->u_EventSend(P);
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
 	{
 		DBG_ClosedCashedDraw(100000);

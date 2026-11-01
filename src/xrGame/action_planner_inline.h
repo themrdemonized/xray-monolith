@@ -34,7 +34,7 @@ IC CPlanner::CActionPlanner() :
 	m_loaded(false),
 	m_solving(false)
 {
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	m_use_log				= false;
 #endif
 }
@@ -70,7 +70,7 @@ void CPlanner::update()
 	solve();
 	m_solving = false;
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	// printing solution
 	if (m_use_log) {
 		if (m_solution_changed) {
@@ -208,7 +208,7 @@ IC void CPlanner::add_effect(_world_operator* action, _condition_type condition_
 	action->add_effect(CWorldProperty(condition_id, condition_value));
 }
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 TEMPLATE_SPECIALIZATION
 LPCSTR CPlanner::action2string		(const _action_id_type &action_id)
 {
@@ -243,7 +243,7 @@ IC void CPlanner::add_operator(const _edge_type& operator_id, _operator_ptr _ope
 #endif
 	inherited::add_operator(operator_id, _operator);
 	_operator->setup(m_object, &m_storage);
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	_operator->set_use_log	(m_use_log);
 #endif
 }
@@ -297,7 +297,7 @@ IC void CPlanner::remove_evaluator(const _condition_type& condition_id)
 	inherited::remove_evaluator(condition_id);
 }
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 TEMPLATE_SPECIALIZATION
 IC	void CPlanner::set_use_log		(bool value)
 {

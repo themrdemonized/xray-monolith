@@ -188,10 +188,10 @@ void CEatableItemObject::PH_A_CrPr()
 	CEatableItem::PH_A_CrPr();
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CEatableItemObject::OnRender			()
 {
-	CEatableItem::OnRender			();
+	//CEatableItem::OnRender			();
 }
 #endif
 

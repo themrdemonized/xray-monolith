@@ -465,7 +465,7 @@ Fvector CHelicopter::GetCurrVelocityVec()
 	return dir;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CHelicopter::OnRender()
 {
 /*

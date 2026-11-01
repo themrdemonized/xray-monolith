@@ -108,7 +108,7 @@ private:
 	                   u16 bone);
 	//.	bool						LoadMotions				(LPCSTR N, IReader *data);
 public:
-#if (defined DEBUG || defined _EDITOR)
+#if (defined DEBUG || defined _EDITOR || defined(DEBUG_DRAW))
 	std::pair<LPCSTR,LPCSTR>	LL_MotionDefName_dbg	(MotionID	ID);
 	void						LL_DumpBlends_dbg		( );
 #endif

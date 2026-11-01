@@ -8,7 +8,7 @@
 
 #include "stdafx.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #ifndef AI_COMPILER
 
 #include "level_graph.h"
@@ -55,7 +55,7 @@ void CLevelGraph::render	()
 	if (psAI_Flags.test(aiMotion))
 		draw_objects		();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	draw_debug_node			();
 #endif
 }
@@ -144,9 +144,9 @@ void CLevelGraph::draw_edge			(const int &vertex_id0, const int &vertex_id1)
 	}
 
 	CDebugRenderer			&render = Level().debug_renderer();
-	render.draw_aabb		(position0,radius,radius,radius,vertex_color0);
-	render.draw_aabb		(position1,radius,radius,radius,vertex_color1);
-	render.draw_line		(Fidentity,position0,position1,edge_color);
+	render.draw_aabb		(position0,radius,radius,radius,vertex_color0, false);
+	render.draw_aabb		(position1,radius,radius,radius,vertex_color1, false);
+	render.draw_line		(Fidentity,position0,position1,edge_color, false);
 //	RCache.dbg_DrawAABB		(position0,radius,radius,radius,vertex_color);
 //	RCache.dbg_DrawAABB		(position1,radius,radius,radius,vertex_color);
 //	RCache.dbg_DrawLINE		(Fidentity,position0,position1,edge_color);
@@ -255,7 +255,7 @@ void CLevelGraph::draw_stalkers		(const int &vertex_id)
 			else
 				position = convert_position(graph.vertex(stalker->m_tGraphID)->game_point());
 			
-			render.draw_aabb	(position,radius,radius,radius,color);
+			render.draw_aabb	(position,radius,radius,radius,color, false);
 			first_time			= false;
 			continue;
 		}
@@ -303,7 +303,7 @@ void CLevelGraph::draw_stalkers		(const int &vertex_id)
 		direction.normalize		();
 		direction.mul			(magnitude*walked_distance/distance);
 		direction.add			(position0);
-		render.draw_aabb		(direction,radius,radius,radius,color);
+		render.draw_aabb		(direction,radius,radius,radius,color, false);
 
 		Fvector4				temp;
 		Device.mFullTransform.transform (temp,direction);
@@ -421,7 +421,7 @@ void CLevelGraph::draw_objects		(const int &vertex_id)
 			else
 				position = convert_position(graph.vertex(monster->m_tGraphID)->game_point());
 
-			render.draw_aabb	(position,radius,radius,radius,color);
+			render.draw_aabb	(position,radius,radius,radius,color, false);
 			first_time			= false;
 			continue;
 		}
@@ -467,7 +467,7 @@ void CLevelGraph::draw_objects		(const int &vertex_id)
 		direction.normalize		();
 		direction.mul			(magnitude*walked_distance/distance);
 		direction.add			(position0);
-		render.draw_aabb		(direction,radius,radius,radius,color);
+		render.draw_aabb		(direction,radius,radius,radius,color, false);
 
 		Fvector4				temp;
 		Device.mFullTransform.transform (temp,direction);

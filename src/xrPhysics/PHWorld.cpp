@@ -10,7 +10,7 @@
 #include "../xrEngine/gamemtllib.h"
 //#include "PhysicsGamePars.h"
 #include "params.h"
-#ifdef    DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_output.h"
 #endif
 //#include "PHCommander.h"
@@ -117,7 +117,7 @@ void CPHMesh::Destroy()
 dGeomID plane;
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 void CPHWorld::OnRender()
 {
@@ -264,8 +264,9 @@ void CPHWorld::Destroy()
 	dCylinderClassUser = -1;
 	dRayMotionsClassUser = -1;
 
-	//	Device().seqFrameMT.Remove	(this);
+ //	Device().seqFrameMT.Remove	(this);
 	//	Device().seqFrame.Remove		(this);
+
 	Device().RemoveSeqFrame(this);
 	b_exist = false;
 }
@@ -349,7 +350,7 @@ void CPHWorld::Step()
 
 	Device().StatPhysics()->ph_collision.End();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	for(i_object=m_objects.begin();m_objects.end() != i_object;)
 	{
 		CPHObject* obj=(*i_object);
@@ -398,7 +399,7 @@ void CPHWorld::Step()
 	{
 		CPHObject* obj = (*i_object);
 		++i_object;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(debug_output().ph_dbg_draw_mask().test(phDbgDrawObjectStatistics))
 		{
 			if(obj->Island().IsActive())
@@ -519,7 +520,7 @@ void CPHWorld::FrameStep(dReal step)
 	float frame_time = m_frame_time;
 	frame_time += step;
 	//m_frame_sum+=step;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgDrawObjectStatistics))
 	{
 		static float dbg_iterations=0.f;
@@ -543,7 +544,7 @@ void CPHWorld::FrameStep(dReal step)
 		return;
 	}
 	//for(UINT i=0;i<(m_reduce_delay+1);++i)
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	debug_output().DBG_DrawFrameStart();
 	debug_output().DBG_DrawStatBeforeFrameStep();
 #endif
@@ -555,7 +556,7 @@ void CPHWorld::FrameStep(dReal step)
 	for (UINT i = 0; i < it_number; ++i)
 		Step();
 	b_processing = false;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	debug_output().DBG_DrawStatAfterFrameStep();
 #endif
 }

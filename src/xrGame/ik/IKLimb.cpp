@@ -14,7 +14,7 @@
 #include "../../xrphysics/MathUtils.h"
 #include "../../xrphysics/matrix_utils.h"
 #include "../pose_extrapolation.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "../PHDebug.h"
 #endif
 
@@ -272,7 +272,7 @@ bool CIKLimb::SetGoalToLimb(const SCalculateData& cd)
 
 	Matrix gl;
 	Fmatrix goal;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		return !! m_limb.SetGoal( Goal( gl,  cd.goal( goal ), cd ), ph_dbg_draw_mask.test( phDbgIKLimits ) );
 #else
 	return !! m_limb.SetGoal(Goal(gl, cd.goal(goal), cd), FALSE);
@@ -290,7 +290,7 @@ void CIKLimb::Solve(SCalculateData& cd)
 	Fvector pos;
 	GetKnee(pos, cd);
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask.test( phDbgDrawIKGoal ) )
 	{
 		Fvector dbg_pos;
@@ -308,7 +308,7 @@ void CIKLimb::Solve(SCalculateData& cd)
 		cd.m_angles = x;
 		CalculateBones(cd);
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if( ph_dbg_draw_mask.test( phDbgDrawIKGoal ) )
 	{
 		Fvector dbg_pos; m_foot.ToePosition( dbg_pos );
@@ -617,7 +617,7 @@ bool CIKLimb::blend_collide(ik_goal_matrix& m, const SCalculateData& cd, const i
 	m.set(fm, m0.collide_state());
 	//if( collide_data.m_collide_point == ik_foot_geom::toe )
 	m_foot.GetFootStepMatrix(m, fm, collide_data, true, true, true);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(ph_dbg_draw_mask1.test(phDbgDrawIKBlending))
 		{
 			Fvector l_toe; m_foot.ToePosition( l_toe );
@@ -856,7 +856,7 @@ void CIKLimb::SetNewStepGoal(const SIKCollideData& cld, SCalculateData& cd)
 		cd.state.goal = cd.state.collide_pos;
 }
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CIKLimb::DBGDrawSetNewGoal	( SCalculateData& cd, const SIKCollideData &cld )
 {
 		if(ph_dbg_draw_mask.test( phDbgDrawIKGoal ))
@@ -1153,7 +1153,7 @@ void CIKLimb::step_predict(CGameObject* O, const CBlend* b, ik_limb_state_predic
 	m_foot.GetFootStepMatrix(gl_cl_goal, gl_goal, cld, false, true);
 
 	//m_foot.ref_bone_to_foot
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if( ph_dbg_draw_mask1.test( phDbgDrawIKPredict ) )
 {
 	DBG_DrawPoint( gl_cl_goal.get().c, 0.03f, D3DCOLOR_XRGB( 255, 0, 0 ) );
@@ -1184,7 +1184,7 @@ Fmatrix& CIKLimb::GetHipInvert(Fmatrix& ihip, const SCalculateData& cd)
 
 Matrix& CIKLimb::Goal(Matrix& gl, const Fmatrix& xm, const SCalculateData& cd)
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	const Fmatrix &obj = *cd.m_obj;
 	if( ph_dbg_draw_mask.test( phDbgDrawIKGoal ) )
 	{
@@ -1308,7 +1308,7 @@ void CIKLimb::BonesCallback0(CBoneInstance* B)
 	get_start(start, *D, 0);
 	B->mTransform.mul_43(start, bm);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	CIKLimb&	L	=*D->m_limb;
 	if( ph_dbg_draw_mask1.test( phDbgDrawIKLimits ) )
 		DBG_DrawRotation3( Fmatrix( ).mul_43( *D->m_obj, start ), x, L.m_limb.jt_limits, 0, 1, 2 );
@@ -1351,7 +1351,7 @@ void CIKLimb::BonesCallback2(CBoneInstance* B)
 
 	B->mTransform.mul_43(start, bm);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	CIKLimb&		L	=*D->m_limb;
 	if( ph_dbg_draw_mask1.test( phDbgDrawIKLimits ) )
 	{

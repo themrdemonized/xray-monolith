@@ -55,6 +55,7 @@
 #include "ui/UIPdaWnd.h"
 #include "UICursor.h"
 #include "debug_renderer.h"
+#include "ai_debug_draw.h"
 #include "LevelDebugScript.h"
 #include "script_attachment_manager.h"
 #include "script_light_inline.h"
@@ -62,7 +63,7 @@
 #include "alife_simulator.h"
 #include "alife_object_registry.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "level_debug.h"
 #include "ai/stalker/ai_stalker.h"
 #include "PhysicObject.h"
@@ -256,7 +257,7 @@ CLevel::CLevel() :
         m_client_spawn_manager = xr_new<CClientSpawnManager>();
         m_autosave_manager = xr_new<CAutosaveManager>();
         m_debug_renderer = xr_new<CDebugRenderer>();
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
         m_level_debug = xr_new<CLevelDebug>();
 #endif
     }
@@ -345,7 +346,7 @@ CLevel::~CLevel()
     pObjects4CrPr.clear();
     pActors4CrPr.clear();
     ai().unload();
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     xr_delete(m_level_debug);
 #endif
     xr_delete(m_map_manager);
@@ -1306,11 +1307,11 @@ void CLevel::OnRender()
 
 	ScriptDebugRender();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     draw_wnds_rects();
     physics_world()->OnRender();
 #endif
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     if (ai().get_level_graph())
         ai().level_graph().render();
 #ifdef DEBUG_PRECISE_PATH
@@ -1378,8 +1379,34 @@ void CLevel::OnRender()
         UI().Font().pFontStat->SetHeight(8.0f);
     }
 #endif
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    if (psAI_Flags.test(aiFrustum))
+    {
+        for (u32 I = 0; I < Objects.o_count(); I++)
+        {
+            CCustomMonster* monster = smart_cast<CCustomMonster*>(Objects.o_get_by_iterator(I));
+            if (monster)
+                monster->dbg_draw_frustum_self();
+        }
+    }
+
+    // line primitives must be queued before debug_renderer().render() to show up this frame
+    if (psAI_Flags.test(aiDrawVisibilityRays))
+    {
+        for (u32 I = 0; I < Level().Objects.o_count(); I++)
+        {
+            CObject* object = Objects.o_get_by_iterator(I);
+            CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(object);
+            if (!stalker)
+                continue;
+            stalker->dbg_draw_visibility_rays();
+        }
+    }
+
+    ai_debug_draw::render();
+#endif
 	debug_renderer().render();
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     if (bDebug)
     {
         DBG().draw_object_info();
@@ -1396,18 +1423,6 @@ void CLevel::OnRender()
             if (!stalker)
                 continue;
             stalker->dbg_draw_vision();
-        }
-    }
-
-    if (psAI_Flags.test(aiDrawVisibilityRays))
-    {
-        for (u32 I = 0; I < Level().Objects.o_count(); I++)
-        {
-            CObject* object = Objects.o_get_by_iterator(I);
-            CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(object);
-            if (!stalker)
-                continue;
-            stalker->dbg_draw_visibility_rays();
         }
     }
 #endif

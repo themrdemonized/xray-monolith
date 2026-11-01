@@ -483,7 +483,7 @@ void CPHGeometryOwner::remove_geom(CODEGeom* g)
 	m_geoms.erase(gi);
 }
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CPHGeometryOwner::dbg_draw( float scale, u32 color, Flags32 flags )const
 {
 	VERIFY( b_builded );

@@ -126,7 +126,7 @@ class CWeaponStatMgun;
 class CProjector;
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     template <typename _object_type>
     class CActionBase;
 

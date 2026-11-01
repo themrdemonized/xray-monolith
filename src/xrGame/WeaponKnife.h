@@ -82,13 +82,13 @@ public:
 
 	virtual bool GetBriefInfo(II_BriefInfo& info);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void		OnRender						();
 #endif
 
 private:
 	typedef buffer_vector<Fvector> shot_targets_t;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	struct dbg_draw_data
 	{
 		typedef xr_vector<std::pair<Fvector, float> >	spheres_t;

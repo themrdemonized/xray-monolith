@@ -28,7 +28,7 @@
 #include "../xrEngine/igame_persistent.h"
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #endif
 
@@ -1345,7 +1345,7 @@ void CInventoryItem::UpdateXForm()
 }
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 void CInventoryItem::OnRender()
 {
@@ -1357,7 +1357,7 @@ void CInventoryItem::OnRender()
 		object().Visual()->getVisData().box.get_CD	(bc,bd);
 		Fmatrix	M = object().XFORM();
 		M.c.add (bc);
-		Level().debug_renderer().draw_obb			(M,bd,color_rgba(0,0,255,255));
+		Level().debug_renderer().draw_obb			(M,bd,color_rgba(0,0,255,255), false);
 /*
 		u32 Color;
 		if (processing_enabled())

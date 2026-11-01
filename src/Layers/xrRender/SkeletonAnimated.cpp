@@ -66,7 +66,7 @@ void CKinematicsAnimated::Bone_Motion_Stop_IM(CBoneData* bd, CBlend* handle)
 	LL_GetBlendInstance(bd->GetSelfID()).blend_remove(handle);
 }
 
-#if (defined DEBUG || defined _EDITOR)
+#if (defined DEBUG || defined _EDITOR || defined(DEBUG_DRAW))
 
 std::pair<LPCSTR,LPCSTR> CKinematicsAnimated::LL_MotionDefName_dbg	(MotionID ID)
 {
