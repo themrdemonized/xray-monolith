@@ -455,6 +455,7 @@ public:
 
 #ifdef USE_DX11
 	ICF void Compute(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ);
+	ICF void ComputeIndirect(ID3D11Buffer* args, UINT offset);
 #endif
 
 	// Device create / destroy / frame signaling
