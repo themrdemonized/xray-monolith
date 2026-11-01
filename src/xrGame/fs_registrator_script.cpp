@@ -34,6 +34,9 @@ void rescan_pathes_script(CLocatorAPI* fs)
 	fs->rescan_pathes();
 }
 
+// m_p is NULL when file_list_open found no such folder, and after Free()
+// (file_list_close nulls it through the reference). Treat NULL as an empty
+// list so scripts that skip the check don't crash the game.
 class FS_file_list
 {
 	xr_vector<LPSTR>* m_p;
@@ -42,12 +45,13 @@ public :
 	{
 	}
 
-	u32 Size() { return m_p->size(); }
-	LPCSTR GetAt(u32 idx) { return m_p->at(idx); }
+	u32 Size() { return m_p ? m_p->size() : 0; }
+	LPCSTR GetAt(u32 idx) { return m_p ? m_p->at(idx) : nullptr; } // nullptr reaches Lua as nil
 
 	void Free()
 	{
-		FS.file_list_close(m_p);
+		if (m_p)
+			FS.file_list_close(m_p);
 	};
 };
 
