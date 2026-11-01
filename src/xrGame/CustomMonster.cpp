@@ -691,11 +691,8 @@ void CCustomMonster::eye_pp_s2()
 	u32 dwTime = Level().timeServer();
 	u32 dwDT = dwTime - eye_pp_timestamp;
 	eye_pp_timestamp = dwTime;
-	static DWORD this_thread_id = 0;
-	this_thread_id = GetCurrentThreadId();
 	Device.secondary_tasks.run([=]()
 	{
-		if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
 		feel_vision_update(eye_matrix.c,float(dwDT)/1000.f,memory().visual().transparency_threshold());
 
 	});

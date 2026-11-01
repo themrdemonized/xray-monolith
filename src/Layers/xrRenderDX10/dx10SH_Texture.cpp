@@ -175,11 +175,8 @@ void CTexture::apply_load(u32 dwStage)
             Msg("* [TexReload] queued: %s", cName.c_str());
 #endif // DEBUG
             CTexture* self = this;
-            static DWORD this_thread_id = 0;
-            this_thread_id = GetCurrentThreadId();
             textures_load_tasks.run([self]()
             {
-                if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
                 self->Load();
             });
         }

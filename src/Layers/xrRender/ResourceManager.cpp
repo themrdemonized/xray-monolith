@@ -402,11 +402,8 @@ void CResourceManager::DeferredUpload()
 			textures.push_back(pair.second);
 	}
 
-	static DWORD this_thread_id = 0;
-	this_thread_id = GetCurrentThreadId();
 	xr_parallel_foreach(textures.begin(), textures.end(), [](CTexture* texture)
 	{
-		if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
 		texture->Load();
 	});
 
