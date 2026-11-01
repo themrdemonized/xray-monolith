@@ -364,7 +364,7 @@ void bus_passes_update()
 		std::sort(bus_runs[s].begin(), bus_runs[s].end(), bus_pass_less);
 }
 
-// moves the run counters of a pass and gives its pass_time
+// moves the run counters of a pass, gives its pass_time and notes it for get_pass_time
 static void bus_pass_time(bus_pass_run& r, Fvector4& t)
 {
 	const u32 clears = r.writes_scene ? 0 : bus_target_clears(r.spec.outputs[0]);
@@ -383,6 +383,7 @@ static void bus_pass_time(bus_pass_run& r, Fvector4& t)
 	r.last_frame = Device.dwFrame;
 	++r.runs;
 	t.set(dt, frames, runs_since, seed);
+	ShaderBus::set_pass_time(r.spec.id, t, Device.dwFrame);
 }
 
 #ifdef USE_DX11
