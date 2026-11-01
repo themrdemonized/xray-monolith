@@ -100,6 +100,14 @@ static xr_vector<ShaderBus::lane*> g_bus_late;
 static xr_vector<ShaderBus::target_spec> g_bus_targets;
 static xr_vector<ShaderBus::pass_spec> g_bus_passes;
 static xr_vector<std::pair<shared_str, ShaderBus::gpu_status>> g_bus_status;
+// the pass_time of each pass's last run and the frame it ran in
+struct bus_pass_clock
+{
+	shared_str id;
+	Fvector4 time;
+	u32 frame;
+};
+static xr_vector<bus_pass_clock> g_bus_pass_clocks;
 static u32 g_bus_targets_serial = 0;
 static bool g_bus_targets_enabled = false;
 
@@ -1989,6 +1997,13 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 	p.released = false;
 	p.enables = enables;
 	bus_status_erase(key);
+	// a pass registered again reads as not run until its first run
+	for (u32 i = 0; i < g_bus_pass_clocks.size(); ++i)
+		if (g_bus_pass_clocks[i].id.equal(key))
+		{
+			g_bus_pass_clocks.erase(g_bus_pass_clocks.begin() + i);
+			break;
+		}
 	++g_bus_targets_serial;
 	return token;
 }
@@ -2122,6 +2137,36 @@ bool ShaderBus::pass_get(const shared_str& id, pass_spec& out)
 		return false;
 	out = g_bus_passes[entry];
 	return true;
+}
+
+void ShaderBus::set_pass_time(const shared_str& id, const Fvector4& time, u32 frame)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 i = 0; i < g_bus_pass_clocks.size(); ++i)
+		if (g_bus_pass_clocks[i].id.equal(id))
+		{
+			g_bus_pass_clocks[i].time = time;
+			g_bus_pass_clocks[i].frame = frame;
+			return;
+		}
+	bus_pass_clock c;
+	c.id = id;
+	c.time = time;
+	c.frame = frame;
+	g_bus_pass_clocks.push_back(c);
+}
+
+bool ShaderBus::get_pass_time(LPCSTR id, Fvector4& time, u32& frame)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 i = 0; i < g_bus_pass_clocks.size(); ++i)
+		if (!xr_strcmp(g_bus_pass_clocks[i].id, id))
+		{
+			time = g_bus_pass_clocks[i].time;
+			frame = g_bus_pass_clocks[i].frame;
+			return true;
+		}
+	return false;
 }
 
 int ShaderBus::version()
