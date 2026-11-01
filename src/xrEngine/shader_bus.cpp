@@ -599,6 +599,20 @@ static bool bus_gpu_written(const ShaderBus::lane* l)
 	return false;
 }
 
+// refuses a write a mask lane, a lane a compute pass writes or a shared lane does not take, a null gpu or shared reason skips that test
+static bool bus_refuse_unfit(ShaderBus::lane* l, LPCSTR mask, LPCSTR gpu, LPCSTR shared)
+{
+	if (l->role == ShaderBus::role_mask)
+		bus_refuse_write(l, mask);
+	else if (gpu && bus_gpu_written(l))
+		bus_refuse_write(l, gpu);
+	else if (shared && l->shared)
+		bus_refuse_write(l, shared);
+	else
+		return false;
+	return true;
+}
+
 static bool bus_finite(const Fvector4& v)
 {
 	return _finite(v.x) && _finite(v.y) && _finite(v.z) && _finite(v.w);
@@ -610,10 +624,8 @@ bool ShaderBus::set(u32 token, float x, float y, float z, float w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "a value, it is an object mask");
-	if (bus_gpu_written(l))
-		return bus_refuse_write(l, "a value, a compute pass writes the lane");
+	if (bus_refuse_unfit(l, "a value, it is an object mask", "a value, a compute pass writes the lane", nullptr))
+		return false;
 
 	if (!_finite(x) || !_finite(y) || !_finite(z) || !_finite(w))
 		return bus_refuse_write(l, "a value that is not finite");
@@ -647,12 +659,9 @@ bool ShaderBus::set_uint(u32 token, u32 x, u32 y, u32 z, u32 w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "a value, it is an object mask");
-	if (bus_gpu_written(l))
-		return bus_refuse_write(l, "a value, a compute pass writes the lane");
-	if (l->shared)
-		return bus_refuse_write(l, "a uint value, a shared lane takes set and set_object only");
+	if (bus_refuse_unfit(l, "a value, it is an object mask", "a value, a compute pass writes the lane",
+	                     "a uint value, a shared lane takes set and set_object only"))
+		return false;
 
 	const u32 raw[4] = { x, y, z, w };
 	CopyMemory(&l->pending, raw, sizeof(raw));
@@ -691,12 +700,9 @@ bool ShaderBus::set_rows(u32 token, u32 first, const Fvector4* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "rows, it is an object mask");
-	if (bus_gpu_written(l))
-		return bus_refuse_write(l, "rows, a compute pass writes the lane");
-	if (l->shared)
-		return bus_refuse_write(l, "rows, a shared lane takes set and set_object only");
+	if (bus_refuse_unfit(l, "rows, it is an object mask", "rows, a compute pass writes the lane",
+	                     "rows, a shared lane takes set and set_object only"))
+		return false;
 
 	for (u32 i = 0; i < count; ++i)
 		if (!bus_finite(rows[i]))
@@ -711,12 +717,9 @@ bool ShaderBus::set_rows_uint(u32 token, u32 first, const u32* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "rows, it is an object mask");
-	if (bus_gpu_written(l))
-		return bus_refuse_write(l, "rows, a compute pass writes the lane");
-	if (l->shared)
-		return bus_refuse_write(l, "rows, a shared lane takes set and set_object only");
+	if (bus_refuse_unfit(l, "rows, it is an object mask", "rows, a compute pass writes the lane",
+	                     "rows, a shared lane takes set and set_object only"))
+		return false;
 
 	return bus_write_rows(l, first, rows, count, kind_uint);
 }
@@ -879,10 +882,8 @@ bool ShaderBus::set_texture(u32 token, LPCSTR name)
 		return false;
 	if (l->role == role_target || l->role == role_history)
 		return bus_refuse_write(l, "a texture, it is a render target");
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "a texture, it is an object mask");
-	if (l->shared)
-		return bus_refuse_write(l, "a texture, a shared lane takes set and set_object only");
+	if (bus_refuse_unfit(l, "a texture, it is an object mask", nullptr, "a texture, a shared lane takes set and set_object only"))
+		return false;
 	if (!name || xr_strlen(name) > 255)
 		return bus_refuse_write(l, "a texture name longer than 255 characters");
 	if (0 == _strnicmp(name, "$user$bus_", 10))
@@ -893,27 +894,77 @@ bool ShaderBus::set_texture(u32 token, LPCSTR name)
 	return true;
 }
 
+// parses the reduce and arms the lane's readback on source src, null after a refusal, called under the lock
+static ShaderBus::lane_readback* bus_readback_request(ShaderBus::lane* l, u32 src, LPCSTR reduce)
+{
+	static LPCSTR reduces[] = { "none", "mean", "min", "max" };
+
+	u32 op = 0;
+	while (op < 4 && (!reduce || xr_strcmp(reduce, reduces[op])))
+		++op;
+	if (op == 4)
+	{
+		bus_refuse_write(l, "a readback reduce other than none, mean, min or max");
+		return nullptr;
+	}
+
+	u32 armed = 0;
+	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
+		if (g_bus_lanes[i] != l && g_bus_lanes[i]->readback && g_bus_lanes[i]->readback->source_pending != ShaderBus::readback_off)
+			++armed;
+	if (armed >= ShaderBus::max_readbacks)
+	{
+		bus_refuse_write(l, "a readback past the 16 armed lanes");
+		return nullptr;
+	}
+
+	if (!l->readback)
+		l->readback = xr_new<ShaderBus::lane_readback>();
+	ShaderBus::lane_readback* r = l->readback;
+	r->source_pending = u8(src);
+	r->reduce_pending = u8(op);
+	return r;
+}
+
 bool ShaderBus::set_readback(u32 token, LPCSTR source, float x, float y, u32 w, u32 h, LPCSTR reduce)
 {
 	static LPCSTR sources[] = { "", "light", "scene", "backbuffer" };
-	static LPCSTR reduces[] = { "none", "mean", "min", "max" };
 
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "a readback, it is an object mask");
-	if (l->shared)
-		return bus_refuse_write(l, "a readback, a shared lane takes set and set_object only");
+	if (bus_refuse_unfit(l, "a readback, it is an object mask", nullptr, "a readback, a shared lane takes set and set_object only"))
+		return false;
 	if (!g_bus_gpu_lanes)
 		return bus_refuse_write(l, "a readback, this renderer has none");
 
 	u32 src = 0;
 	while (src < 4 && (!source || xr_strcmp(source, sources[src])))
 		++src;
+
+	// a history source reads its target's id without the _prev suffix
+	shared_str source_id;
 	if (src == 4)
-		return bus_refuse_write(l, "a readback source other than light, scene or backbuffer");
+	{
+		const int found = source ? bus_find(source) : -1;
+		const lane* s = found >= 0 ? g_bus_lanes[found] : nullptr;
+		if (s && s->role == role_target)
+		{
+			src = readback_target;
+			source_id = s->id;
+		}
+		else if (s && s->role == role_history)
+		{
+			string64 id;
+			xr_strcpy(id, s->id.c_str());
+			id[s->id.size() - 5] = 0;
+			src = readback_history;
+			source_id = id;
+		}
+		else
+			return bus_refuse_write(l, "a readback source other than light, scene, backbuffer or a render target");
+	}
 
 	// disarming needs no block and leaves a lane with no readback as it is
 	if (src == readback_off)
@@ -921,6 +972,7 @@ bool ShaderBus::set_readback(u32 token, LPCSTR source, float x, float y, u32 w, 
 		if (l->readback)
 		{
 			l->readback->source_pending = readback_off;
+			l->readback->source_id_pending = source_id;
 			++l->writes;
 		}
 		return true;
@@ -931,28 +983,44 @@ bool ShaderBus::set_readback(u32 token, LPCSTR source, float x, float y, u32 w, 
 	if (w < 1 || w > max_readback_block || h < 1 || h > max_readback_block)
 		return bus_refuse_write(l, "a readback block outside 1 to 32 texels a side");
 
-	u32 op = 0;
-	while (op < 4 && (!reduce || xr_strcmp(reduce, reduces[op])))
-		++op;
-	if (op == 4)
-		return bus_refuse_write(l, "a readback reduce other than none, mean, min or max");
-
-	u32 armed = 0;
-	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
-		if (g_bus_lanes[i] != l && g_bus_lanes[i]->readback && g_bus_lanes[i]->readback->source_pending != readback_off)
-			++armed;
-	if (armed >= max_readbacks)
-		return bus_refuse_write(l, "a readback past the 16 armed lanes");
-
-	if (!l->readback)
-		l->readback = xr_new<lane_readback>();
-	lane_readback* r = l->readback;
-	r->source_pending = u8(src);
-	r->reduce_pending = u8(op);
+	lane_readback* r = bus_readback_request(l, src, reduce);
+	if (!r)
+		return false;
+	r->source_id_pending = source_id;
 	r->w_pending = u8(w);
 	r->h_pending = u8(h);
 	r->x_pending = x;
 	r->y_pending = y;
+	++l->writes;
+	return true;
+}
+
+bool ShaderBus::set_readback_rows(u32 token, LPCSTR source, u32 first, u32 count, LPCSTR reduce)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (bus_refuse_unfit(l, "a readback, it is an object mask", nullptr, "a readback, a shared lane takes set and set_object only"))
+		return false;
+	if (!g_bus_gpu_lanes)
+		return bus_refuse_write(l, "a readback, this renderer has none");
+
+	const int found = source ? bus_find(source) : -1;
+	const lane* s = found >= 0 ? g_bus_lanes[found] : nullptr;
+	if (!s || !s->buffer_rows)
+		return bus_refuse_write(l, "a readback of rows from a lane that is not a buffer lane");
+	if (count < 1 || count > max_readback_block * max_readback_block)
+		return bus_refuse_write(l, "a readback of rows outside 1 to 1024");
+	if (first >= max_buffer_rows)
+		return bus_refuse_write(l, "a readback first row past the buffer limit");
+
+	lane_readback* r = bus_readback_request(l, readback_buffer, reduce);
+	if (!r)
+		return false;
+	r->source_id_pending = s->id;
+	r->first_pending = first;
+	r->count_pending = u16(count);
 	++l->writes;
 	return true;
 }
@@ -965,10 +1033,8 @@ bool ShaderBus::set_buffer(u32 token, u32 rows)
 		return false;
 	if (l->role == role_target || l->role == role_history)
 		return bus_refuse_write(l, "a buffer, it is a render target");
-	if (l->role == role_mask)
-		return bus_refuse_write(l, "a buffer, it is an object mask");
-	if (l->shared)
-		return bus_refuse_write(l, "a buffer, a shared lane takes set and set_object only");
+	if (bus_refuse_unfit(l, "a buffer, it is an object mask", nullptr, "a buffer, a shared lane takes set and set_object only"))
+		return false;
 	if (!g_bus_buffer_lanes)
 		return bus_refuse_write(l, "a buffer, this renderer has none");
 	if (rows < 1 || rows > max_buffer_rows)
@@ -1287,15 +1353,19 @@ LPCSTR ShaderBus::value_text(const lane* l, const Fvector4& value, string256& ou
 static void bus_latch_readback(ShaderBus::lane* l, bool reloaded)
 {
 	ShaderBus::lane_readback& r = *l->readback;
-	if (reloaded || r.source != r.source_pending || r.reduce != r.reduce_pending || r.w != r.w_pending ||
-		r.h != r.h_pending || r.x != r.x_pending || r.y != r.y_pending)
+	if (reloaded || r.source != r.source_pending || r.source_id != r.source_id_pending || r.reduce != r.reduce_pending ||
+		r.w != r.w_pending || r.h != r.h_pending || r.x != r.x_pending || r.y != r.y_pending ||
+		r.first != r.first_pending || r.count != r.count_pending)
 	{
 		r.source = r.source_pending;
+		r.source_id = r.source_id_pending;
 		r.reduce = r.reduce_pending;
 		r.w = r.w_pending;
 		r.h = r.h_pending;
 		r.x = r.x_pending;
 		r.y = r.y_pending;
+		r.first = r.first_pending;
+		r.count = r.count_pending;
 		++r.generation;
 		r.result.clear();
 		r.state = ShaderBus::readback_none;
@@ -1314,6 +1384,7 @@ static void bus_latch_readback(ShaderBus::lane* l, bool reloaded)
 		r.state = r.landed_state;
 		r.landed_new = false;
 	}
+	r.inflight = r.landed_inflight;
 
 	if (r.source != ShaderBus::readback_off)
 		g_bus_readbacks.push_back(l);

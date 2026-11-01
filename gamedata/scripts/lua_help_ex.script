@@ -615,7 +615,7 @@
         bool clear_object(number token, game_object obj) -- the object reads the lane's value again
         bool set_texture(number token, string name) -- the texture or render target $user$bus_<id> shows from the next frame, "" empties it
         bool set_buffer(number token, number rows) -- size the lane as a buffer of rows, grow only
-        bool set_readback(number token, string source, number x, number y, number w, number h, string reduce) -- light, scene or backbuffer, "" disarms
+        bool set_readback(number token, string source, number x, number y, number w, number h, string reduce) -- light, scene, backbuffer or a render target id, "" disarms
         bool set_late(number token, bool on) -- latch again after the frame callbacks
         function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
         function get_uint(string id) -> bool ok, number a, number b, number c, number d -- the bound value as unsigned integers

@@ -19,7 +19,10 @@ namespace ShaderBus
 		readback_off = 0,
 		readback_light = 1,
 		readback_scene = 2,
-		readback_backbuffer = 3
+		readback_backbuffer = 3,
+		readback_target = 4,
+		readback_history = 5,
+		readback_buffer = 6
 	};
 
 	enum readback_reduce
@@ -48,26 +51,37 @@ namespace ShaderBus
 		u8 h_pending;
 		float x_pending;
 		float y_pending;
+		// the rows a buffer source reads
+		u32 first_pending;
+		u16 count_pending;
 		u8 source;
 		u8 reduce;
 		u8 w;
 		u8 h;
 		float x;
 		float y;
+		u32 first;
+		u16 count;
+		// the lane a target, history or buffer source reads, a history by its target's id
+		shared_str source_id_pending;
+		shared_str source_id;
 		// moves with every bound request so copies of an older one are dropped
 		u32 generation;
 		// written by the renderer, published by the per-frame update
 		xr_vector<Fvector4> landed;
 		u32 landed_frame;
 		u8 landed_state;
+		u8 landed_inflight;
 		bool landed_new;
 		xr_vector<Fvector4> result;
 		u32 result_frame;
 		u8 state;
+		// copies taken and not yet decoded as of the last frame
+		u8 inflight;
 
 		lane_readback() : source_pending(0), reduce_pending(0), w_pending(0), h_pending(0), x_pending(0.f), y_pending(0.f),
-		                  source(0), reduce(0), w(0), h(0), x(0.f), y(0.f), generation(0), landed_frame(0), landed_state(0),
-		                  landed_new(false), result_frame(0), state(0)
+		                  first_pending(0), count_pending(0), source(0), reduce(0), w(0), h(0), x(0.f), y(0.f), first(0), count(0), generation(0), landed_frame(0), landed_state(0),
+		                  landed_inflight(0), landed_new(false), result_frame(0), state(0), inflight(0)
 		{
 		}
 	};
@@ -312,6 +326,8 @@ namespace ShaderBus
 	ENGINE_API int mask_bit(u32 token);
 	// arms a w by h block centred at x, y in 0..1 of light, scene or backbuffer, an empty source disarms
 	ENGINE_API bool set_readback(u32 token, LPCSTR source, float x, float y, u32 w, u32 h, LPCSTR reduce);
+	// arms a readback of count rows of a buffer lane from row first
+	ENGINE_API bool set_readback_rows(u32 token, LPCSTR source, u32 first, u32 count, LPCSTR reduce);
 	// texel i of the last result, row-major for none and 0 only for a reduce, false with no result
 	ENGINE_API bool get_readback(LPCSTR id, u32 i, Fvector4& value, u32& frame);
 	// armed readback lanes as of the last per-frame update, main thread only
