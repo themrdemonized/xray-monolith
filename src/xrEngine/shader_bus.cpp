@@ -1857,6 +1857,18 @@ LPCSTR ShaderBus::target_format_name(u8 format)
 	return format < target_format_count ? names[format] : "";
 }
 
+u32 ShaderBus::target_texels(u32 w, u32 h, bool mips)
+{
+	u32 texels = w * h;
+	while (mips && (w > 1 || h > 1))
+	{
+		w = _max(w >> 1, 1u);
+		h = _max(h >> 1, 1u);
+		texels += w * h;
+	}
+	return texels;
+}
+
 // false with a ~ line when a target, pass or mask call cannot take the lane in that role, called under the lock
 static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role)
 {
@@ -1926,7 +1938,7 @@ static u64 bus_target_bytes(const ShaderBus::target_spec& t)
 		w = _max(Device.dwWidth >> shift, 1u);
 		h = _max(Device.dwHeight >> shift, 1u);
 	}
-	return w * h * texel_bytes[t.format] * (t.history ? 2 : 1);
+	return u64(ShaderBus::target_texels(u32(w), u32(h), t.mips)) * texel_bytes[t.format] * (t.history ? 2 : 1);
 }
 
 static int bus_pass_find(const shared_str& id)
@@ -1959,13 +1971,14 @@ static void bus_target_status_erase(const shared_str& id)
 static bool bus_same_target(const ShaderBus::target_spec& a, const ShaderBus::target_spec& b)
 {
 	return a.size == b.size && a.width == b.width && a.height == b.height && a.format == b.format && a.history == b.history &&
-	       0 == memcmp(&a.clear, &b.clear, sizeof(a.clear));
+	       a.mips == b.mips && 0 == memcmp(&a.clear, &b.clear, sizeof(a.clear));
 }
 
 static bool bus_same_pass(const ShaderBus::pass_spec& a, const ShaderBus::pass_spec& b)
 {
-	if (a.stage != b.stage || a.order != b.order || !a.ps.equal(b.ps) || !a.cs.equal(b.cs) || a.output_count != b.output_count ||
+	if (0 != memcmp(&a.rect, &b.rect, sizeof(a.rect)) || a.stage != b.stage || a.order != b.order || !a.ps.equal(b.ps) || !a.cs.equal(b.cs) || a.output_count != b.output_count ||
 	    a.inputs.size() != b.inputs.size() || a.blend != b.blend || a.group_x != b.group_x || a.group_y != b.group_y || a.svp != b.svp ||
+	    a.runs != b.runs || !a.pingpong.equal(b.pingpong) ||
 	    a.grid != b.grid || a.grid_size != b.grid_size || a.grid_w != b.grid_w || a.grid_h != b.grid_h || !a.indirect.equal(b.indirect) ||
 	    a.indirect_row != b.indirect_row)
 		return false;
@@ -2007,6 +2020,11 @@ static LPCSTR bus_pass_refusal(const ShaderBus::pass_spec& spec)
 			return "an input with an empty name or texture";
 	if (spec.blend > ShaderBus::blend_alpha)
 		return "a blend other than none, add or alpha";
+	if (!(spec.rect.x >= 0.f && spec.rect.y >= 0.f && spec.rect.z > 0.f && spec.rect.w > 0.f && spec.rect.x < 1.f && spec.rect.y < 1.f &&
+	      spec.rect.z <= 1.f && spec.rect.w <= 1.f))
+		return "a rect side outside 0 to 1";
+	if (spec.cs.size() && (spec.rect.x != 0.f || spec.rect.y != 0.f || spec.rect.z != 1.f || spec.rect.w != 1.f))
+		return "a rect, which only a pixel pass takes";
 	if (spec.cs.size() && (spec.group_x < 1 || spec.group_x > 1024 || spec.group_y < 1 || spec.group_y > 1024))
 		return "a compute group side outside 1 to 1024";
 	if (spec.grid && !spec.cs.size())
@@ -2021,6 +2039,12 @@ static LPCSTR bus_pass_refusal(const ShaderBus::pass_spec& spec)
 	for (u32 i = 0; i < spec.output_count && spec.indirect.size(); ++i)
 		if (spec.outputs[i].equal(spec.indirect))
 			return "an indirect lane that is also an output";
+	if (spec.runs < 1 || spec.runs > 16)
+		return "runs outside 1 to 16";
+	if (spec.pingpong.size() && (spec.cs.size() || spec.runs < 2))
+		return "a pingpong target, which only a repeated pixel pass takes";
+	if (spec.pingpong.size() && (spec.output_count != 1 || spec.outputs[0].equal(spec.pingpong) || spec.blend != ShaderBus::blend_none))
+		return "a pingpong pass with other than one output or with a blend";
 	return nullptr;
 }
 
