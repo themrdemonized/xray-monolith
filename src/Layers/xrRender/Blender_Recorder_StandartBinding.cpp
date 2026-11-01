@@ -1660,7 +1660,6 @@ void CBlender_Compile::SetMapping()
 			string256 alias;
 			if (C->dimension == D3D_SRV_DIMENSION_BUFFER)
 			{
-#if defined(USE_DX11)
 				const bool uint_rows = C->return_type == D3D_RETURN_TYPE_UINT;
 				if (!uint_rows && C->return_type != D3D_RETURN_TYPE_FLOAT)
 				{
@@ -1670,10 +1669,6 @@ void CBlender_Compile::SetMapping()
 				if (!ShaderBus::declare(cname, 1, uint_rows ? ShaderBus::kind_uint : ShaderBus::kind_float))
 					continue;
 				xr_sprintf(alias, uint_rows ? "$user$busbufu_%s" : "$user$busbuf_%s", cname + 4);
-#else
-				ShaderBus::refuse(cname, "is a buffer, which this renderer does not bind");
-				continue;
-#endif
 			}
 			else
 				xr_sprintf(alias, "$user$%s", cname);
