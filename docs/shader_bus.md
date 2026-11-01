@@ -168,7 +168,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
 | `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. A target or history lane refuses. The first refusal on each lane logs a line |
 | `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene`, `backbuffer`, a render target id or its `<id>_prev`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
-| `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX10 and DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
+| `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB, `engine_mask_objects` not counted. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX10 and DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
 | `shader_bus.set_late(token, on)` | `true` if the token is valid and the lane is not shared. From the next frame on, `true` copies the lane again after the frame callbacks, so a write from those callbacks reaches the same frame's draws, and `false` stops it. The first refusal on each lane logs a line. See Late lanes |
 | `shader_bus.register_target(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id over 27 characters or one the engine reserves, an id another `owner` or another kind of lane holds, a renderer without targets, 16 live targets or targets that would pass 1024 MB. See Render targets and passes |
 | `shader_bus.register_pass(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id the engine reserves or another `owner` or kind of lane holds, a renderer without passes, a `cs` pass on a renderer without compute, or 32 live passes. See Render targets and passes |
@@ -199,7 +199,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.values()` | a table from lane id to an array of four numbers `{ x, y, z, w }` by position, uint bits on a uint lane, the bound value of every lane a script registered or a shader declared, as `get` and `get_uint` give it by the lane's kind, read under one lock. The twelve legacy lanes are not in it |
 | `shader_bus.gpu_lanes()` | `true` on a renderer with readbacks and `cs` passes, DX11 only |
 | `shader_bus.targets()` | `true` on a renderer with render targets and passes, DX10 and DX11 |
-| `shader_bus.masks()` | `true` when mask tags can reach the mask target, DX10 and DX11 on a device created with MSAA off. `vid_restart` keeps the MSAA the device was created with. With MSAA on `register_mask` still returns a token, but no tag draws. See Masks |
+| `shader_bus.masks()` | `true` when mask tags can reach the mask target, DX10 and DX11 on a device created with MSAA off. See Masks |
 | `shader_bus.version()` | `8` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
@@ -209,8 +209,9 @@ rows `set_array` has filled, `0` for a lane only `set` writes), `declared_rows` 
 any shader declares, `0` before a shader declares the lane), `kind` (`float` or `uint`, what the
 last write stored, or what a shader declared before any write), `declared_kinds` (an array of
 every kind a shader declared the lane as), `objects` (how many objects have their own value on an
-object lane), `shared` (`true` for a shared lane), `writers` (how many tokens a shared lane has
-handed out, `1` for a registered lane that is not shared), `texture` (the texture the lane shows,
+object lane, or hold the bit of a mask lane, attachments and held items included), `shared`
+(`true` for a shared lane), `writers` (how many tokens a shared lane has handed out, `1` for a
+registered lane that is not shared), `texture` (the texture the lane shows,
 empty for none), `readback` (`none`, `ok`, `refused` or `lost`, see Readback), `readback_inflight`
 (the copies taken and not yet decoded, `0` to `3`), `buffer_rows` (the
 rows of a buffer lane as of the last frame, `0` for a lane that is not one), `late` (the last
@@ -221,14 +222,15 @@ refused) and `refusal` (the reason of the last one, empty for none), and, on a l
 command still exists on the running exe.
 
 A row also has `role` (`target`, `history` or `pass` for the lanes of Render targets and passes,
-`mask` for a mask lane with its bit in `mask_bit`, see Masks, and empty for a plain lane). A target row and its history row `<id>_prev` carry `width`, `height`,
-`format`, `bytes`, `history`, `mips` and `target_state` (`pending`, `ready` or `released`), with the size
-and bytes `0` until the target exists and `bytes` covering the mip chain. A pass row carries `stage`, `order`, `pass_state`
+`mask` for a mask lane with its bit in `mask_bit`, see Masks, and empty for a plain lane). A target
+row and its history row `<id>_prev` carry `width`, `height`, `format`, `bytes`, `history`, `mips`
+and `target_state` (`pending`, `ready` or `released`), with the size and bytes `0` until the target
+exists and `bytes` covering the mip chain. A pass row carries `stage`, `order`, `pass_state`
 (`pending`, `ready`, `failed`, `off` for a disabled pass or `released`) and `reason`, the text of
 the failure and empty otherwise, `fails` (how many builds of the pass failed since it was registered
-with this spec), and from its spec `ps` or `cs`, `outputs`, `inputs`, `blend`, `rect` when the spec gave one smaller than the output,
-`svp`, `runs` when it is above `1`, `pingpong` when the spec gave one, and on a `cs` pass `group`,
-and `grid` and `indirect` when the spec gave one.
+with this spec), and from its spec `ps` or `cs`, `outputs`, `inputs`, `blend`, `rect` when the spec
+gave one smaller than the output, `svp`, `runs` when it is above `1`, `pingpong` when the spec gave
+one, and on a `cs` pass `group`, and `grid` and `indirect` when the spec gave one.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
@@ -244,7 +246,7 @@ Reads and listing are open to every script. Only the token returned by `register
 
 ### Engine lanes
 
-The engine registers three lanes itself, two on DX9, with the `owner` string `engine`, and fills them every frame once a
+The engine registers four lanes itself, two on DX9, with the `owner` string `engine`, and fills them every frame once a
 shader has declared them, so they cost nothing until one does. The declaration lasts until the
 game exits. Read them in a shader like any lane.
 
@@ -253,6 +255,7 @@ game exits. Read them in a shader like any lane.
 | `engine_sun_los` | `x` is `1` when nothing blocks a ray of 500 m from the camera toward the sun, else `0` |
 | `engine_sky_open` | `x` is how open the sky is over the view entity, from `0` to `1`, the value `level.rain_hemi()` returns |
 | `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Declaring it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
+| `engine_mask_objects` | a buffer lane, on DX10 and DX11. Row 0 `x` is how many objects hold a live mask bit, and rows 1 to `x` hold one object each, `x, y, z` its position and `w` its live mask bits as a whole number. Declare it as `Buffer<float4>`, see Masks |
 
 ```hlsl
 uniform float4 bus_engine_sun_los;
@@ -406,13 +409,15 @@ last tagged draw whose depth equals the depth buffer there, so only the visible 
 the tags of two draws never combine. A pixel where nothing tagged drew reads `0`.
 
 The target exists while a shader declares `bus_engine_hud_mask` or a mod holds a live mask bit,
-and it needs MSAA off. With MSAA on the engine logs one `!` line and keeps no target, `masks()` returns `false`, and without a
-target the texture reads `0`. The target is cleared every frame. The HUD bits draw with the HUD
-and the world tags right after the G-buffer, so the G-buffer's own draws cannot read this frame's
-tags, while passes from the `gbuffer` stage on and the lighting, combine and post shaders can. A
-pass at half resolution scales its pixel coordinates. On the frame the target first appears only
-the HUD bits draw, so a bit registered and set in the same frame shows on the world from the
-second frame after the call. A second viewport frame, such as a scope view, draws no world tags.
+and it needs MSAA off, and `vid_restart` keeps the MSAA the device was created with. With MSAA on
+the engine logs one `!` line and keeps no target, `masks()` returns `false`, `register_mask` still
+returns a token but no tag draws, and without a target the texture reads `0`. The target is cleared
+every frame. The HUD bits draw with the HUD and the world tags right after the G-buffer, so the
+G-buffer's own draws cannot read this frame's tags, while passes from the `gbuffer` stage on and
+the lighting, combine and post shaders can. A pass at half resolution scales its pixel coordinates.
+On the frame the target first appears only the HUD bits draw, so a bit registered and set in the
+same frame shows on the world from the second frame after the call. A second viewport frame, such
+as a scope view, draws no world tags.
 
 #### HUD bits
 
@@ -483,17 +488,16 @@ bit from the lane and tests it against the mask.
 
 | call | returns |
 |---|---|
-| `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
-| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object or a `ScriptAttachment`. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. A particles object, `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal on each lane logs a line |
+| `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back while the bit is held. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
+| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object, a `ScriptAttachment` or a particles object. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal on each lane logs a line |
 | `shader_bus.get_mask(obj)` | the live mask bits `obj` carries, `0` for none or `nil` |
-| `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere and the lane reads `0`. The bit returns to the pool after the next level load, and until then `register_mask` with the same id and `owner` takes it back, with the objects that still carry it |
+| `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere, every object that carried it loses it, the lane reads `0`, and the bit returns to the pool, so `register_mask` can hand it out again inside the level. Until that frame, `register_mask` with the same id and `owner` takes it back with the objects that still carry it |
 
 A mask lane takes no other write: `set`, `set_uint`, `set_array`, `set_array_uint`, `set_texture`,
 `set_readback`, `set_readback_rows` and `set_buffer` refuse it, and the first refusal logs a line.
-Its `list` row has
-`role` `mask` and `mask_bit`, the bit it holds, until a released bit returns to the pool. An exe
-before version `8` has no `register_mask`, so check `shader_bus.register_mask ~= nil` before
-calling it.
+Its `list` row has `role` `mask`, `mask_bit`, the bit it holds, until a released bit returns to the
+pool, and `objects`, the objects that hold it. An exe before version `8` has no `register_mask`, so
+check `shader_bus.register_mask ~= nil` before calling it.
 
 These draws carry an object's tag, its live bits together:
 - the opaque dynamic draws of a game object or a level root attachment the renderer draws, in the
@@ -503,9 +507,41 @@ These draws carry an object's tag, its live bits together:
 These never do:
 - level geometry and other static draws, water, grass and details
 - translucent and sorted draws, emissive and distortion draws, wallmarks and the forward pass
-- particles and shadows
+- shadows
 - an object the renderer culls, so a fully hidden object cannot be outlined and there is no
   through-walls layer
+
+`set_mask` also takes a particles object. A tagged world particle draws its tag during the forward
+pass, before the `scene` stage, where its alpha reaches `0.5`, over the tag of whatever is behind
+it, so passes from the `scene` stage on see it. HUD particles take no tag.
+
+A shader reads every object that holds a live bit through the engine lane `engine_mask_objects`,
+which the engine fills once a shader declares it:
+
+```hlsl
+Buffer<float4> bus_engine_mask_objects;
+uint bus_mymark;
+
+uint count = (uint)bus_engine_mask_objects.Load(0).x;
+for (uint i = 1; i <= count; ++i)
+{
+	float4 o = bus_engine_mask_objects.Load(i);
+	if ((uint)o.w & bus_mymark)
+	{
+		// o.xyz is where the object stands
+	}
+}
+```
+
+The buffer has a row for each object a mod set a bit on, held items and attachments included, at
+its own position after the frame's updates, where the frame draws it. Held items and script
+attachments set their position while the frame draws, as does an object a script moves during the
+draw, so their rows can trail the drawn position by one frame. A script attachment holds its
+position from the last frame it drew, and an attachment that never drew holds the origin. The lane
+is always a float buffer, so a `Buffer<uint4>` declaration of it reads zeros. Rows keep no order
+from frame to frame, so a row number does not stay with an object. The buffer grows to fit up to
+65,535 objects and never shrinks, and it does not count toward the 16 MiB of the buffer lanes
+scripts make.
 
 #### Per object rows
 
@@ -581,7 +617,7 @@ function on_game_start()
 		mark = shader_bus.register_mask("mymod_mark", "My Mod", "objects my mod marks")
 	end
 	if mark then
-		shader_bus.register_pass("mymod_marks", "My Mod", "tints marked objects and the held items",
+		shader_bus.register_pass("mymod_marks", "My Mod", "tints marked objects and the HUD items",
 			{ stage = "scene", ps = "mymod_marks", outputs = { "scene" } })
 	end
 end
@@ -593,7 +629,7 @@ function mark_object(id, on)
 end
 ```
 
-The pass shader `shaders\r3\mymod_marks.ps` tints the held items blue and the marked objects red:
+The pass shader `shaders\r3\mymod_marks.ps` tints the HUD items blue and the marked objects red:
 
 ```hlsl
 #include "common.h"
@@ -693,6 +729,8 @@ end
 
 Limits:
 - 65,536 rows a lane and 16 MiB over every buffer lane, at most 4096 rows in one `set_array` call.
+  `engine_mask_objects` grows in powers of two up to 65,536 rows (1 MiB) outside that 16 MiB and
+  never adds to it.
 - The size only grows. `set_buffer` with fewer rows than the lane has returns `true` and keeps the
   size.
 - DX10 and DX11. The DX9 renderers refuse `set_buffer`. Only DX11 runs a `cs` pass that writes one.
@@ -902,10 +940,9 @@ float4 main(p_screen I) : SV_Target
 }
 ```
 
-`release_target` frees the target and its history. Live targets together may take 1024 MB, a
-history target counted twice and a target with `mips` by its whole chain, about a third more for a screen-shaped target,
-sized at the resolution in effect when the target registers. A call that would pass that is
-refused with a log line, and a call that does not grow the target always passes.
+`release_target` frees the target and its history. Live targets together stay within the memory
+budget under Limits, sized at the resolution in effect when the target registers. A call that
+would pass it is refused with a log line, and a call that does not grow the target always passes.
 
 ### Passes
 
@@ -919,7 +956,7 @@ shader_bus.register_pass("frost_grow", "My Mod", "grows and melts the frost", {
 | `stage` | required, one of the stages below |
 | `order` | a whole number, default `0` |
 | `ps` or `cs` | the shader file name without folder or extension, exactly one of them. The file is `shaders\r3\<name>.ps` or `.cs` |
-| `outputs` | required, 1 to 4 ids of the owner's targets that share one size, or the single output `"scene"` on a `scene` or `post` pass, or the single output `"albedo"` on a `gbuffer` pass, which draws into the G-buffer albedo with the pass's `blend` and leaves its alpha, the gloss, as it was (`none` replaces the colour, `add` and `alpha` combine with it), or the single output `"light"` on a `lighting` pass with blend `add` or `alpha`, which blends into the light accumulation (see Stages), or on a `cs` pass one buffer lane of the owner |
+| `outputs` | required, 1 to 4 ids of the owner's targets that share one size, or one of the single outputs listed below the table |
 | `inputs` | a table from an HLSL texture variable to a texture or render target name, at most 16. A `Texture2D bus_<id>` the shader declares needs no entry |
 | `blend` | `none` (the default), `add` or `alpha`, how a pixel pass combines with what its outputs hold |
 | `rect` | on a pixel pass, `{ x, y, w, h }` in the pass's texture coordinates, 0 to 1 from the top left. The pass shades only that part of its outputs and leaves the rest as it was, default the whole output. A different `rect` is a changed spec and restarts the pass |
@@ -929,6 +966,14 @@ shader_bus.register_pass("frost_grow", "My Mod", "grows and melts the frost", {
 | `svp` | `true` also runs the pass on a second viewport frame, default `false` |
 | `runs` | how many times the pass runs in a row each frame, `1` to `16`, default `1`, see Repeat |
 | `pingpong` | on a pixel pass with `runs` above `1`, a target of its owner with the size, format and `mips` of its one output, see Repeat |
+
+The single outputs are:
+- `"scene"` on a `scene` or `post` pass
+- `"albedo"` on a `gbuffer` pass, which draws into the G-buffer albedo with the pass's `blend` and
+  leaves its alpha, the gloss, as it was (`none` replaces the colour, `add` and `alpha` combine with it)
+- `"light"` on a `lighting` pass with blend `add` or `alpha`, which blends into the light
+  accumulation (see Stages)
+- on a `cs` pass, one buffer lane of the owner
 
 A pass shader compiles with the defines the renderer gives its stock shaders, `SHADER_BUS`,
 `USE_MSAA` and `MSAA_SAMPLES` among them. A pixel pass draws over the stock `stub_screen_space`
@@ -1067,8 +1112,9 @@ The buffer lane is then the pass's only output, `group` is `{ x, 1 }`, and the d
 thread per row. With `grid`, sized like a target's `size`, the dispatch covers that grid in groups
 of `group` instead, and `group` may have any `y`. Declared as `RWBuffer<uint> bus_<id>`, a uint
 lane holds four elements a row, row `r` component `c` at `4 * r + c`, and takes `InterlockedAdd`
-and the other atomics, which `RWBuffer<uint4>` does not. While the pass lives `set`, `set_uint`, `set_array` and `set_array_uint` refuse
-the lane and the engine stops uploading it, and a buffer starts at zero each time it is created.
+and the other atomics, which `RWBuffer<uint4>` does not. While the pass lives `set`, `set_uint`,
+`set_array` and `set_array_uint` refuse the lane and the engine stops uploading it, and a buffer
+starts at zero each time it is created.
 
 With `indirect = { lane, row }` a `cs` pass takes its group counts from `x`, `y` and `z` of row
 `row` (0-based) of a uint buffer lane of its owner, read on the GPU when the pass runs, so a `cs`
@@ -1100,7 +1146,8 @@ below.
 | DX10 | targets, history, pixel passes and buffer lanes a shader reads. A `cs` pass and `set_readback` are refused |
 | DX9 | `register_target` and `register_pass` return `nil` with one `!` line |
 
-A script can ask before it registers. `gpu_lanes()` is `true` on DX11, `targets()` on DX10 and DX11, and `masks()` on DX10 and DX11 when the device was created with MSAA off.
+A script can ask before it registers. `gpu_lanes()` is `true` on DX11, `targets()` on DX10 and
+DX11, and `masks()` on DX10 and DX11 under the conditions in Masks.
 
 ---
 
@@ -1257,7 +1304,7 @@ exes from version `7` on pass.
   its own, and the all-zero default above is a convention this bus provides, not a guarantee on an
   exe that predates it. The only shader side test is `SHADER_BUS`, from version `7` on.
 - **A failed pass draws nothing.** It logs one `!` line with its reason, shows `pass_state`
-  `failed` and the reason in `list()`, and draws nothing.
+  `failed` and the reason in `list()`.
 - **A target or history lane takes no texture or buffer.** `set_texture` and `set_buffer` refuse
   it, so one id never holds two GPU resources.
 - **`bus_list` shows a target or pass as a plain lane.** `list()` has its spec and state.

@@ -733,6 +733,31 @@ void R_dsgraph_structure::r_dsgraph_render_bus_mask()
 	r_dsgraph_render_graph<true>(0, true);
 	bus_mask_unbind(saved);
 }
+
+// tagged world particles over the object mask, the list cleared every frame
+void R_dsgraph_structure::r_dsgraph_render_bus_particles()
+{
+	if (bus_particles.empty())
+		return;
+
+	if (bus_live_bits && RImplementation.Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame())
+	{
+		PROF_EVENT("r_dsgraph_render_bus_particles");
+		ID3DRenderTargetView* saved[4];
+		bus_mask_bind(saved);
+		for (_MatrixItemS& P : bus_particles)
+		{
+			RCache.set_Element(P.se);
+			bus_mask_apply_particle(P.bus_tag);
+			RCache.set_xform_world(P.Matrix);
+			RImplementation.apply_object(P.pObject);
+			RImplementation.apply_lmaterial();
+			P.pVisual->Render(calcLOD(P.ssa, P.pVisual->vis.sphere.R));
+		}
+		bus_mask_unbind(saved);
+	}
+	bus_particles.clear();
+}
 #endif
 
 //////////////////////////////////////////////////////////////////////////

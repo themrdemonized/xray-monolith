@@ -32,6 +32,8 @@ static bool bus_mask_begin()
 		T->rt_bus_mask.create("$user$bus_engine_mask", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
 		if (!T->s_bus_mask)
 			T->s_bus_mask = DEV->_CreatePS("bus_mask");
+		if (!T->s_bus_mask_particle)
+			T->s_bus_mask_particle = DEV->_CreatePS("bus_mask_particle");
 		if (!T->bs_bus_mask)
 		{
 			SimulatorStates bs;
@@ -59,6 +61,16 @@ static void bus_mask_apply(u32 tag)
 	CRenderTarget* T = RImplementation.Target;
 	RCache.set_PS(T->s_bus_mask);
 	RCache.set_ZFunc(D3DCMP_EQUAL);
+	RCache.set_Stencil(FALSE);
+	StateManager.SetBlendState(T->bs_bus_mask);
+	StateManager.SetBlendFactor(tag * (1.f / 16777216.f));
+}
+
+// mask pixel shader and states for a particle, which keeps its own depth test
+static void bus_mask_apply_particle(u32 tag)
+{
+	CRenderTarget* T = RImplementation.Target;
+	RCache.set_PS(T->s_bus_mask_particle);
 	RCache.set_Stencil(FALSE);
 	StateManager.SetBlendState(T->bs_bus_mask);
 	StateManager.SetBlendFactor(tag * (1.f / 16777216.f));

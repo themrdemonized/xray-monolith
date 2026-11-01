@@ -246,6 +246,18 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #endif
 	if (RI.val_bInvisible) return;
 
+	// a tagged world particle also draws into the object mask after the forward pass
+	if (RI.val_busTag && sh->flags.iPriority / 2 && pVisual->dcast_ParticleCustom() && !pVisual->dcast_ParticleCustom()->GetHudMode())
+	{
+		_MatrixItemS& P = bus_particles.emplace_back();
+		P.ssa = SSA;
+		P.pObject = RI.val_pObject;
+		P.pVisual = pVisual;
+		P.Matrix = *RI.val_pTransform;
+		P.se = sh;
+		P.bus_tag = RI.val_busTag;
+	}
+
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F)
 	{

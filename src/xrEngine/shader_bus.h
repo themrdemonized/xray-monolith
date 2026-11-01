@@ -107,7 +107,7 @@ namespace ShaderBus
 		lane_shared* shared;
 		// the lane's readback, null until set_readback first arms one
 		lane_readback* readback;
-		// objects with their own value on an obj_ lane
+		// objects with their own value on an obj_ lane, or holding the bit of a mask lane
 		u32 objects;
 		u32 changes;
 		u32 writes;
@@ -307,6 +307,12 @@ namespace ShaderBus
 		hud_lens = 0x200,
 		hud_mask_bits = 0x3FF,
 	};
+	// object mask bits run from the first above the HUD bits up to the end
+	enum
+	{
+		mask_first_bit = 10,
+		mask_bits_end = 24
+	};
 	// the renderer calls this at device create, the mask target and object masks need it
 	ENGINE_API void enable_mask();
 	ENGINE_API bool mask_enabled();
@@ -320,7 +326,7 @@ namespace ShaderBus
 	ENGINE_API bool set_mask(u32 token, IRenderable* object, bool on);
 	// the object's mask bits that are live
 	ENGINE_API u32 get_mask(const IRenderable* object);
-	// drops the bit from the next frame on, it returns to the pool after the next level load
+	// drops the bit from the next frame on, when it leaves every object and returns to the pool
 	ENGINE_API bool release_mask(u32 token);
 	// object mask bits as of the last per-frame update
 	ENGINE_API u32 mask_live_bits();
@@ -349,7 +355,7 @@ namespace ShaderBus
 	ENGINE_API void frame_latch();
 	// a late lane also latches after the frame callbacks, its draws see the same frame's writes
 	ENGINE_API bool set_late(u32 token, bool on);
-	// latches late lanes, main thread after the frame callbacks
+	// latches late lanes and fills the mask objects lane, main thread after the frame callbacks
 	ENGINE_API void frame_latch_late();
 
 	ENGINE_API void note_legacy_write(LPCSTR command, LPCSTR writer);

@@ -27,6 +27,8 @@ public:
 	u32 val_busTag;
 	// shader bus object mask bits live this frame, read once at the render start
 	u32 bus_live_bits = 0;
+	// tagged world particles of this frame, redrawn into the object mask after the forward pass
+	xr_vector<R_dsgraph::_MatrixItemS> bus_particles;
 	BOOL val_bCamAttached;
 	float val_fCustomFOV;
 	BOOL val_bInvisible;
@@ -245,6 +247,8 @@ public:
 #if defined(USE_DX10) || defined(USE_DX11)
 	// redraws the tagged priority 0 matrix items into the shader bus mask and clears them
 	void r_dsgraph_render_bus_mask();
+	// redraws the tagged world particles into the shader bus mask and clears them
+	void r_dsgraph_render_bus_particles();
 #endif
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();
