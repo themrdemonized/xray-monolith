@@ -75,6 +75,7 @@ static xr_vector<ShaderBus::lane*> g_bus_shared_dirty;
 static xr_map<IRenderable*, xr_vector<bus_shared_value>> g_bus_shared_values;
 static xr_vector<bus_cvar> g_bus_cvars;
 static ShaderBus::lane* g_bus_hotness = nullptr;
+static ShaderBus::lane* g_bus_tint = nullptr;
 static bool g_bus_objects_used = false;
 static u32 g_bus_texture_serial = 0;
 static xr_vector<shared_str> g_bus_rejected;
@@ -131,6 +132,7 @@ static u32 g_bus_targets_serial = 0;
 static bool g_bus_targets_enabled = false;
 
 ENGINE_API const ShaderBus::lane* ShaderBus::hotness_lane = nullptr;
+ENGINE_API const ShaderBus::lane* ShaderBus::tint_lane = nullptr;
 
 static bool bus_valid_id(LPCSTR id)
 {
@@ -181,11 +183,16 @@ static ShaderBus::lane* bus_find_or_add(LPCSTR id)
 	l->id = id;
 	l->index = u16(g_bus_lanes.size());
 	g_bus_lanes.push_back(l);
-	// every mod writes obj_hotness, so it is shared from the start
+	// every mod writes obj_hotness and obj_tint, so they are shared from the start
 	if (0 == xr_strcmp(id, "obj_hotness"))
 	{
 		l->shared = xr_new<ShaderBus::lane_shared>();
 		g_bus_hotness = l;
+	}
+	if (0 == xr_strcmp(id, "obj_tint"))
+	{
+		l->shared = xr_new<ShaderBus::lane_shared>();
+		g_bus_tint = l;
 	}
 	return l;
 }
@@ -363,8 +370,8 @@ static u32 bus_take_locked(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR s
 	if (!l)
 		return 0;
 
-	// obj_hotness takes every caller in, register and try_register too
-	if (l->shared && (share || l == g_bus_hotness))
+	// obj_hotness and obj_tint take every caller in, register and try_register too
+	if (l->shared && (share || l == g_bus_hotness || l == g_bus_tint))
 		return bus_join(l, owner, description, stored_source);
 	if (share)
 	{
@@ -1657,6 +1664,7 @@ void ShaderBus::frame_latch()
 	// the engine lists the objects holding live mask bits once a shader declares the lane
 	g_bus_mask_objects_live = g_bus_mask_objects && g_bus_mask_objects->rows_declared;
 	hotness_lane = g_bus_hotness;
+	tint_lane = g_bus_tint;
 
 	// scripts read pass runs as of this update on every thread
 	g_bus_pass_clock_frame = Device.dwFrame;
@@ -2033,9 +2041,9 @@ u32 ShaderBus::target_texels(u32 w, u32 h, bool mips)
 // false with a ~ line when a target, pass or mask call cannot take the lane in that role, called under the lock
 static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role)
 {
-	// obj_hotness is shared from its creation, so it is refused before it exists too
+	// obj_hotness and obj_tint are shared from their creation, so they are refused before they exist too
 	const int found = bus_find(id);
-	if (0 == xr_strcmp(id, "obj_hotness") || (found >= 0 && g_bus_lanes[found]->shared))
+	if (0 == xr_strcmp(id, "obj_hotness") || 0 == xr_strcmp(id, "obj_tint") || (found >= 0 && g_bus_lanes[found]->shared))
 	{
 		ShaderBus::note_refusal(id, "it is shared");
 		Msg("~ [SHADER-BUS] lane '%s' is shared, '%s' cannot take it as a target, pass or mask", id, owner);
