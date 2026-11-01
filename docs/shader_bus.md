@@ -897,10 +897,11 @@ opens the panel and the HUD and has the same toggles as the panel toolbar.
   the last two runs from `pass_time` (`dt ms`), the frames since the last run (`ran`) and the
   reason a pass failed. A failed state shows on a red cell. Masks shows each mask lane's bit,
   value, the game objects that carry the bit with a bar
-  against the largest count, and its state. The object count reads 1,024 object ids a frame while
-  the Masks tab is open and changes when a pass over every id ends, about a second at 60 frames a
-  second, and leaves out attachments. The detail of a target, pass or mask adds its spec, and a
-  pass's detail its last `pass_time`.
+  against the largest count, and its state. The object count comes from the engine and counts every
+  object that holds the bit, attachments and held items included. The detail of a target, pass or
+  mask adds its spec, and a pass's detail its last `pass_time` and how many times it failed. A lane
+  the engine refused a write on shows the refusal count and the last reason, and an armed readback
+  shows its copies in flight.
 - **HUD** draws over the game with the overlay hidden: the table view in the top left corner, at
   most 40 lanes, or the strip view in the top right with no header, showing pinned lanes or every lane when none
   is pinned. It takes
