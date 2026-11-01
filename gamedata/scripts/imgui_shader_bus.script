@@ -25,8 +25,6 @@ local K = {
 	PATH_CHARS   = 26,
 	INPUT_CAP    = 16,
 	FILTER_CAP   = 65,
-	MASK_SWEEP   = 1024,
-	OBJECT_IDS   = 65535,
 	LEGACY       = "engine legacy",
 	NAN          = 0 / 0,
 	-- ImGuiTabItemFlags_NoCloseButton and ImGuiMod_Ctrl are not exported and DrawSelectedOverline is exported under another name
@@ -84,9 +82,9 @@ local st = { declared_n = 0, live_n = 0, next_list = 0, next_text = 0, last_tick
 	order_dirty = true, change_sort = nil, next_sort = 0, snap_frame = 0, tab = "lanes", select_tab = nil, needle = "",
 	mt_call = false, legacy_n = 0, legacy_open = false, legacy_rows = {}, avail_h = 0, side_h = 0, head_h = 0,
 	status = {} }
--- targets, passes, compute passes and masks as of the last relist, their sorts and the object sweep that counts mask tags
+-- targets, passes, compute passes and masks as of the last relist and their sorts
 local gpu = { list = { targets = {}, passes = {}, compute = {}, masks = {} }, sort = {}, rev = {}, bar_max = {},
-	counts = {}, sweep = {}, sweep_id = 0, swept = false, next_text = 0, text_tab = nil, cmp = nil, bar_w = 0,
+	next_text = 0, text_tab = nil, cmp = nil, bar_w = 0,
 	failed = { passes = 0, compute = 0, targets = 0 }, failed_only = false, shown = {}, row_h = {} }
 
 local open = { panel = false, hud = false }
@@ -279,6 +277,8 @@ local function detect_bus()
 	bus.readback = type(shader_bus.set_readback) == "function" and type(shader_bus.get_readback) == "function"
 	bus.late = type(shader_bus.set_late) == "function"
 	bus.pass_time = type(shader_bus.get_pass_time) == "function"
+	bus.values = type(shader_bus.values) == "function"
+	bus.refusals = type(shader_bus.last_refusal) == "function"
 end
 
 local function new_lane(id, frame)
@@ -342,12 +342,15 @@ local function relist()
 			lane.rows = row.rows
 			lane.declared_rows = row.declared_rows or 0
 			lane.kind = bus.uint and row.kind == "uint" and "uint" or "float"
-			lane.objects = bus.objects and string_sub(lane.id, 1, 4) == "obj_" and row.objects or nil
+			lane.objects = bus.objects and (string_sub(lane.id, 1, 4) == "obj_" or row.role == "mask") and row.objects or nil
 			lane.texture = bus.texture and row.texture or ""
 			lane.shared = bus.writers and row.shared == true
 			lane.writers = row.writers or 0
 			lane.buffer_rows = bus.buffer and row.buffer_rows or 0
 			lane.readback = bus.readback and row.readback or "none"
+			lane.readback_inflight = bus.readback and row.readback_inflight or 0
+			lane.refusals = bus.refusals and row.refusals or 0
+			lane.refusal = bus.refusals and row.refusal or ""
 			lane.late = bus.late and row.late == true
 			lane.role = row.role or ""
 			lane.spec = lane.role ~= "" and row or nil
@@ -415,11 +418,15 @@ local function change_count(lane)
 	return engine_counts(lane) and lane.changes or lane.samples
 end
 
-local function sample(lane, now, sparse)
+-- vals is the shader_bus.values table of this frame, a lane it lacks reads on its own
+local function sample(lane, now, vals, sparse)
 	local ok, x, y, z, w
 	local since = sparse and (lane.seen and lane.last_change or lane.listed)
+	local v = vals and vals[lane.id]
 	if lane.legacy then
 		x, y, z, w = console_vec4(lane.id)
+	elseif v then
+		x, y, z, w = v[1], v[2], v[3], v[4]
 	else
 		if lane.kind == "uint" then
 			ok, x, y, z, w = shader_bus.get_uint(lane.id)
@@ -443,7 +450,7 @@ local function sample(lane, now, sparse)
 	lane.x, lane.y, lane.z, lane.w = x, y, z, w
 	lane.seen = true
 
-	if bus.stats then
+	if engine_counts(lane) then
 		local found, changes, last_change, bound_frame, writes = shader_bus.stats(lane.id)
 		if found then
 			-- a slice read still sees a change the engine made between reads
@@ -789,10 +796,17 @@ local function add_pass(s, id)
 	if s.cs then
 		local g = s.group or {}
 		add_detail("shader", string_format("cs %s, group %dx%d", s.cs, g[1] or 0, g[2] or 0))
+		if s.grid then
+			add_detail("grid", type(s.grid) == "table" and string_format("%dx%d", s.grid[1], s.grid[2]) or s.grid)
+		end
+		if s.indirect then add_detail("indirect", string_format("%s, row %d", s.indirect[1], s.indirect[2])) end
 	else
 		add_detail("shader", "ps " .. (s.ps or ""))
 	end
 	add_detail("outputs", table_concat(s.outputs or {}, ", "))
+	if s.rect then add_detail("rect", string_format("%g, %g, %g, %g", s.rect[1], s.rect[2], s.rect[3], s.rect[4])) end
+	if s.runs then add_detail("runs", string_format("%d", s.runs)) end
+	if s.pingpong then add_detail("pingpong", s.pingpong) end
 	add_detail("inputs", inputs_text(s.inputs))
 	add_section("Activity")
 	add_detail("state", s.pass_state or "")
@@ -802,14 +816,14 @@ local function add_pass(s, id)
 		add_detail("ran", ok and ran_text(ran) or "never")
 	end
 	if s.reason and s.reason ~= "" then add_detail("reason", s.reason) end
+	if (s.fails or 0) > 0 then add_detail("fails", string_format("%d", s.fails)) end
 end
 
 -- the bit, objects and state text of a mask lane, shared by its detail and its tab
 local function mask_cells(lane)
 	local b = lane.spec.mask_bit
 	if not b then return "none", "", "no bit" end
-	local objects = gpu.swept and string_format("%d", gpu.counts[b] or 0) or "counting"
-	return string_format("%d", b), objects, lane.x ~= 0 and "live" or "released"
+	return string_format("%d", b), string_format("%d", lane.objects or 0), lane.x ~= 0 and "live" or "released"
 end
 
 -- the fields of a target, pass or mask lane, false for a plain lane
@@ -818,6 +832,7 @@ local function add_spec(lane)
 	if lane.role == "target" then
 		add_detail("size", string_format("%dx%d, %s, %d bytes", s.width or 0, s.height or 0, s.format or "", s.bytes or 0))
 		add_detail("history", s.history and "yes" or "no")
+		if s.mips ~= nil then add_detail("mips", s.mips and "yes" or "no") end
 		add_section("Activity")
 		add_detail("state", s.target_state or "")
 	elseif lane.role == "pass" then
@@ -854,6 +869,7 @@ local function build_detail(now)
 	else
 		add_path("source", lane.source ~= "" and lane.source or "n/a")
 	end
+	if lane.refusals > 0 then add_detail("refused", string_format("%d, %s", lane.refusals, lane.refusal)) end
 	if lane.spec and add_spec(lane) then return end
 
 	add_detail("state", lane.state)
@@ -893,7 +909,7 @@ local function build_detail(now)
 		end
 	end
 	if lane.readback ~= "none" then
-		add_detail("readback", lane.readback)
+		add_detail("readback", string_format("%s, %d in flight", lane.readback, lane.readback_inflight))
 		if bus.readback and lane.readback == "ok" then
 			local ok, x, y, z, w, frame = shader_bus.get_readback(lane.id)
 			add_detail("texel", ok and string_format("%s, frame %d", detail_vec(x, y, z, w), frame) or "n/a")
@@ -1041,33 +1057,6 @@ local function gpu_lists()
 	gpu.next_text = 0
 end
 
--- counts the objects that carry each mask bit, K.MASK_SWEEP ids a frame, the counts change when a pass over every id ends
-local function sweep_masks()
-	if #gpu.list.masks == 0 or not bus.masks or not level.present() then return end
-	local acc, from = gpu.sweep, gpu.sweep_id
-	local to = math_min(from + K.MASK_SWEEP, K.OBJECT_IDS) - 1
-	for id = from, to do
-		local obj = level.object_by_id(id)
-		local bits = obj and shader_bus.get_mask(obj) or 0
-		if bits ~= 0 then
-			for b = 10, 23 do
-				if bit.band(bits, bit.lshift(1, b)) ~= 0 then acc[b] = (acc[b] or 0) + 1 end
-			end
-		end
-	end
-	if to + 1 < K.OBJECT_IDS then
-		gpu.sweep_id = to + 1
-		return
-	end
-	gpu.counts, gpu.sweep = acc, gpu.counts
-	for b in pairs(gpu.sweep) do
-		gpu.sweep[b] = nil
-	end
-	gpu.sweep_id = 0
-	gpu.swept = true
-	gpu.next_text = 0
-end
-
 local function state_color(state)
 	if state == "failed" then return CLR.alarm end
 	if state == "ready" then return CLR.live end
@@ -1144,7 +1133,7 @@ local function mask_texts(list)
 		t[3], t[4], t[5] = bit, hex_text(lane.x), objects
 		t[6] = live and IC.ok .. " live" or state
 		key[3], key[4] = bit_n or -1, bad(lane.x) and 0 or lane.x
-		key[5] = bit_n and gpu.swept and gpu.counts[bit_n] or 0
+		key[5] = bit_n and lane.objects or 0
 		t.clr, t.failed = live and CLR.live or CLR.dim, false
 	end
 end
@@ -1196,7 +1185,7 @@ end
 local function read(lane, now, frame, sparse)
 	if lane.read_at == frame then return end
 	lane.read_at = frame
-	sample(lane, now, sparse)
+	sample(lane, now, nil, sparse)
 end
 
 -- sample once per frame, every lane for the lane tab, the HUD, a dump or a snapshot, else the lanes in view
@@ -1227,8 +1216,9 @@ local function tick(now, every)
 
 	local count = #lanes
 	if not over_budget() then
+		local vals = bus.values and shader_bus.values() or nil
 		for i = 1, count do
-			sample(lanes[i], now)
+			sample(lanes[i], now, vals)
 		end
 		return
 	end
@@ -1996,7 +1986,6 @@ local function draw_gpu_table(name)
 end
 
 local function draw_gpu_tab(now, name)
-	if name == "masks" then sweep_masks() end
 	gpu_texts(now, name)
 	if begin_split() then
 		draw_gpu_table(name)
