@@ -87,6 +87,8 @@ public:
 #if defined(USE_DX10) || defined(USE_DX11)
 	// redraws the tagged priority 0 dynamic items into the shader bus mask and clears them
 	void r_dsgraph_render_bus_mask();
+	// redraws the tagged world particles of dynamic queue 1 into the shader bus mask
+	void r_dsgraph_render_bus_particles();
 #endif
 	IC void r_dsgraph_render_graph(u32 _priority, bool _clear = true)
 	{

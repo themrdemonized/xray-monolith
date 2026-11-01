@@ -268,6 +268,7 @@ void CRender::render_forward()
 		//	Igor: we don't want to render old lods on next frame.
 		GMBase.r_dsgraph_render_static(1); // normal level, secondary priority
 		CParticlesAsync::Wait();
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_render_bus_particles();
 		GMBase.r_dsgraph_render_dynamic(1);
 		GMBase.fade_render(); // faded-portals
 		GMBase.r_dsgraph_render_sorted(false); // strict-sorted geoms

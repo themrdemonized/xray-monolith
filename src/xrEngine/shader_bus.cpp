@@ -86,11 +86,17 @@ static bool g_bus_buffer_lanes = false;
 static bool g_bus_mask = false;
 static bool g_bus_mask_msaa = false;
 // the token holding each object mask bit, 0 for a free bit, and the live bits as of the last per-frame update
-static u32 g_bus_mask_tokens[24] = {};
+static u32 g_bus_mask_tokens[ShaderBus::mask_bits_end] = {};
 static u32 g_bus_mask_live = 0;
-// bits release_mask parked and the level count each was released in
+// bits release_mask parked, freed at the next per-frame update
 static u32 g_bus_mask_parked = 0;
-static u32 g_bus_mask_park_epochs[24] = {};
+// objects whose mask bits are not 0, so a freed bit leaves all of them at once
+static xr_vector<IRenderable*> g_bus_mask_holders;
+// the engine lane that lists the objects holding live mask bits, and how many rows it filled last
+static ShaderBus::lane* g_bus_mask_objects = nullptr;
+static u32 g_bus_mask_objects_count = 0;
+// set by frame_latch while a shader declares that lane
+static bool g_bus_mask_objects_live = false;
 // finished level loads, and the count as of the last per-frame update
 static u32 g_bus_epoch_live = 0;
 static u32 g_bus_epoch = 0;
@@ -300,7 +306,7 @@ ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name, u32 rows, u8 kind)
 	l->hlsl = hlsl_name;
 	l->rows_declared = _max(l->rows_declared, rows);
 	l->declared_kinds |= u8(1 << kind);
-	if (!l->writes)
+	if (!l->writes && l != g_bus_mask_objects)
 		l->kind = kind;
 	return l;
 }
@@ -872,6 +878,18 @@ static void bus_store_object(const bus_object_write& entry)
 	block->values[i].value.set(entry.value);
 }
 
+// takes an object off the holder list, called under the lock
+static void bus_mask_holder_drop(IRenderable* object)
+{
+	for (u32 i = 0; i < g_bus_mask_holders.size(); ++i)
+		if (g_bus_mask_holders[i] == object)
+		{
+			g_bus_mask_holders[i] = g_bus_mask_holders.back();
+			g_bus_mask_holders.pop_back();
+			return;
+		}
+}
+
 void ShaderBus::object_forget(IRenderable* object)
 {
 	if (!g_bus_objects_used)
@@ -881,6 +899,18 @@ void ShaderBus::object_forget(IRenderable* object)
 	g_bus_object_writes.erase(std::remove_if(g_bus_object_writes.begin(), g_bus_object_writes.end(),
 		[object](const bus_object_write& entry) { return entry.object == object; }), g_bus_object_writes.end());
 	g_bus_shared_values.erase(object);
+
+	// the object's mask bits leave their lanes' counts
+	if (object->renderable.bus_mask >> mask_first_bit)
+		for (u32 bit = mask_first_bit; bit < mask_bits_end; ++bit)
+			if ((object->renderable.bus_mask & (1u << bit)) && g_bus_mask_tokens[bit])
+			{
+				lane* l = g_bus_lanes[g_bus_mask_tokens[bit] & 0xffff];
+				if (l->objects)
+					--l->objects;
+			}
+	if (object->renderable.bus_mask)
+		bus_mask_holder_drop(object);
 
 	object_values*& block = object->renderable.bus_values;
 	if (!block)
@@ -1450,10 +1480,51 @@ static bool bus_latch_lane(ShaderBus::lane* l)
 // the object mask bit a token holds, parked or live, -1 for none, called under the lock
 static int bus_mask_bit(u32 token)
 {
-	for (int bit = 10; bit < 24; ++bit)
+	for (int bit = ShaderBus::mask_first_bit; bit < ShaderBus::mask_bits_end; ++bit)
 		if (g_bus_mask_tokens[bit] == token)
 			return bit;
 	return -1;
+}
+
+// one buffer row per object holding a live mask bit after row 0, which holds the count
+static void bus_fill_mask_objects(ShaderBus::lane* l)
+{
+	const u32 n = _min(u32(g_bus_mask_holders.size()), ShaderBus::max_buffer_rows - 1);
+	if (!n && !g_bus_mask_objects_count)
+		return;
+
+	if (n + 1 > l->buffer_rows)
+	{
+		u32 rows = 64;
+		while (rows < n + 1)
+			rows <<= 1;
+
+		Fvector4 zero;
+		zero.set(0.f, 0.f, 0.f, 0.f);
+		l->rows_bound.resize(rows, zero);
+		if (!l->buffer_rows)
+			g_bus_buffers.push_back(l);
+		l->buffer_rows = rows;
+	}
+
+	l->pending.set(float(n), 0.f, 0.f, 0.f);
+	l->bound = l->pending;
+	l->rows_bound[0] = l->bound;
+	for (u32 i = 0; i < n; ++i)
+	{
+		const IRenderable* holder = g_bus_mask_holders[i];
+		l->rows_bound[i + 1].set(holder->renderable.xform.c.x, holder->renderable.xform.c.y, holder->renderable.xform.c.z,
+			float(holder->renderable.bus_mask & g_bus_mask_live));
+	}
+	for (u32 i = n + 1; i <= g_bus_mask_objects_count; ++i)
+		l->rows_bound[i].set(0.f, 0.f, 0.f, 0.f);
+	g_bus_mask_objects_count = n;
+
+	l->buffer_bound = l->buffer_rows;
+	l->buffer_kind = l->kind;
+	l->buffer_gpu = false;
+	++l->changes;
+	l->last_change_frame = Device.dwFrame;
 }
 
 void ShaderBus::frame_latch()
@@ -1512,7 +1583,22 @@ void ShaderBus::frame_latch()
 			const int bit = bus_mask_bit(bus_token(g_bus_lanes[entry.lane]));
 			u32& bits = entry.object->renderable.bus_mask;
 			if (bit >= 0 && !(g_bus_mask_parked & (1u << bit)))
+			{
+				const u32 was = bits;
 				bits = entry.clear ? bits & ~(1u << bit) : bits | (1u << bit);
+				lane* held = g_bus_lanes[entry.lane];
+				if (bits != was)
+				{
+					if (!entry.clear)
+						++held->objects;
+					else if (held->objects)
+						--held->objects;
+					if (!was && bits)
+						g_bus_mask_holders.push_back(entry.object);
+					else if (was && !bits)
+						bus_mask_holder_drop(entry.object);
+				}
+			}
 			continue;
 		}
 		if (g_bus_lanes[entry.lane]->shared)
@@ -1521,19 +1607,37 @@ void ShaderBus::frame_latch()
 	}
 	g_bus_object_writes.clear();
 
-	// a bit parked before this level load returns to the pool, the others stay live or parked
+	// a parked bit leaves every object that holds it and returns to the pool
+	const u32 freed = g_bus_mask_parked;
+	if (freed)
+		for (u32 i = 0; i < g_bus_mask_holders.size();)
+		{
+			u32& bits = g_bus_mask_holders[i]->renderable.bus_mask;
+			bits &= ~freed;
+			if (bits)
+				++i;
+			else
+			{
+				g_bus_mask_holders[i] = g_bus_mask_holders.back();
+				g_bus_mask_holders.pop_back();
+			}
+		}
 	g_bus_mask_live = 0;
-	for (u32 bit = 10; bit < 24; ++bit)
+	for (u32 bit = mask_first_bit; bit < mask_bits_end; ++bit)
 	{
 		const u32 b = 1u << bit;
-		if (reloaded && (g_bus_mask_parked & b) && g_bus_mask_park_epochs[bit] < g_bus_epoch)
+		if (freed & b)
 		{
+			g_bus_lanes[g_bus_mask_tokens[bit] & 0xffff]->objects = 0;
 			g_bus_mask_tokens[bit] = 0;
 			g_bus_mask_parked &= ~b;
 		}
 		if (g_bus_mask_tokens[bit] && !(g_bus_mask_parked & b))
 			g_bus_mask_live |= b;
 	}
+
+	// the engine lists the objects holding live mask bits once a shader declares the lane
+	g_bus_mask_objects_live = g_bus_mask_objects && g_bus_mask_objects->rows_declared;
 	hotness_lane = g_bus_hotness;
 
 	// scripts read pass runs as of this update on every thread
@@ -1550,10 +1654,13 @@ void ShaderBus::frame_latch()
 void ShaderBus::frame_latch_late()
 {
 	// written only by frame_latch on this thread
-	if (g_bus_late.empty())
+	if (g_bus_late.empty() && !g_bus_mask_objects_live)
 		return;
 
 	xrCriticalSectionGuard guard(&g_bus_lock);
+	// the list reads positions after the frame's updates, where this frame draws them
+	if (g_bus_mask_objects_live)
+		bus_fill_mask_objects(g_bus_mask_objects);
 	bool textures_moved = false;
 	for (u32 i = 0; i < g_bus_late.size(); ++i)
 	{
@@ -1693,8 +1800,14 @@ void ShaderBus::enable_buffers()
 
 void ShaderBus::enable_mask()
 {
+	static const u32 token = register_engine("engine_mask_objects", "x is how many objects hold a live mask bit, rows 1 to x hold their positions and bits");
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	g_bus_mask = true;
+	if (token)
+	{
+		g_bus_mask_objects = g_bus_lanes[token & 0xffff];
+		g_bus_mask_objects->kind = kind_float;
+	}
 }
 
 bool ShaderBus::mask_enabled()
@@ -1746,10 +1859,10 @@ u32 ShaderBus::register_mask(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 	int bit = found >= 0 && g_bus_lanes[found]->registered ? bus_mask_bit(bus_token(g_bus_lanes[found])) : -1;
 	if (bit < 0)
 	{
-		bit = 10;
-		while (bit < 24 && g_bus_mask_tokens[bit])
+		bit = mask_first_bit;
+		while (bit < mask_bits_end && g_bus_mask_tokens[bit])
 			++bit;
-		if (bit == 24)
+		if (bit == mask_bits_end)
 			return bus_refuse_register("mask", id, "all 14 object mask bits are taken");
 	}
 
@@ -1806,12 +1919,11 @@ bool ShaderBus::release_mask(u32 token)
 	if (l->role != role_mask)
 		return bus_refuse_write(l, "a release, it is not a mask lane");
 
-	// objects keep the bit until their level unloads, so it waits out the next level load
+	// the bit draws nowhere from the next frame on, when the per-frame update frees it
 	const int bit = bus_mask_bit(token);
 	if (bit >= 0 && !(g_bus_mask_parked & (1u << bit)))
 	{
 		g_bus_mask_parked |= 1u << bit;
-		g_bus_mask_park_epochs[bit] = g_bus_epoch_live;
 		l->pending.set(0.f, 0.f, 0.f, 0.f);
 		++l->writes;
 	}
