@@ -97,13 +97,14 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N, bool _clear)
 
 #if defined(USE_DX10) || defined(USE_DX11)
 // mapMatrix_Render for tagged items in the order part 0 drew them, with the mask shader and the item's tag in the blend factor
-static void __fastcall mapMatrix_RenderBusMask(mapMatrixItems& N)
+static void __fastcall mapMatrix_RenderBusMask(mapMatrixItems& N, bool _clear)
 {
 	_MatrixItem *I = &*N.begin(), *E = &*N.end();
 	for (; I != E; I++)
 	{
 		_MatrixItem& Ni = *I;
-		if (!Ni.bus_tag)
+		const u32 value = bus_mask_value(Ni.pObject, Ni.bus_tag);
+		if (!value)
 			continue;
 		RCache.set_xform_world(Ni.Matrix);
 
@@ -126,7 +127,7 @@ static void __fastcall mapMatrix_RenderBusMask(mapMatrixItems& N)
 #ifdef USE_DX11
 		RCache.LOD.set_LOD(LOD);
 #endif
-		bus_mask_apply(Ni.bus_tag);
+		bus_mask_apply(value);
 		Ni.pVisual->Render(LOD);
 
 		if (Ni.fov != 0.f)
@@ -136,7 +137,7 @@ static void __fastcall mapMatrix_RenderBusMask(mapMatrixItems& N)
 			RCache.set_xform_project(FPold);
 		}
 	}
-	N.clear();
+	if (_clear) N.clear();
 }
 #endif
 
@@ -693,7 +694,7 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 #if defined(USE_DX10) || defined(USE_DX11)
 							if constexpr (BusMask)
 							{
-								mapMatrix_RenderBusMask(items);
+								mapMatrix_RenderBusMask(items, _clear);
 								continue;
 							}
 #endif
@@ -729,8 +730,24 @@ void R_dsgraph_structure::r_dsgraph_render_bus_mask()
 {
 	PROF_EVENT("r_dsgraph_render_bus_mask");
 	ID3DRenderTargetView* saved[4];
+	const bool ids = RImplementation.Target->rt_bus_object_id;
+	const u32 layer = bus_layer_bits;
 	bus_mask_bind(saved);
-	r_dsgraph_render_graph<true>(0, true);
+	r_dsgraph_render_graph<true>(0, !ids && !layer);
+	// the object ids draw in a second walk of the same items with the same depth test
+	if (ids)
+	{
+		bus_mask_pass_begin(bus_pass_id, RImplementation.Target->rt_bus_object_id->pRT, 0);
+		r_dsgraph_render_graph<true>(0, !layer);
+	}
+	// the layer bits draw again with no depth buffer, so walls hide nothing
+	if (layer)
+	{
+		ID3DDepthStencilView* zb = RCache.get_ZB();
+		bus_mask_pass_begin(bus_pass_layer, RImplementation.Target->rt_bus_mask_layer->pRT, layer);
+		r_dsgraph_render_graph<true>(0, true);
+		RCache.set_ZB(zb);
+	}
 	bus_mask_unbind(saved);
 }
 
