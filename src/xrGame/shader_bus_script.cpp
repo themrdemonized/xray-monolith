@@ -768,7 +768,7 @@ static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
 	{
 		string64 base;
 		xr_strcpy(base, l->id.c_str());
-		base[xr_strlen(base) - 5] = 0;
+		base[xr_strlen(base) - xr_strlen(ShaderBus::history_suffix)] = 0;
 		id = base;
 	}
 

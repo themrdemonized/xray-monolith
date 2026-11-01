@@ -439,6 +439,8 @@ namespace ShaderBus
 	const u32 max_pass_outputs = 4;
 	const u32 max_pass_inputs = 16;
 	const u32 target_format_count = 8;
+	// a history lane's id is its target's id and this suffix
+	const char history_suffix[] = "_prev";
 
 	struct target_spec
 	{
@@ -513,6 +515,8 @@ namespace ShaderBus
 	ENGINE_API LPCSTR target_format_name(u8 format);
 	// texels of a w x h target, its mip chain included
 	ENGINE_API u32 target_texels(u32 w, u32 h, bool mips);
+	// w and h of a size rule at the current resolution, size_fixed keeps them
+	ENGINE_API void target_extent(u8 size, u32& w, u32& h);
 	ENGINE_API u32 register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const target_spec& spec);
 	ENGINE_API u32 register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, const pass_spec& spec);
 	ENGINE_API bool enable_pass(u32 token, bool on);

@@ -3,6 +3,7 @@
 #include "../../xrEngine/shader_bus.h"
 
 CRT* bus_target_rt(const shared_str& id, bool prev);
+void bus_alias(LPSTR out, u32 size, LPCSTR id, bool buffer, bool uint_rows);
 void bus_target_rotate(const shared_str& id);
 u32 bus_target_clears(const shared_str& id);
 void fix_texture_name(LPSTR fn);
@@ -100,7 +101,7 @@ public:
 			{
 				string64 own, texture;
 				xr_sprintf(own, "bus_%s", spec->outputs[0].c_str());
-				xr_sprintf(texture, "$user$bus_%s", C.iElement ? spec->outputs[0].c_str() : spec->pingpong.c_str());
+				bus_alias(texture, sizeof(texture), C.iElement ? spec->outputs[0].c_str() : spec->pingpong.c_str(), false, false);
 				bind(C, own, texture);
 				xr_sprintf(own, "bus_%s", spec->pingpong.c_str());
 				if (C.r_Constant(own))
@@ -262,9 +263,9 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		{
 			LPCSTR id = p.outputs[o].c_str();
 			string64 own, buf, bufu;
-			xr_sprintf(own, "$user$bus_%s", id);
-			xr_sprintf(buf, "$user$busbuf_%s", id);
-			xr_sprintf(bufu, "$user$busbufu_%s", id);
+			bus_alias(own, sizeof(own), id, false, false);
+			bus_alias(buf, sizeof(buf), id, true, false);
+			bus_alias(bufu, sizeof(bufu), id, true, true);
 			if (!xr_strcmp(name, own) || !xr_strcmp(name, buf) || !xr_strcmp(name, bufu))
 			{
 				reason.printf("it reads its own output '%s'", p.outputs[o].c_str());
@@ -274,7 +275,7 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		if (p.pingpong.size())
 		{
 			string64 pong;
-			xr_sprintf(pong, "$user$bus_%s", p.pingpong.c_str());
+			bus_alias(pong, sizeof(pong), p.pingpong.c_str(), false, false);
 			if (!xr_strcmp(name, pong))
 			{
 				reason.printf("it reads its pingpong target '%s'", p.pingpong.c_str());
@@ -564,12 +565,7 @@ static void bus_pass_compute(bus_pass_run& r)
 		{
 			// the grid follows the target size rule
 			u32 w = r.spec.grid_w, h = r.spec.grid_h;
-			if (r.spec.grid_size != ShaderBus::size_fixed)
-			{
-				const u32 shift = r.spec.grid_size == ShaderBus::size_half ? 1 : r.spec.grid_size == ShaderBus::size_quarter ? 2 : 0;
-				w = _max(Device.dwWidth >> shift, 1u);
-				h = _max(Device.dwHeight >> shift, 1u);
-			}
+			ShaderBus::target_extent(r.spec.grid_size, w, h);
 			RCache.Compute((w + gx - 1) / gx, (h + gy - 1) / gy, 1);
 		}
 		else if (r.writes_buffer)
