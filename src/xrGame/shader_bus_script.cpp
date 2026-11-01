@@ -554,11 +554,11 @@ static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_s
 
 static LPCSTR bus_stages[] = { "frame", "gbuffer", "lighting", "scene", "post" };
 static LPCSTR bus_gpu_states[] = { "pending", "ready", "failed", "released", "off" };
+static LPCSTR bus_blends[] = { "none", "add", "alpha" };
 
 // the pass spec of a Lua table, the name of the first bad field or null
 static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec& p)
 {
-	static LPCSTR blends[] = { "none", "add", "alpha" };
 	p.order = 0;
 	p.output_count = 0;
 	p.group_x = 0;
@@ -630,7 +630,7 @@ static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec&
 	else if (inputs.type() != LUA_TNIL)
 		return "inputs";
 
-	const int blend = bus_read_name(spec["blend"], blends, 3);
+	const int blend = bus_read_name(spec["blend"], bus_blends, 3);
 	if (blend < 0)
 		return "blend";
 	p.blend = u8(blend < 3 ? blend : ShaderBus::blend_none);
@@ -733,8 +733,7 @@ static bool bus_set_mask(u32 token, const ::luabind::object& target, bool on)
 	if (particles && *particles)
 		return ShaderBus::refuse_write(token, "an object, a particles object takes no mask");
 
-	IRenderable* object = bus_target(target);
-	return object && ShaderBus::set_mask(token, object, on);
+	return ShaderBus::set_mask(token, bus_target(target), on);
 }
 
 static u32 bus_get_mask(const ::luabind::object& target)
@@ -784,9 +783,11 @@ static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus:
 	const bool found = ShaderBus::get_gpu_status(l->id, s);
 	row["stage"] = bus_stages[p.stage];
 	row["order"] = p.order;
-	row["pass_state"] = p.released || !p.enabled ? "off" : found ? bus_gpu_states[s.state] : "pending";
+	row["pass_state"] = p.released ? "released" : !p.enabled ? "off" : found ? bus_gpu_states[s.state] : "pending";
 	row["reason"] = found && s.reason.size() ? s.reason.c_str() : "";
 	row["fails"] = found ? s.fails : 0u;
+	row["blend"] = bus_blends[p.blend];
+	row["svp"] = p.svp;
 
 	// the shader, outputs, inputs and compute group as the spec gave them
 	if (p.cs.size())
@@ -826,12 +827,12 @@ static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus:
 	}
 }
 
-static bool bus_get_pass_time(LPCSTR id, float& x, float& y, float& z, float& w, u32& frame)
+static bool bus_get_pass_time(LPCSTR id, float& x, float& y, float& z, float& w, u32& frames)
 {
 	Fvector4 t;
 	t.set(0.f, 0.f, 0.f, 0.f);
-	frame = 0;
-	const bool found = ShaderBus::get_pass_time(id, t, frame);
+	frames = 0;
+	const bool found = ShaderBus::get_pass_time(id, t, frames);
 	x = t.x;
 	y = t.y;
 	z = t.z;

@@ -104,14 +104,18 @@ static xr_vector<ShaderBus::pass_spec> g_bus_passes;
 static xr_vector<std::pair<shared_str, ShaderBus::gpu_status>> g_bus_status;
 // the reasons of the last 64 refused ids, oldest first
 static xr_vector<std::pair<shared_str, LPCSTR>> g_bus_refusals;
-// the pass_time of each pass's last run and the frame it ran in
+// the pass_time of each pass's last run and the frame it ran in, and both as of the last per-frame update
 struct bus_pass_clock
 {
 	shared_str id;
 	Fvector4 time;
 	u32 frame;
+	Fvector4 seen_time;
+	u32 seen_frame;
+	bool seen;
 };
 static xr_vector<bus_pass_clock> g_bus_pass_clocks;
+static u32 g_bus_pass_clock_frame = 0;
 static u32 g_bus_targets_serial = 0;
 static bool g_bus_targets_enabled = false;
 
@@ -1531,6 +1535,16 @@ void ShaderBus::frame_latch()
 			g_bus_mask_live |= b;
 	}
 	hotness_lane = g_bus_hotness;
+
+	// scripts read pass runs as of this update on every thread
+	g_bus_pass_clock_frame = Device.dwFrame;
+	for (u32 i = 0; i < g_bus_pass_clocks.size(); ++i)
+	{
+		bus_pass_clock& c = g_bus_pass_clocks[i];
+		c.seen_time = c.time;
+		c.seen_frame = c.frame;
+		c.seen = true;
+	}
 }
 
 void ShaderBus::frame_latch_late()
@@ -1761,7 +1775,7 @@ bool ShaderBus::set_mask(u32 token, IRenderable* object, bool on)
 		return bus_refuse_write(l, "an object, it is not a mask lane");
 	const int bit = bus_mask_bit(token);
 	if (bit < 0 || (g_bus_mask_parked & (1u << bit)))
-		return false;
+		return bus_refuse_write(l, "an object, its mask bit is released");
 	if (!object)
 		return bus_refuse_write(l, "an object that does not exist");
 
@@ -1980,6 +1994,11 @@ static LPCSTR bus_pass_refusal(const ShaderBus::pass_spec& spec)
 		if (0 == xr_strcmp(spec.outputs[i], "scene") &&
 		    (spec.output_count > 1 || (spec.stage != ShaderBus::stage_scene && spec.stage != ShaderBus::stage_post)))
 			return "scene as an output, which is the only output of a scene or post pass";
+		if (0 == xr_strcmp(spec.outputs[i], "albedo") && (spec.output_count > 1 || spec.stage != ShaderBus::stage_gbuffer))
+			return "albedo as an output, which is the only output of a gbuffer pass";
+		if (0 == xr_strcmp(spec.outputs[i], "light") &&
+		    (spec.output_count > 1 || spec.stage != ShaderBus::stage_lighting || spec.blend == ShaderBus::blend_none))
+			return "light as an output, which is the only output of a lighting pass and blends with add or alpha";
 	}
 	if (spec.inputs.size() > ShaderBus::max_pass_inputs)
 		return "more than 16 inputs";
@@ -2343,17 +2362,20 @@ void ShaderBus::set_pass_time(const shared_str& id, const Fvector4& time, u32 fr
 	c.id = id;
 	c.time = time;
 	c.frame = frame;
+	c.seen_time = time;
+	c.seen_frame = frame;
+	c.seen = false;
 	g_bus_pass_clocks.push_back(c);
 }
 
-bool ShaderBus::get_pass_time(LPCSTR id, Fvector4& time, u32& frame)
+bool ShaderBus::get_pass_time(LPCSTR id, Fvector4& time, u32& frames)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	for (u32 i = 0; i < g_bus_pass_clocks.size(); ++i)
-		if (!xr_strcmp(g_bus_pass_clocks[i].id, id))
+		if (g_bus_pass_clocks[i].seen && !xr_strcmp(g_bus_pass_clocks[i].id, id))
 		{
-			time = g_bus_pass_clocks[i].time;
-			frame = g_bus_pass_clocks[i].frame;
+			time = g_bus_pass_clocks[i].seen_time;
+			frames = g_bus_pass_clock_frame - g_bus_pass_clocks[i].seen_frame;
 			return true;
 		}
 	return false;

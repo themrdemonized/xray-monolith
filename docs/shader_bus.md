@@ -180,7 +180,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.set_readback_rows(token, source, first, count, reduce)` | `true` if the token is valid and `source` is a buffer lane. Arms a readback of `count` rows, `1` to `1024`, from row `first` of the buffer, read after the frame's last pass. `reduce` as for `set_readback`, refused for uint rows. See Readback |
 | `shader_bus.get_readback_uint(id)` | `ok, x, y, z, w, frame` as unsigned integers, for a result read from uint rows |
 | `shader_bus.get_readback_uint(id, i)` | the same for row `i` of the result |
-| `shader_bus.get_pass_time(id)` | `ok, x, y, z, w, frame`, the `pass_time` of the pass's last run and the frame it ran in, `false` for a pass that has not run since it last registered (see pass_time) |
+| `shader_bus.get_pass_time(id)` | `ok, x, y, z, w, frames`, the `pass_time` of the pass's last run and the frames since it ran, `1` for a pass that ran last frame, `false` for a pass that has not run since it last registered (see pass_time) |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
 | `shader_bus.get_uint(id)` | `ok, a, b, c, d`, the bound value read as four unsigned integers |
 | `shader_bus.get_row(id, i)` | `ok, x, y, z, w`, bound row `i` (0-based), `0, 0, 0, 0` for a row never set, `false` past the rows a shader declared or `set_buffer` sized. Row 0 always answers, like `get`. On a uint lane the values are the raw unsigned integers |
@@ -224,10 +224,10 @@ A row also has `role` (`target`, `history` or `pass` for the lanes of Render tar
 `mask` for a mask lane with its bit in `mask_bit`, see Masks, and empty for a plain lane). A target row and its history row `<id>_prev` carry `width`, `height`,
 `format`, `bytes`, `history` and `target_state` (`pending`, `ready` or `released`), with the size
 and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
-(`pending`, `ready`, `failed` or `off`) and `reason`, the text of the failure and empty
-otherwise, `fails` (how many builds of the pass failed since it was registered with this spec),
-and from its spec `ps` or `cs`, `outputs`, `inputs` and on a `cs` pass `group`, and `grid` and
-`indirect` when the spec gave one.
+(`pending`, `ready`, `failed`, `off` for a disabled pass or `released`) and `reason`, the text of
+the failure and empty otherwise, `fails` (how many builds of the pass failed since it was registered
+with this spec), and from its spec `ps` or `cs`, `outputs`, `inputs`, `blend`,
+`svp` and on a `cs` pass `group`, and `grid` and `indirect` when the spec gave one.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
@@ -483,7 +483,7 @@ bit from the lane and tests it against the mask.
 | call | returns |
 |---|---|
 | `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
-| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object or a `ScriptAttachment`. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. A particles object, `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal of a particles object or a lane that is not a mask logs a line on each lane |
+| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object or a `ScriptAttachment`. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. A particles object, `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal on each lane logs a line |
 | `shader_bus.get_mask(obj)` | the live mask bits `obj` carries, `0` for none or `nil` |
 | `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere and the lane reads `0`. The bit returns to the pool after the next level load, and until then `register_mask` with the same id and `owner` takes it back, with the objects that still carry it |
 
@@ -633,7 +633,7 @@ if ok and device().frame - frame < 10 then level_light = 0.2126 * r + 0.7152 * g
 
 | source | what the block holds |
 |---|---|
-| `light` | the light accumulation before the combine, linear and unbounded |
+| `light` | the light accumulation before the `lighting` stage and the combine, linear and unbounded |
 | `scene` | the combined scene before bloom |
 | `backbuffer` | the finished frame before the UI |
 | `<target id>` or `<target id>_prev` | a render target of the bus or its history, after the frame's last pass |
@@ -653,8 +653,10 @@ and a missing alpha `1`.
 
 `frame` is the `device().frame` of the frame the block was captured on. A result arrives two to
 three frames after its capture, and a script that needs a fresh value compares `frame` with
-`device().frame`. A new `set_readback` call with a different request drops the result, and the next
-result comes from the new request.
+`device().frame`. A lane armed on every frame reads `device().frame - frame` of `2` at best, and
+more while the GPU runs behind. A new `set_readback` call with a different request drops the
+result, and the next result comes from the new request. `set_readback(token, "")` disarms the lane,
+and only the empty source does.
 
 The `readback` key of a `list` row says where the lane stands:
 - `none`, no result yet, after a change of request, a level load or a device reset, or for a lane
@@ -690,6 +692,8 @@ end
 
 Limits:
 - 65,536 rows a lane and 16 MiB over every buffer lane, at most 4096 rows in one `set_array` call.
+- The size only grows. `set_buffer` with fewer rows than the lane has returns `true` and keeps the
+  size.
 - DX10 and DX11. The DX9 renderers refuse `set_buffer`. Only DX11 runs a `cs` pass that writes one.
 - The buffer keeps its rows over a level change and a device reset.
 - A frame on which the lane changed uploads the whole buffer once.
@@ -864,6 +868,33 @@ The history copy runs once a frame, just before the first pass that writes the t
 on a second viewport frame. A target no pass writes never copies. A pass that reads a target
 before its writer has run in the same frame sees the last frame's value.
 
+History is a plain copy, so a texel of `bus_<id>_prev` holds what that spot of the screen held last
+frame, and a history read at the pass's own texture coordinate trails while the camera turns.
+`shaders\r3\bus_reproject.h` declares the engine's `m_vp_prev`, last frame's view projection, and
+gives `bus_reproject(view_pos, tc)`, which puts in `tc` where a view space point of this frame sat on
+last frame's screen and returns `false` where that was behind the camera or off the screen. Include
+it after `common.h`, which gives `m_inv_V`. It leaves out its own `m_vp_prev` where an earlier
+include declared it under `SSFX_MV_LOADED`, and a shader that declares `m_vp_prev` some other way
+does not compile with it. The view space position comes from the G-buffer at
+the `gbuffer`, `lighting`, `scene` and `post` stages, with `s_position = "$user$position"` in the
+pass's `inputs`. It takes out only the camera's motion, so a moving object or the player's hands
+land where they were not.
+
+```hlsl
+#include "common.h"
+#include "bus_reproject.h"
+
+Texture2D bus_trail_prev;
+
+float4 main(p_screen I) : SV_Target
+{
+	gbuffer_data gbd = gbuffer_load_data(I.tc0, I.hpos.xy);
+	float2 tc;
+	float4 last = bus_reproject(gbd.P, tc) ? bus_trail_prev.SampleLevel(smp_rtlinear, tc, 0) : 0;
+	return last * 0.9;
+}
+```
+
 `release_target` frees the target and its history. Live targets together may take 1024 MB, a
 history target counted twice, sized at the resolution in effect when the target registers. A
 call that would pass that is refused with a log line, and a call that does not grow the target
@@ -881,7 +912,7 @@ shader_bus.register_pass("frost_grow", "My Mod", "grows and melts the frost", {
 | `stage` | required, one of the stages below |
 | `order` | a whole number, default `0` |
 | `ps` or `cs` | the shader file name without folder or extension, exactly one of them. The file is `shaders\r3\<name>.ps` or `.cs` |
-| `outputs` | required, 1 to 4 ids of the owner's targets that share one size, or the single output `"scene"` on a `scene` or `post` pass, or on a `cs` pass one buffer lane of the owner |
+| `outputs` | required, 1 to 4 ids of the owner's targets that share one size, or the single output `"scene"` on a `scene` or `post` pass, or the single output `"albedo"` on a `gbuffer` pass, which draws into the G-buffer albedo with the pass's `blend` and leaves its alpha, the gloss, as it was (`none` replaces the colour, `add` and `alpha` combine with it), or the single output `"light"` on a `lighting` pass with blend `add` or `alpha`, which blends into the light accumulation (see Stages), or on a `cs` pass one buffer lane of the owner |
 | `inputs` | a table from an HLSL texture variable to a texture or render target name, at most 16. A `Texture2D bus_<id>` the shader declares needs no entry |
 | `blend` | `none` (the default), `add` or `alpha`, how a pixel pass combines with what its outputs hold |
 | `group` | required on a `cs` pass, the thread group size `{ x, y }`, each side from `1` to `1024` |
@@ -923,11 +954,18 @@ the log, and it draws nothing. The reasons are:
 - its shader file is missing, or a texture variable sits past `t15` or a UAV past `u7`
 - an output is not a live target of the pass's `owner`, or the outputs differ in size
 - it reads its own output, through `inputs` or by declaring `Texture2D bus_<output>`
+- it reads the scene it writes
+- a constant the pass binds as a texture is not a texture, or an `smp_` constant is not a sampler
 - a `cs` pass writes `"scene"`, or an `svp` pass writes a history target
+- a `lighting` pass writes `"light"` under `-r4xx`, which emulates a GPU that cannot blend 16-bit float targets
 - a `cs` shader does not declare each output as a `RWTexture2D` or `RWBuffer` called `bus_<id>`
 - a `cs` pass declares its buffer lane as anything but `RWBuffer<float4>` for a float lane, or
   `RWBuffer<uint4>` or `RWBuffer<uint>` for a uint lane
-- a `cs` pass with a `grid` writes targets instead of a buffer lane
+- a `cs` pass with a `grid` writes targets instead of a buffer lane, or a buffer lane of another
+  `owner`
+- `indirect` points at a lane that a `cs` pass of the `owner`, this one included, writes as float4
+  rows, the counts need uint4
+- the compute shader could not be created
 - `s_image` is misused, see `s_image`
 
 ### Stages
@@ -942,6 +980,15 @@ the log, and it draws nothing. The reasons are:
 
 There is no stage for the world. Passes in a stage run by `order`, then `owner`, then id. A
 second viewport frame runs only the passes registered with `svp = true`.
+
+A `gbuffer` pass that writes `albedo` changes the colour every light and the combine read, the
+player's hands and weapon included, since they are in the G-buffer too.
+
+A `lighting` pass that writes `light` changes the light the stock combine multiplies by the
+albedo, which a shader pack may define differently. Red, green and blue hold the light and alpha
+the specular. With `add` the pass adds to all four, and with `alpha` it blends red, green and blue
+and leaves the specular as it was. The `light` readback reads the light before this stage, so it
+never shows what a pass added.
 
 ### s_image
 
@@ -972,8 +1019,10 @@ On a pass's first run, on the first run after an enable and on the first run aft
 cleared, `x` is the frame time and `y` is `1`. A pass that writes a buffer lane counts the buffer
 being created again as a clear.
 
-`shader_bus.get_pass_time(id)` returns `ok, x, y, z, w, frame`, the `pass_time` of the pass's
-last run and the frame it ran in, or `false` for a pass that has not run since it last registered.
+`shader_bus.get_pass_time(id)` returns `ok, x, y, z, w, frames`, the `pass_time` of the pass's
+last run and the frames since it ran, or `false` for a pass that has not run since it last
+registered. It answers as of the start of the frame, the same from every callback and on the
+multithreaded exe, so a pass that runs every frame reads `1`.
 
 ### Compute
 

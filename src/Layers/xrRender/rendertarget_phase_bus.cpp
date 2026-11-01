@@ -20,12 +20,13 @@ public:
 	LPCSTR image;
 	shared_str reason;
 	bool reads_image;
+	bool writes_scene;
 	u8 uav_slots[ShaderBus::max_pass_outputs];
 	u8 uav_return[ShaderBus::max_pass_outputs];
 	u8 uav_dimension[ShaderBus::max_pass_outputs];
 	u8 uav_components[ShaderBus::max_pass_outputs];
 
-	CBlender_bus_pass() : spec(nullptr), image(nullptr), reads_image(false) {}
+	CBlender_bus_pass() : spec(nullptr), image(nullptr), reads_image(false), writes_scene(false) {}
 
 	virtual LPCSTR getComment() { return "INTERNAL: shader bus pass"; }
 	virtual BOOL canBeDetailed() { return FALSE; }
@@ -78,9 +79,16 @@ public:
 #endif
 		{
 			C.r_Pass("stub_screen_space", spec->ps.c_str(), FALSE, FALSE, FALSE, blend, src, dst);
-			// a scene writer's output is the engine scene, never a target
-			const bool scene = spec->output_count == 1 && !xr_strcmp(spec->outputs[0], "scene");
-			for (u32 i = 0; !scene && i < spec->output_count; ++i)
+			// a scene, albedo or light writer's output is an engine target, never a bus one
+			const bool albedo = spec->output_count == 1 && !xr_strcmp(spec->outputs[0], "albedo");
+			const bool light = spec->output_count == 1 && !xr_strcmp(spec->outputs[0], "light");
+			// alpha holds the gloss, the pass keeps it
+			if (albedo)
+				C.r_ColorWriteEnable(true, true, true, false);
+			// alpha holds the specular, an alpha blended light pass keeps it
+			if (light && spec->blend == ShaderBus::blend_alpha)
+				C.r_ColorWriteEnable(true, true, true, false);
+			for (u32 i = 0; !writes_scene && i < spec->output_count; ++i)
 			{
 				string64 own;
 				xr_sprintf(own, "bus_%s", spec->outputs[i].c_str());
@@ -153,6 +161,10 @@ static LPCSTR bus_image_name(u32 stage)
 static CRT* bus_scene_target(u32 stage)
 {
 	CRenderTarget* T = RImplementation.Target;
+	if (stage == ShaderBus::stage_gbuffer)
+		return &*T->rt_Color;
+	if (stage == ShaderBus::stage_lighting)
+		return &*T->rt_Accumulator;
 	if (stage == ShaderBus::stage_scene)
 		return &*T->rt_Generic_0;
 	if (stage == ShaderBus::stage_post)
@@ -179,6 +191,11 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		reason = "compute passes cannot write the scene";
 		return;
 	}
+	if (r.writes_scene && p.stage == ShaderBus::stage_lighting && !RImplementation.o.fp16_blend)
+	{
+		reason = "light passes cannot blend under -r4xx";
+		return;
+	}
 
 	string_path file;
 	strconcat(sizeof(file), file, ::Render->getShaderPath(), p.cs.size() ? p.cs.c_str() : p.ps.c_str(),
@@ -192,18 +209,28 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 	for (u32 i = 0; i < p.inputs.size(); ++i)
 	{
 		LPCSTR t = p.inputs[i].texture.c_str();
+		// the texture manager drops these extensions, so the compare does too
+		string_path name;
+		xr_strcpy(name, t);
+		fix_texture_name(name);
 		const bool own_scene = p.stage == ShaderBus::stage_post
-			                       ? !xr_strcmp(t, r2_RT_albedo) || !xr_strcmp(t, r2_RT_generic)
-			                       : p.stage == ShaderBus::stage_scene && !xr_strcmp(t, r2_RT_generic0);
+			                       ? !xr_strcmp(name, r2_RT_albedo) || !xr_strcmp(name, r2_RT_generic)
+			                       : p.stage == ShaderBus::stage_scene && !xr_strcmp(name, r2_RT_generic0);
 		if (r.writes_scene && own_scene)
 		{
 			reason.printf("it reads the scene it writes through '%s'", t);
 			return;
 		}
-		// the texture manager drops these extensions, so the compare does too
-		string_path name;
-		xr_strcpy(name, t);
-		fix_texture_name(name);
+		if (r.writes_scene && p.stage == ShaderBus::stage_gbuffer && !xr_strcmp(name, r2_RT_albedo))
+		{
+			reason = "it reads its own output 'albedo'";
+			return;
+		}
+		if (r.writes_scene && p.stage == ShaderBus::stage_lighting && !xr_strcmp(name, r2_RT_accum))
+		{
+			reason = "it reads its own output 'light'";
+			return;
+		}
 		for (u32 o = 0; !r.writes_scene && o < p.output_count; ++o)
 		{
 			LPCSTR id = p.outputs[o].c_str();
@@ -290,7 +317,8 @@ void bus_passes_update()
 		bus_pass_run r;
 		r.spec = p;
 		r.reads_image = false;
-		r.writes_scene = p.output_count == 1 && !xr_strcmp(p.outputs[0], "scene");
+		r.writes_scene = p.output_count == 1 && (!xr_strcmp(p.outputs[0], "scene") || !xr_strcmp(p.outputs[0], "albedo") ||
+		                                         !xr_strcmp(p.outputs[0], "light"));
 		// a buffer lane set this frame gets its view at the next latch, the dispatch asks for it every run
 		const ShaderBus::lane* l = p.cs.size() && p.output_count == 1 ? ShaderBus::find(p.outputs[0].c_str()) : nullptr;
 		r.writes_buffer = l && l->buffer_rows;
@@ -318,6 +346,7 @@ void bus_passes_update()
 			CBlender_bus_pass blender;
 			blender.spec = &r.spec;
 			blender.image = bus_image_name(p.stage);
+			blender.writes_scene = r.writes_scene;
 			r.shader.create(&blender, p.cs.size() ? p.cs.c_str() : p.ps.c_str());
 			reason = blender.reason;
 #ifdef USE_DX11
