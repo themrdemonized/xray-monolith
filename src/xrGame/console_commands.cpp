@@ -51,13 +51,15 @@
 
 #include "ai_debug_variables.h"
 #include "ai_debug_draw.h"
+
 #include "../xrphysics/console_vars.h"
 #include <sstream>
 #include "..\xrCore\LocatorAPI.h"
 #if defined(DEBUG) || defined(DEBUG_DRAW)
-#	include "PHDebug.h"
-#	include "ui/UIDebugFonts.h"
-#	include "CharacterPhysicsSupport.h"
+    #include "../xrEngine/feel_vision.h"
+    #include "PHDebug.h"
+    #include "ui/UIDebugFonts.h"
+#include "CharacterPhysicsSupport.h"
 #endif // DEBUG
 
 
@@ -2645,6 +2647,7 @@ void CCC_RegisterCommands()
     CMD3(CCC_Mask, "ai_draw_game_graph_objects", &psAI_Flags, aiDrawGameGraphObjects);
     CMD3(CCC_Mask, "ai_draw_game_graph_real_pos", &psAI_Flags, aiDrawGameGraphRealPos);
     CMD3(CCC_Mask, "ai_draw_visibility_rays", &psAI_Flags, aiDrawVisibilityRays);
+    CMD3(CCC_String, "ai_dbg_visibility_ray_bone", Feel::g_dbg_visibility_ray_bone, sizeof(Feel::g_dbg_visibility_ray_bone));
     CMD3(CCC_Mask, "ai_draw_aim", &psAI_DrawFlags, aiDrawAim);
     CMD3(CCC_Mask, "ai_draw_fire", &psAI_DrawFlags, aiDrawFire);
     CMD3(CCC_Mask, "ai_draw_memory", &psAI_DrawFlags, aiDrawMemory);

@@ -8,6 +8,25 @@
 
 namespace Feel
 {
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ENGINE_API string64 g_dbg_visibility_ray_bone = "off";
+
+	// first hit of RD on O's own collision form, any bone
+	static void dbg_first_hit(CObject* O, collide::ray_defs const& RD, float& t, int& elem)
+	{
+		collide::rq_results R;
+		O->CFORM()->_RayQuery(RD, R);
+		t = -1.f;
+		elem = -1;
+		for (collide::rq_result* I = R.r_begin(), *E = R.r_end(); I != E; ++I)
+			if (t < 0.f || I->range < t)
+			{
+				t = I->range;
+				elem = I->element;
+			}
+	}
+#endif
+
 	Vision::Vision(CObject const* owner) :
 		pure_relcase(&Vision::feel_vision_relcase),
 		m_owner(owner)
@@ -91,6 +110,10 @@ namespace Feel
 		I.dbg_time = 0;
 		I.dbg_result = dbg_trace_none;
 		I.dbg_cached = false;
+		I.dbg_dir.set(0, 0, 0);
+		I.dbg_range = 0.f;
+		I.dbg_hit_t = I.dbg_expected_t = -1.f;
+		I.dbg_hit_elem = I.dbg_expected_elem = -1;
 #endif
 	}
 
@@ -250,6 +273,16 @@ namespace Feel
 				                     collide::rq_target(
 					                     collide::rqtStatic | /**/collide::rqtObject | /**/collide::rqtObstacle));
 				SFeelParam feel_params(this, &*I, vis_threshold);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_dir = D;
+				I->dbg_range = f;
+				if (dbg_visibility_ray_bone_enabled())
+				{
+					dbg_first_hit(I->O, RD, I->dbg_hit_t, I->dbg_hit_elem);
+					collide::ray_defs const unit_RD(P, Fvector(D).normalize(), f, CDB::OPT_CULL, collide::rqtObject);
+					dbg_first_hit(I->O, unit_RD, I->dbg_expected_t, I->dbg_expected_elem);
+				}
+#endif
 #if defined(DEBUG) || defined(DEBUG_DRAW)
 				bool dbg_cached = false;
 				bool dbg_cached_tri = false;

@@ -30,6 +30,14 @@ namespace Feel
 	};
 #endif
 
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	// Console ai_dbg_visibility_ray_bone <bone>|off: vision rays aim at the center of that bone's collision shape on targets
+	// that have it (CEntityAlive::get_last_local_point_on_mesh), others keep the random point. o_trace then ray-tests
+	// the target's collision form for ai_draw_visibility_rays.
+	ENGINE_API extern string64 g_dbg_visibility_ray_bone;
+	IC bool dbg_visibility_ray_bone_enabled() { return g_dbg_visibility_ray_bone[0] && 0 != xr_strcmp(g_dbg_visibility_ray_bone, "off"); }
+#endif
+
 	class ENGINE_API Vision : private pure_relcase
 	{
 	private:
@@ -97,6 +105,14 @@ namespace Feel
 			u32 dbg_time;				// Device.dwTimeGlobal of the trace, 0 = never traced
 			u8 dbg_result;				// EDbgTraceResult
 			bool dbg_cached;			// visibility taken from the ray cache, no ray cast this time
+			// ai_dbg_visibility_ray_bone: the target's own collision form tested directly (no vision pass ever tests the target).
+			// Point = dbg_src + dbg_dir * dbg_hit_t, and dbg_src + normalized dbg_dir * dbg_expected_t.
+			Fvector dbg_dir;			// direction passed to the ray query
+			float dbg_range;			// range passed to the ray query
+			float dbg_hit_t;			// first hit on the target with dbg_dir / dbg_range, -1 = none
+			int dbg_hit_elem;			// bone of that hit
+			float dbg_expected_t;		// first hit on the target with a unit direction, meters, -1 = none
+			int dbg_expected_elem;		// bone of that hit
 #endif
 		};
 

@@ -9,6 +9,9 @@
 #include "xrmessages.h"
 #include "level.h"
 #include "../Include/xrRender/Kinematics.h"
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    #include "../xrEngine/feel_vision.h"
+#endif
 #include "relation_registry.h"
 #include "monster_community.h"
 #include "entitycondition.h"
@@ -977,6 +980,25 @@ Fvector CEntityAlive::get_new_local_point_on_mesh(u16& bone_id) const
 
 Fvector CEntityAlive::get_last_local_point_on_mesh(Fvector const& last_point, u16 bone_id) const
 {
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	// ai_dbg_visibility_ray_bone: aim at the center of that bone's collision shape, posed like CCF_Skeleton poses it
+	if (Feel::dbg_visibility_ray_bone_enabled())
+	{
+		IKinematics* const K = smart_cast<IKinematics*>(Visual());
+		u16 const id = K ? K->LL_BoneID(Feel::g_dbg_visibility_ray_bone) : BI_NONE;
+		if (BI_NONE != id && SBoneShape::stNone != K->LL_GetData(id).shape.type)
+		{
+			SBoneShape const& shape = K->LL_GetData(id).shape;
+			Fvector center = (SBoneShape::stBox == shape.type) ? shape.box.m_translate
+				: (SBoneShape::stSphere == shape.type) ? shape.sphere.P : shape.cylinder.m_center;
+			K->CalculateBones();
+			K->LL_GetTransform(id).transform_tiny(center);
+			XFORM().transform_tiny(center);
+			return center;
+		}
+	}
+#endif
+
 	if (bone_id == u16(-1))
 		return inherited::get_last_local_point_on_mesh(last_point, bone_id);
 
