@@ -644,11 +644,8 @@ CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
 		T->Preload();
 		if (Device.b_is_Ready)
 		{
-			static DWORD this_thread_id = 0;
-			this_thread_id = GetCurrentThreadId();
 			textures_load_tasks.run([=]()
 			{
-				if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
 				T->Load();
 			});
 		}
