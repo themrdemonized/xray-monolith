@@ -270,6 +270,7 @@ void export_classes	(lua_State *L)
 	player_hud::script_register(L);
 	script_attachment::script_register(L);
 	ScriptImGui::script_register(L);
+	ScriptImPlot::script_register(L);
 	ScriptLight::script_register(L);
 	CScriptWallmarksManager::script_register(L);
 	CUIActorMenu::script_register(L);

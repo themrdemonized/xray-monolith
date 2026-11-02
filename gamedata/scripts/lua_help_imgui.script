@@ -853,4 +853,55 @@
 		DelayNormal,
 		NoSharedDelay,
 	};
+
+	-- ImPlot: real XY plots (axes, legend, zoom) built on ImGui. Series take parallel 1-based number arrays (xs, ys) plus their count.
+	namespace ImPlot
+	{
+		bool BeginPlot(string title, vector2 size, ImPlotFlags flags)
+		void EndPlot() -- call only when BeginPlot returned true
+		void SetupAxes(string x_label, string y_label, ImPlotAxisFlags x_flags, ImPlotAxisFlags y_flags)
+		void SetupAxisLimits(ImAxis axis, number v_min, number v_max, ImPlotCond cond)
+		void PlotLine(string label, table xs, table ys, number count)
+		void PlotShaded(string label, table xs, table ys, number count, number yref)
+		void PlotScatter(string label, table xs, table ys, number count)
+		void PlotBars(string label, table xs, table ys, number count, number bar_size)
+	};
+
+	enum ImPlotFlags {
+		None,
+		NoTitle,
+		NoLegend,
+		NoMouseText,
+		NoInputs,
+		NoMenus,
+		NoBoxSelect,
+		Crosshairs,
+		CanvasOnly,
+	};
+
+	enum ImPlotAxisFlags {
+		None,
+		NoLabel,
+		NoGridLines,
+		NoTickMarks,
+		NoTickLabels,
+		Opposite,
+		AutoFit,
+		NoDecorations,
+	};
+
+	enum ImPlotCond {
+		None,
+		Always,
+		Once,
+	};
+
+	enum ImAxis {
+		X1,
+		X2,
+		X3,
+		Y1,
+		Y2,
+		Y3,
+	};
 ]]
