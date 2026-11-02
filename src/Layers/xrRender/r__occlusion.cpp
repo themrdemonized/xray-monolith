@@ -52,7 +52,7 @@ void R_occlusion::occq_refresh()
 {
 	if (!enabled) return;
 	
-	PROF_EVENT("R_occlusion::occq_refresh");
+	PROF_EVENT("R_occlusion::occq_refresh", PROF_CAT(Visibility));
 	if (!used.empty())
 	{
 		while	(!used.empty())	{
@@ -73,7 +73,7 @@ void R_occlusion::occq_stats()
 
 u32 R_occlusion::occq_begin(u32& ID)
 {
-	PROF_EVENT("R_occlusion::occq_begin");
+	PROF_EVENT("R_occlusion::occq_begin", PROF_CAT(Visibility));
 	if (!enabled) return 0;
 
 	//	Igor: prevent release crash if we issue too many queries
@@ -121,7 +121,7 @@ u32 R_occlusion::occq_begin(u32& ID)
 
 void R_occlusion::occq_end(u32& ID)
 {
-	PROF_EVENT("R_occlusion::occq_end");
+	PROF_EVENT("R_occlusion::occq_end", PROF_CAT(Visibility));
 	if (!enabled) return;
 
 	//	Igor: prevent release crash if we issue too many queries
@@ -134,7 +134,7 @@ void R_occlusion::occq_end(u32& ID)
 
 R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 {
-	PROF_EVENT("R_occlusion::occq_get");
+	PROF_EVENT("R_occlusion::occq_get", PROF_CAT(Visibility));
 	if (!enabled) return 0xffffffff;
 
 	//	Igor: prevent release crash if we issue too many queries
@@ -149,9 +149,27 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 	Device.Statistic->RenderDUMP_Wait.Begin();
 	//while	((hr=used[ID].Q->GetData(&fragments,sizeof(fragments),D3DGETDATA_FLUSH))==S_FALSE) {
 	VERIFY2(ID<used.size(), make_string("_Pos = %d, size() = %d ", ID, used.size()));
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// One zone around the spin, only when the first result is not ready
+	if ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
+	{
+		PROF_EVENT("GPU::GetData", PROF_CAT(Wait));
+		do
+		{
+			if (!SwitchToThread())
+				Sleep(ps_r2_wait_sleep);
+
+			if (T.GetElapsed_ms() > 500)
+			{
+				fragments = (occq_result)-1;
+				break;
+			}
+		}
+		while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE);
+	}
+#else
 	while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
 	{
-		PROF_EVENT("GPU::GetData");
 		if (!SwitchToThread())
 			Sleep(ps_r2_wait_sleep);
 
@@ -161,6 +179,7 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 			break;
 		}
 	}
+#endif
 	Device.Statistic->RenderDUMP_Wait.End();
 	if (hr == D3DERR_DEVICELOST) fragments = 0xffffffff;
 

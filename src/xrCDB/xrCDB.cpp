@@ -76,7 +76,7 @@ void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callbac
 
 void MODEL::build_arrays(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Physics));
 
 	R_ASSERT(S_INIT == status);
 	R_ASSERT((Vcnt>=4)&&(Tcnt>=2));
@@ -98,7 +98,7 @@ void MODEL::build_arrays(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback*
 
 void MODEL::build_tree()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Physics));
 
 	// Allocate temporary "OPCODE" tris + convert tris to 'pointer' form
 	u32* temp_tris = CALLOC(u32, tris_count*3);

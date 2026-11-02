@@ -269,6 +269,7 @@ dxRender_Visual* CModelPool::Instance_Find(LPCSTR N)
 
 dxRender_Visual* CModelPool::Create(const char* name, IReader* data, bool assert)
 {
+	PROF_EVENT("CModelPool::Create", PROF_CAT(Streaming));
 #ifdef _EDITOR
 	if (!name||!name[0])	return 0;
 #endif

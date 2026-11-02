@@ -139,7 +139,7 @@ void CGameTask::ChangeStateCallback()
 
 ETaskState CGameTask::UpdateState()
 {
-	PROF_EVENT("CGameTask::UpdateState");
+	PROF_EVENT("CGameTask::UpdateState", PROF_CAT(GameLogic));
 	if ((m_ReceiveTime != m_TimeToComplete))
 	{
 		if (Level().GetGameTime() > m_TimeToComplete)
@@ -148,22 +148,22 @@ ETaskState CGameTask::UpdateState()
 		}
 	}
 	{
-		PROF_EVENT("check fail infos");
+		PROF_EVENT("check fail infos", PROF_CAT(GameLogic));
 		if (CheckInfo(m_failInfos))
 			return eTaskStateFail;
 	}
 	{
-		PROF_EVENT("check fail functor");
+		PROF_EVENT("check fail functor", PROF_CAT(Script));
 		if (CheckFunctions(m_fail_lua_functions))
 			return eTaskStateFail;
 	}
 	{
-		PROF_EVENT("check complete infos");
+		PROF_EVENT("check complete infos", PROF_CAT(GameLogic));
 		if (CheckInfo(m_completeInfos))
 			return eTaskStateCompleted;
 	}
 	{
-		PROF_EVENT("check complete functor");
+		PROF_EVENT("check complete functor", PROF_CAT(Script));
 		if (CheckFunctions(m_complete_lua_functions))
 			return eTaskStateCompleted;
 	}

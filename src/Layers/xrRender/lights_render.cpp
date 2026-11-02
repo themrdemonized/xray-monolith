@@ -239,7 +239,10 @@ void CRender::render_lights(light_Package& LP)
 			//		if (was_spot_shadowed)		->	accum spot shadowed
 			if (!L_spot_s.empty())
 			{
-				PROF_EVENT("ACCUM_SPOT");
+				PROF_EVENT("ACCUM_SPOT", PROF_CAT(Rendering));
+#if defined(USE_DX10) || defined(USE_DX11)
+				PIX_EVENT(SPOT_LIGHTS_ACCUM_SH);
+#endif
 				stats.ls_shadowed_rendered += (u32)L_spot_s.size();
 				for (light* L : L_spot_s)
 				{
@@ -247,6 +250,9 @@ void CRender::render_lights(light_Package& LP)
 					render_indirect(L);
 					if (L->flags.bVolumetric && RImplementation.o.advancedpp && ps_r2_ls_flags.is(R2FLAG_VOLUMETRIC_LIGHTS))
 					{
+#if defined(USE_DX10) || defined(USE_DX11)
+						PIX_EVENT(ACCUM_VOLUMETRIC);
+#endif
 #ifdef USE_DX11
 						float w = float(Device.dwWidth);
 						float h = float(Device.dwHeight);
@@ -276,8 +282,9 @@ void CRender::render_lights(light_Package& LP)
 	{
 #if defined(USE_DX10) || defined(USE_DX11)
 		PIX_EVENT(UNSHADOWED_LIGHTS);
-#endif
+#else
         PROF_EVENT("UNSHADOWED_LIGHTS");
+#endif
 		{
 #if defined(USE_DX10) || defined(USE_DX11)
 			PIX_EVENT(POINT_LIGHTS_ACCUM_UNSH);
@@ -322,7 +329,7 @@ void CRender::render_lights(light_Package& LP)
 
 	// restore world projection if necessary
     {
-        PROF_EVENT("hud_light_restore");
+        PROF_EVENT("hud_light_restore", PROF_CAT(Rendering));
         hud_light_restore(saved_pos, LP.v_shadowed);
         hud_light_restore(saved_pos, LP.v_point);
         hud_light_restore(saved_pos, LP.v_spot);

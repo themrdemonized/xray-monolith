@@ -321,6 +321,7 @@ void CUIComboBox::OnRender()
 		if (!wnd->IsShown())
 			return;
 
+	RENDER_SCOPE(ui_combo_list);
 	m_list_frame.Draw();
 }
 

@@ -188,7 +188,7 @@ void ISpatial::spatial_updatesector()
 
 	if ((FALSE == curr_sector_point.similar(spatial.last_sector_point) || spatial.sector == nullptr))
 	{
-		PROF_EVENT("spatial_updatesector");
+		PROF_EVENT("spatial_updatesector", PROF_CAT(Scene));
 		if (IRender_Sector* S = ::Render->detectSector(curr_sector_point))
 			spatial.sector = S;
 	}

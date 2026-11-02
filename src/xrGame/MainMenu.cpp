@@ -428,16 +428,21 @@ void CMainMenu::OnRender()
 	if (m_Flags.test(flGameSaveScreenshot))
 		return;
 
-	if (g_pGameLevel)
-		Render->Calculate();
+	// The world render between the two keeps its own top level scope
+	{
+		RENDER_SCOPE(ui_main_menu);
+		if (g_pGameLevel)
+			Render->Calculate();
 
-	if (use_reshade)
-		render_reshade_effects();
+		if (use_reshade)
+			render_reshade_effects();
+	}
 
 	Render->Render();
 
 	if (!OnRenderPPUI_query())
 	{
+		RENDER_SCOPE(ui_main_menu);
 		DoRenderDialogs();
 		UI().RenderFont();
 		draw_wnds_rects();

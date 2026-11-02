@@ -641,7 +641,7 @@ void CScriptEntity::shedule_Update(u32 DT)
 {
 	if (m_bScriptControl)
 	{
-		PROF_EVENT("CScriptEntity::shedule_Update");
+		PROF_EVENT("CScriptEntity::shedule_Update", PROF_CAT(Script));
 		ProcessScripts();
 	}
 }
@@ -716,7 +716,7 @@ bool CScriptEntity::bfScriptAnimation()
 
 void CScriptEntity::UpdateCL()
 {
-	PROF_EVENT("CScriptEntity::UpdateCL");
+	PROF_EVENT("CScriptEntity::UpdateCL", PROF_CAT(Script));
 	bfScriptAnimation();
 }
 
@@ -732,7 +732,7 @@ const CScriptEntityAction* CScriptEntity::GetActionByIndex(u32 action_index) con
 
 void CScriptEntity::sound_callback(const CObject* object, int sound_type, const Fvector& position, float sound_power)
 {
-	PROF_EVENT("IGame_Level::SoundEvent_Dispatch");
+	PROF_EVENT("IGame_Level::SoundEvent_Dispatch", PROF_CAT(Script));
 	if (!smart_cast<const CGameObject*>(object))
 		return;
 
@@ -766,12 +766,12 @@ int CScriptEntity::get_enemy_strength()
 
 void CScriptEntity::process_sound_callbacks()
 {
-	PROF_EVENT("CScriptEntity::process_sound_callbacks");
+	PROF_EVENT("CScriptEntity::process_sound_callbacks", PROF_CAT(Script));
 	xr_vector<CSavedSound>::const_iterator I = m_saved_sounds.begin();
 	xr_vector<CSavedSound>::const_iterator E = m_saved_sounds.end();
 	for (; I != E; ++I)
 	{
-		PROF_EVENT("Sound: deferred Lua hearing callback");
+		PROF_EVENT("Sound: deferred Lua hearing callback", PROF_CAT(Script));
 		object().callback(GameObject::eSound)(
 			object().lua_game_object(),
 			(*I).m_game_object_id,

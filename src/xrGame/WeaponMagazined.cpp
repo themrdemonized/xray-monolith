@@ -657,7 +657,7 @@ void CWeaponMagazined::on_b_hud_detach()
 extern ENGINE_API BOOL g_bootComplete;
 void CWeaponMagazined::UpdateCL()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	inherited::UpdateCL();
 	float dt = Device.fTimeDelta;
 
@@ -691,7 +691,7 @@ void CWeaponMagazined::UpdateCL()
 BOOL mt_UpdateWeaponSounds = TRUE;
 void CWeaponMagazined::UpdateSoundsPositionsImpl()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Audio));
 	auto& P = get_LastFP();
 	m_sounds.UpdateAllSoundsPositions(P);
 }

@@ -83,7 +83,7 @@ IC bool CCoverManager::critical_cover(u32 index) const
 
 void CCoverManager::compute_static_cover()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Navigation));
 	clear();
 	xr_delete(m_covers);
 	m_covers = xr_new<CPointQuadTree>(ai().level_graph().header().box(), ai().level_graph().header().cell_size() * .5f, 8 * 65536, 4 * 65536);

@@ -920,7 +920,7 @@ void CDetailPathManager::build_smooth_path(
 )
 {
 	//	Msg									("[%6d][%s] started to build detail path",Device.dwFrame,*m_restricted_object->object().cName());
-	START_PROFILE("Build Path/Detail Path")
+	START_PROFILE("Build Path/Detail Path", PROF_CAT(Navigation))
 		;
 
 		m_failed = true;

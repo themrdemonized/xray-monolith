@@ -143,6 +143,7 @@ void CResourceManager::_DeletePass(const SPass* P)
 //--------------------------------------------------------------------------------------------------------------
 SVS* CResourceManager::_CreateVS(LPCSTR _name)
 {
+	PROF_EVENT("CResourceManager::_CreateVS", PROF_CAT(Streaming));
 	xrCriticalSectionGuard guard(creationGuard);
 	xr_string res_name = _name;
 
@@ -260,6 +261,7 @@ void CResourceManager::_DeleteVS(const SVS* vs)
 //--------------------------------------------------------------------------------------------------------------
 SPS* CResourceManager::_CreatePS(LPCSTR _name)
 {
+	PROF_EVENT("CResourceManager::_CreatePS", PROF_CAT(Streaming));
 	xrCriticalSectionGuard guard(creationGuard);
 	string_path name;
 	xr_strcpy(name, _name);
@@ -623,7 +625,7 @@ void CResourceManager::DeleteGeom(const SGeometry* Geom)
 xr_task_group textures_load_tasks;
 CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
 {
-	PROF_EVENT("_CreateTexture");
+	PROF_EVENT("_CreateTexture", PROF_CAT(Streaming));
 	// DBG_VerifyTextures	();
 	if (0 == xr_strcmp(_Name, "null")) return 0;
 	//Msg("texture %s", _Name);

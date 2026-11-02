@@ -312,10 +312,11 @@ void CBulletManager::AddBullet(const Fvector& position,
 
 void CBulletManager::UpdateWorkload()
 {
-	PROF_EVENT("CBulletManager::UpdateWorkload");
+	PROF_EVENT("CBulletManager::UpdateWorkload", PROF_CAT(Physics));
 	//	VERIFY						( m_thread_id == GetCurrentThreadId() );
 
 	xrCriticalSectionGuard guard(&m_Lock);
+	PROF_TAG("bullets", m_Bullets.size());
 	rq_storage.r_clear();
 
 	u32 const time_delta = Device.dwTimeDelta;
@@ -1112,7 +1113,7 @@ float SqrDistancePointToSegment(const Fvector& pt, const Fvector& orig, const Fv
 BOOL g_render_short_tracers = 1;
 void CBulletManager::Render()
 {
-	PROF_EVENT("CBulletManager::Render");
+	PROF_EVENT("CBulletManager::Render", PROF_CAT(Rendering));
 #ifdef DEBUG
 	if (g_bDrawBulletHit && !m_bullet_points.empty()) {
 		VERIFY							(!(m_bullet_points.size() % 2));
@@ -1237,7 +1238,7 @@ void __stdcall CBulletManager::net_Relcase(CObject* object)
 
 void CBulletManager::CommitEvents() // @ the start of frame
 {
-	PROF_EVENT("CBulletManager::CommitEvents");
+	PROF_EVENT("CBulletManager::CommitEvents", PROF_CAT(Physics));
 	if (m_Events.size() > 1000)
 		Msg("! too many bullets during single frame: %d", m_Events.size());
 

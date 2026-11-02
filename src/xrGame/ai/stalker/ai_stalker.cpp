@@ -951,7 +951,7 @@ void CAI_Stalker::net_Import(NET_Packet& P)
 
 void CAI_Stalker::update_object_handler()
 {
-	PROF_EVENT("AI: [Stalker] Update Handler");
+	PROF_EVENT("AI: [Stalker] Update Handler", PROF_CAT(AI));
 	if (!g_Alive())
 		return;
 
@@ -1008,11 +1008,18 @@ void CAI_Stalker::destroy_anim_mov_ctrl()
 	movement().update(0);
 }
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Stalker client updates since the level last tagged the count
+std::atomic<u32> g_prof_stalker_updates = 0;
+#endif
+
 void CAI_Stalker::UpdateCL()
 {
-	PROF_EVENT("CAI_Stalker::UpdateCL");
-	START_PROFILE("stalker")
-		START_PROFILE("stalker/client_update")
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	++g_prof_stalker_updates;
+#endif
+	{
+		{
 			VERIFY2(PPhysicsShell()||getEnabled(), *cName());
 
 			if (g_Alive())
@@ -1045,17 +1052,17 @@ void CAI_Stalker::UpdateCL()
 				}
 			}
 
-			START_PROFILE("stalker/client_update/inherited")
+			{
 				inherited::UpdateCL();
-			STOP_PROFILE
+			}
 
-			START_PROFILE("stalker/client_update/physics")
+			{
 				m_pPhysics_support->in_UpdateCL();
-			STOP_PROFILE
+			}
 
 			if (g_Alive())
 			{
-				START_PROFILE("stalker/client_update/sight_manager")
+				{
 					VERIFY(!m_pPhysicsShell);
 					try
 					{
@@ -1068,22 +1075,22 @@ void CAI_Stalker::UpdateCL()
 					}
 
 					Exec_Look(client_update_fdelta());
-				STOP_PROFILE
+				}
 
-				START_PROFILE("stalker/client_update/step_manager")
+				{
 					CStepManager::update(false);
-				STOP_PROFILE
+				}
 
-				START_PROFILE("stalker/client_update/weapon_shot_effector")
+				{
 					if (weapon_shot_effector().IsActive())
 						weapon_shot_effector().Update();
-				STOP_PROFILE
+				}
 			}
 #ifdef DEBUG
 	debug_text	();
 #endif
-		STOP_PROFILE
-	STOP_PROFILE
+		}
+	}
 }
 
 void CAI_Stalker::PHHit(SHit& H)
@@ -1102,17 +1109,17 @@ BOOL NPCsLookAtActor = TRUE;
 float NPCsLookAtActorMinDistance = 3.5f;
 void CAI_Stalker::shedule_Update(u32 DT)
 {
-	PROF_EVENT("CAI_Stalker::shedule_Update");
+	PROF_EVENT("CAI_Stalker::shedule_Update", PROF_CAT(AI));
 	// Optimization update
 //	if (Device.dwFrame % 2) return;
 
-	START_PROFILE("stalker")
-		START_PROFILE("stalker/schedule_update")
+	START_PROFILE("stalker", PROF_CAT(AI))
+		START_PROFILE("stalker/schedule_update", PROF_CAT(AI))
 			VERIFY2(getEnabled()||PPhysicsShell(), *cName());
 
 			if (!CObjectHandler::planner().initialized())
 			{
-				START_PROFILE("stalker/client_update/object_handler")
+				START_PROFILE("stalker/client_update/object_handler", PROF_CAT(AI))
 					update_object_handler();
 				STOP_PROFILE
 			}
@@ -1151,23 +1158,23 @@ void CAI_Stalker::shedule_Update(u32 DT)
 #if 0//def DEBUG
 		memory().visual().check_visibles();
 #endif
-				START_PROFILE("stalker/schedule_update/vision")
+				START_PROFILE("stalker/schedule_update/vision", PROF_CAT(AI))
 					Exec_Visibility();
 				STOP_PROFILE
 
-				START_PROFILE("stalker/schedule_update/memory")
-					START_PROFILE("stalker/schedule_update/memory/process")
+				START_PROFILE("stalker/schedule_update/memory", PROF_CAT(AI))
+					START_PROFILE("stalker/schedule_update/memory/process", PROF_CAT(AI))
 						process_enemies();
 					STOP_PROFILE
 
-					START_PROFILE("stalker/schedule_update/memory/update")
+					START_PROFILE("stalker/schedule_update/memory/update", PROF_CAT(AI))
 						memory().update(dt);
 					STOP_PROFILE
 
 				STOP_PROFILE
 			}
 
-			START_PROFILE("stalker/schedule_update/inherited")
+			START_PROFILE("stalker/schedule_update/inherited", PROF_CAT(AI))
 				inherited::inherited::shedule_Update(DT);
 			STOP_PROFILE
 
@@ -1195,7 +1202,7 @@ void CAI_Stalker::shedule_Update(u32 DT)
 				float temp = conditions().health();
 				if (temp > 0)
 				{
-					START_PROFILE("stalker/schedule_update/feel_touch")
+					START_PROFILE("stalker/schedule_update/feel_touch", PROF_CAT(AI))
 						Fvector C;
 						float R;
 						Center(C);
@@ -1203,7 +1210,7 @@ void CAI_Stalker::shedule_Update(u32 DT)
 						feel_touch_update(C, R);
 					STOP_PROFILE
 
-					START_PROFILE("stalker/schedule_update/net_update")
+					START_PROFILE("stalker/schedule_update/net_update", PROF_CAT(AI))
 						net_update uNext;
 						uNext.dwTimeStamp = Level().timeServer();
 						uNext.o_model = movement().m_body.current.yaw;
@@ -1215,7 +1222,7 @@ void CAI_Stalker::shedule_Update(u32 DT)
 				}
 				else
 				{
-					START_PROFILE("stalker/schedule_update/net_update")
+					START_PROFILE("stalker/schedule_update/net_update", PROF_CAT(AI))
 						net_update uNext;
 						uNext.dwTimeStamp = Level().timeServer();
 						uNext.o_model = movement().m_body.current.yaw;
@@ -1228,7 +1235,7 @@ void CAI_Stalker::shedule_Update(u32 DT)
 			}
 			VERIFY(_valid(Position()));
 
-			START_PROFILE("stalker/schedule_update/inventory_owner")
+			START_PROFILE("stalker/schedule_update/inventory_owner", PROF_CAT(AI))
 				UpdateInventoryOwner(DT);
 			STOP_PROFILE
 
@@ -1238,7 +1245,7 @@ void CAI_Stalker::shedule_Update(u32 DT)
 			//	}
 			//#endif
 
-			START_PROFILE("stalker/schedule_update/physics")
+			START_PROFILE("stalker/schedule_update/physics", PROF_CAT(Physics))
 				VERIFY(_valid(Position()));
 				m_pPhysics_support->in_shedule_Update(DT);
 				VERIFY(_valid(Position()));
@@ -1263,10 +1270,10 @@ void CAI_Stalker::spawn_supplies()
 
 void CAI_Stalker::Think()
 {
-	START_PROFILE("stalker/schedule_update/think")
+	START_PROFILE("stalker/schedule_update/think", PROF_CAT(AI))
 		u32 update_delta = Device.dwTimeGlobal - m_dwLastUpdateTime;
 
-		START_PROFILE("stalker/schedule_update/think/brain")
+		START_PROFILE("stalker/schedule_update/think/brain", PROF_CAT(AI))
 			try
 			{
 				brain().update(update_delta);
@@ -1285,7 +1292,7 @@ void CAI_Stalker::Think()
 			}
 		STOP_PROFILE
 
-		START_PROFILE("stalker/schedule_update/think/movement")
+		START_PROFILE("stalker/schedule_update/think/movement", PROF_CAT(Navigation))
 			if (!g_Alive())
 				return;
 

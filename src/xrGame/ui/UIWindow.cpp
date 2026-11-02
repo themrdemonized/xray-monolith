@@ -231,7 +231,7 @@ CUIWindow::~CUIWindow()
 
 void CUIWindow::Draw()
 {
-	PROF_EVENT("CUIWindow::Draw");
+	PROF_EVENT("CUIWindow::Draw", PROF_CAT(UI));
 	xrCriticalSectionGuard guard(csUi);
 	for (CUIWindow* W : m_ChildWndList)
 	{
@@ -251,14 +251,14 @@ void CUIWindow::Draw()
 
 void CUIWindow::Draw(float x, float y)
 {
-	PROF_EVENT("CUIWindow::Draw");
+	PROF_EVENT("CUIWindow::Draw", PROF_CAT(UI));
 	SetWndPos(Fvector2().set(x, y));
 	Draw();
 }
 
 void CUIWindow::Update()
 {
-	PROF_EVENT("CUIWindow::Update");
+	PROF_EVENT("CUIWindow::Update", PROF_CAT(UI));
 	CUIDialogWnd* TIR = CurrentGameUI() ? CurrentGameUI()->TopInputReceiver() : nullptr;
 
 	if (GetUICursor().IsVisible() || (TIR && !TIR->NeedCursor()))

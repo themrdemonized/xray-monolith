@@ -63,7 +63,7 @@ void CFS_PathNotificator::RegisterPath(FS_Path& path)
 
 void CFS_PathNotificator::Execute(void)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	EnterCriticalSection(&CS);
 	for (PathIt it = events.begin(); it != events.end(); it++)

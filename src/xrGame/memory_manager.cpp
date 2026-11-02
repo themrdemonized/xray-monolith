@@ -88,7 +88,7 @@ extern bool g_enemy_manager_second_update;
 
 void CMemoryManager::update_enemies(const bool& registered_in_combat)
 {
-	PROF_EVENT("CMemoryManager::update_enemies");
+	PROF_EVENT("CMemoryManager::update_enemies", PROF_CAT(AI));
 #ifdef _DEBUG
 	g_enemy_manager_second_update	= false;
 #endif // _DEBUG
@@ -123,8 +123,8 @@ void CMemoryManager::update_enemies(const bool& registered_in_combat)
 
 void CMemoryManager::update(float time_delta)
 {
-	PROF_EVENT("CMemoryManager::update");
-	START_PROFILE("Memory Manager")
+	PROF_EVENT("CMemoryManager::update", PROF_CAT(AI));
+	START_PROFILE("Memory Manager", PROF_CAT(AI))
 		visual().update(time_delta);
 		sound().update();
 		hit().update();
@@ -160,7 +160,7 @@ void CMemoryManager::enable(const CObject* object, bool enable)
 template <typename T>
 void CMemoryManager::update(const xr_vector<T>& objects, bool add_enemies)
 {
-	PROF_EVENT("CMemoryManager::update");
+	PROF_EVENT("CMemoryManager::update", PROF_CAT(AI));
 	squad_mask_type mask = m_stalker ? m_stalker->agent_manager().member().mask(m_stalker) : 0;
 	xr_vector<T>::const_iterator I = objects.begin();
 	xr_vector<T>::const_iterator E = objects.end();

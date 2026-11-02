@@ -380,7 +380,7 @@ float CVisualMemoryManager::get_visible_value(const CGameObject* game_object, fl
 
 CNotYetVisibleObject* CVisualMemoryManager::not_yet_visible_object(const CGameObject* game_object)
 {
-	START_PROFILE("Memory Manager/visuals/not_yet_visible_object")
+	START_PROFILE("Memory Manager/visuals/not_yet_visible_object", PROF_CAT(AI))
 		xr_vector<CNotYetVisibleObject>::iterator I = std::find_if(
 			m_not_yet_visible_objects.begin(),
 			m_not_yet_visible_objects.end(),
@@ -699,7 +699,7 @@ IC squad_mask_type CVisualMemoryManager::mask() const
 
 void CVisualMemoryManager::update(float time_delta)
 {
-	START_PROFILE("Memory Manager/visuals/update")
+	START_PROFILE("Memory Manager/visuals/update", PROF_CAT(AI))
 		clear_delayed_objects();
 
 		if (!enabled())
@@ -713,7 +713,7 @@ void CVisualMemoryManager::update(float time_delta)
 		squad_mask_type mask = this->mask();
 		m_visible_objects.clear();
 
-		START_PROFILE("Memory Manager/visuals/update/feel_vision_get")
+		START_PROFILE("Memory Manager/visuals/update/feel_vision_get", PROF_CAT(AI))
 			if (m_object)
 				m_object->feel_vision_get(m_visible_objects);
 			else
@@ -723,7 +723,7 @@ void CVisualMemoryManager::update(float time_delta)
 			}
 		STOP_PROFILE
 
-		START_PROFILE("Memory Manager/visuals/update/make_invisible")
+		START_PROFILE("Memory Manager/visuals/update/make_invisible", PROF_CAT(AI))
 			{
 				xr_vector<CVisibleObject>::iterator I = m_objects->begin();
 				xr_vector<CVisibleObject>::iterator E = m_objects->end();
@@ -733,7 +733,7 @@ void CVisualMemoryManager::update(float time_delta)
 			}
 		STOP_PROFILE
 
-		START_PROFILE("Memory Manager/visuals/update/add_visibles")
+		START_PROFILE("Memory Manager/visuals/update/add_visibles", PROF_CAT(AI))
 			{
 				xr_vector<CObject*>::const_iterator I = m_visible_objects.begin();
 				xr_vector<CObject*>::const_iterator E = m_visible_objects.end();
@@ -742,7 +742,7 @@ void CVisualMemoryManager::update(float time_delta)
 			}
 		STOP_PROFILE
 
-		START_PROFILE("Memory Manager/visuals/update/make_not_yet_visible")
+		START_PROFILE("Memory Manager/visuals/update/make_not_yet_visible", PROF_CAT(AI))
 			{
 				xr_vector<CNotYetVisibleObject>::iterator I = m_not_yet_visible_objects.begin();
 				xr_vector<CNotYetVisibleObject>::iterator E = m_not_yet_visible_objects.end();
@@ -752,7 +752,7 @@ void CVisualMemoryManager::update(float time_delta)
 			}
 		STOP_PROFILE
 
-		START_PROFILE("Memory Manager/visuals/update/removing_offline")
+		START_PROFILE("Memory Manager/visuals/update/removing_offline", PROF_CAT(AI))
 			// verifying if object is online
 			{
 				m_objects->erase(

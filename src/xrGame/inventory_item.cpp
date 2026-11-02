@@ -235,7 +235,7 @@ extern	Flags32	dbg_net_Draw_Flags;
 
 void CInventoryItem::UpdateCL()
 {
-    PROF_EVENT("CInventoryItem::UpdateCL")
+    PROF_EVENT("CInventoryItem::UpdateCL", PROF_CAT(GameLogic))
 #ifdef DEBUG
 	if(bDebug){
 		if (dbg_net_Draw_Flags.test(dbg_draw_invitem) )

@@ -44,7 +44,7 @@ public:
 
 	void process_impl(bool separate_computing = true)
 	{
-		PROF_EVENT("CDetailPathBuilder::process_impl");
+		PROF_EVENT("CDetailPathBuilder::process_impl", PROF_CAT(Navigation));
 		if (separate_computing)
 			m_object->m_wait_for_distributed_computation = false;
 
