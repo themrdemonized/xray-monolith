@@ -54,6 +54,14 @@ void SimulatorStates::set_RS(u32 a, u32 b)
 	States.push_back(st);
 }
 
+u32 SimulatorStates::get_RS(u32 a, u32 fallback) const
+{
+	for (const State& S : States)
+		if (0 == S.type && a == S.v1)
+			return S.v2;
+	return fallback;
+}
+
 void SimulatorStates::set_TSS(u32 a, u32 b, u32 c)
 {
 	// Search duplicates

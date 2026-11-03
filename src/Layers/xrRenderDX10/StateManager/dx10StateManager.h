@@ -34,6 +34,7 @@ public:
 	void SetStencil(u32 Enable, u32 Func, u32 Ref, u32 Mask, u32 WriteMask, u32 Fail, u32 Pass, u32 ZFail);
 	void SetDepthFunc(u32 Func);
 	void SetDepthEnable(u32 Enable);
+	void SetDepthWriteEnable(u32 Enable);
 	void SetColorWriteEnable(u32 WriteMask);
 	void SetFillMode(u32 Mode);
 	void SetCullMode(u32 Mode);

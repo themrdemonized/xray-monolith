@@ -791,6 +791,16 @@ static bool bus_set_mask_layer(u32 token, bool on)
 	return ShaderBus::set_mask_layer(token, on);
 }
 
+static bool bus_set_mask_hidden(u32 token, bool on)
+{
+	return ShaderBus::set_mask_hidden(token, on);
+}
+
+static bool bus_set_mask_forward(u32 token, bool on)
+{
+	return ShaderBus::set_mask_forward(token, on);
+}
+
 // the list() keys of a target or history row, a history row shows its target's spec
 static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
 {
@@ -1104,6 +1114,8 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("get_mask", &bus_get_mask),
 		def("release_mask", &bus_release_mask),
 		def("set_mask_layer", &bus_set_mask_layer),
+		def("set_mask_hidden", &bus_set_mask_hidden),
+		def("set_mask_forward", &bus_set_mask_forward),
 		def("gpu_lanes", &bus_gpu_lanes),
 		def("targets", &bus_targets),
 		def("masks", &bus_masks),

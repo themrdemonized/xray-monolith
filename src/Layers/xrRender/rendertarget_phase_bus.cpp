@@ -143,6 +143,7 @@ struct bus_pass_run
 	ref_shader shader;
 	bool reads_image;
 	bool writes_scene;
+	bool writes_heat;
 	bool writes_buffer;
 	bool scalar;
 	u8 uav_slots[ShaderBus::max_pass_outputs];
@@ -224,6 +225,11 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		reason = "repeated pixel passes cannot write the scene";
 		return;
 	}
+	if (r.writes_heat && RImplementation.o.dx10_msaa)
+	{
+		reason = "heat passes need MSAA off";
+		return;
+	}
 
 	string_path file;
 	strconcat(sizeof(file), file, ::Render->getShaderPath(), p.cs.size() ? p.cs.c_str() : p.ps.c_str(),
@@ -244,7 +250,7 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		const bool own_scene = p.stage == ShaderBus::stage_post
 			                       ? !xr_strcmp(name, r2_RT_albedo) || !xr_strcmp(name, r2_RT_generic)
 			                       : p.stage == ShaderBus::stage_scene && !xr_strcmp(name, r2_RT_generic0);
-		if (r.writes_scene && own_scene)
+		if (r.writes_scene && !r.writes_heat && own_scene)
 		{
 			reason.printf("it reads the scene it writes through '%s'", t);
 			return;
@@ -252,6 +258,11 @@ static void bus_pass_check(const bus_pass_run& r, const ShaderBus::lane* l, cons
 		if (r.writes_scene && p.stage == ShaderBus::stage_gbuffer && !xr_strcmp(name, r2_RT_albedo))
 		{
 			reason = "it reads its own output 'albedo'";
+			return;
+		}
+		if (r.writes_heat && !xr_strcmp(name, r2_RT_heat))
+		{
+			reason = "it reads its own output 'heat'";
 			return;
 		}
 		if (r.writes_scene && p.stage == ShaderBus::stage_lighting && !xr_strcmp(name, r2_RT_accum))
@@ -368,7 +379,8 @@ void bus_passes_update()
 		r.spec = p;
 		r.reads_image = false;
 		r.writes_scene = p.output_count == 1 && (!xr_strcmp(p.outputs[0], "scene") || !xr_strcmp(p.outputs[0], "albedo") ||
-		                                         !xr_strcmp(p.outputs[0], "light"));
+		                                         !xr_strcmp(p.outputs[0], "light") || !xr_strcmp(p.outputs[0], "heat"));
+		r.writes_heat = r.writes_scene && !xr_strcmp(p.outputs[0], "heat");
 		// a buffer lane set this frame gets its view at the next latch, the dispatch asks for it every run
 		const ShaderBus::lane* l = p.cs.size() && p.output_count == 1 ? ShaderBus::find(p.outputs[0].c_str()) : nullptr;
 		r.writes_buffer = l && l->buffer_rows;
@@ -629,7 +641,9 @@ void CRenderTarget::phase_bus(u32 stage)
 		u32 w = Device.dwWidth;
 		u32 h = Device.dwHeight;
 		CRT* out[4] = {nullptr, nullptr, nullptr, nullptr};
-		if (r.writes_scene)
+		if (r.writes_heat)
+			out[0] = &*RImplementation.Target->rt_Heat;
+		else if (r.writes_scene)
 			out[0] = scene;
 		else
 			for (u32 o = 0; o < r.spec.output_count; ++o)

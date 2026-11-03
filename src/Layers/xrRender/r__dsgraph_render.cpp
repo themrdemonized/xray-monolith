@@ -316,22 +316,74 @@ void CDSGraphManager::r_dsgraph_render_bus_mask()
 	bus_mask_unbind(saved);
 }
 
-// tagged world particles of queue 1 over the object mask, before their own draw clears the queue
-void CDSGraphManager::r_dsgraph_render_bus_particles()
+// a leaf with its per-object constants over the states the caller set, in its own field of view when it has one
+template <typename Item>
+static void bus_leaf_render(const Item& item)
 {
-	PROF_EVENT("r_dsgraph_render_bus_particles");
-	ID3DRenderTargetView* saved[4];
-	bool bound = false;
-	for (auto& packet : RGraph.mapDynamicPasses[1][0])
+	// queue draws take the near depth range, sorted ones keep the scene's
+	CCustomFOVInitializer projection(item.fov, !item.pSE->flags.bStrictB2F);
+	RCache.set_xform_world(*item.pMatrix);
+	RImplementation.apply_object(item.pObject);
+	RImplementation.apply_lmaterial();
+
+	float LOD = calcLOD(item.ssa, item.pVisual->vis.sphere.R);
+#ifdef USE_DX11
+	RCache.LOD.set_LOD(LOD);
+#endif
+	item.pVisual->Render(LOD);
+}
+
+// one tagged forward draw into the bound mask target over states already set, a particle keeps its alpha clip and a mesh copies its pass coverage
+template <typename Item>
+static void bus_forward_draw(const Item& item, u32 value)
+{
+	bool moved = false;
+	if (item.pVisual->dcast_ParticleCustom())
+		bus_mask_apply_particle(value);
+	else
+		moved = bus_mask_apply_mesh(value, item.pSE->passes[0]._get());
+	bus_leaf_render(item);
+	if (moved)
+		bus_mask_slot0_restore();
+}
+
+// what a tagged item writes in the walk that runs, a particle its tag in the particle pass alone, a HUD particle or an additive mesh nothing
+// a mesh keeps the bits of mesh_bits, the forward opt-in for kept items and every bit for hidden ones
+template <typename Item>
+static u32 bus_forward_value(const Item& item, u32 mesh_bits)
+{
+	if (!item.bus_tag)
+		return 0;
+	if (IParticleCustom* p = item.pVisual->dcast_ParticleCustom())
+		return bus_mask_pass == bus_pass_particle && !p->GetHudMode() ? item.bus_tag : 0;
+	const u32 tag = item.bus_tag & mesh_bits;
+	if (!tag || bus_mask_pass == bus_pass_particle || !bus_mask_mesh_draws(item.pSE->passes[0]._get()))
+		return 0;
+	return bus_mask_value(item.pObject, tag);
+}
+
+// notes whether a tagged item is a mesh of the given bits or a world particle, HUD particles count as neither
+template <typename Item>
+static void bus_forward_kind(const Item& item, u32 mesh_bits, bool& meshes, bool& particles)
+{
+	if (!item.bus_tag)
+		return;
+	if (IParticleCustom* p = item.pVisual->dcast_ParticleCustom())
+		particles |= !p->GetHudMode();
+	else
+		meshes |= !!(item.bus_tag & mesh_bits);
+}
+
+// the kept queue 1 packets, the kept sorted items and the hidden list into the target the walk points at
+template <typename Packets, typename Sorted, typename Hidden>
+static void bus_forward_walk(Packets& packets, Sorted& sorted, Hidden& hidden)
+{
+	for (auto& packet : packets)
 	{
 		auto& item = packet.item;
-		if (!item.bus_tag || !item.pVisual->dcast_ParticleCustom() || item.pVisual->dcast_ParticleCustom()->GetHudMode())
+		const u32 value = bus_forward_value(item, CDSGraphManager::bus_forward_bits);
+		if (!value)
 			continue;
-		if (!bound)
-		{
-			bus_mask_bind(saved);
-			bound = true;
-		}
 		RCache.set_States(packet.pState);
 		RCache.set_GS(packet.pGS);
 #ifdef USE_DX11
@@ -341,14 +393,250 @@ void CDSGraphManager::r_dsgraph_render_bus_particles()
 		RCache.set_VS(packet.pVS);
 		RCache.set_Constants(packet.pCS);
 		RCache.set_Textures(packet.pTextures);
-		RCache.set_xform_world(*item.pMatrix);
-		RImplementation.apply_object(item.pObject);
-		RImplementation.apply_lmaterial();
-		bus_mask_apply_particle(item.bus_tag);
-		item.pVisual->Render(calcLOD(item.ssa, item.pVisual->vis.sphere.R));
+		bus_forward_draw(item, value);
 	}
-	if (bound)
+	auto elements = [](auto& list, u32 mesh_bits)
+	{
+		for (auto& item : list)
+		{
+			const u32 value = bus_forward_value(item, mesh_bits);
+			if (!value)
+				continue;
+			RCache.set_Element(item.pSE);
+			bus_forward_draw(item, value);
+		}
+	};
+	elements(sorted, CDSGraphManager::bus_forward_bits);
+	elements(hidden, 0u);
+}
+
+// the hidden leaves of this walk that write depth, with their own elements into the hidden depth and no colour target
+template <typename Hidden>
+static void bus_hidden_depth_pass(Hidden& list, ID3DRenderTargetView* rt)
+{
+	RCache.set_RT(nullptr, 0);
+	RCache.set_ZB(RImplementation.Target->rt_bus_hidden_depth->pZRT);
+	for (auto& item : list)
+	{
+		if (item.pVisual->dcast_ParticleCustom())
+			continue;
+		const SPass* pass = item.pSE->passes[0]._get();
+		if (!bus_hidden_writes_depth(pass) || !bus_mask_value(item.pObject, item.bus_tag))
+			continue;
+		RCache.set_Element(item.pSE);
+		bus_hidden_depth_apply();
+		bus_leaf_render(item);
+	}
+	RCache.set_RT(rt, 0);
+}
+
+// the hidden leaves into the target the walk points at, over the bound hidden depth
+// a leaf that writes depth draws where it is nearest, one that does not keeps its own depth test
+template <typename Hidden>
+static void bus_hidden_redraw(Hidden& list)
+{
+	for (auto& item : list)
+	{
+		if (item.pVisual->dcast_ParticleCustom())
+			continue;
+		const SPass* pass = item.pSE->passes[0]._get();
+		const u32 value = bus_mask_mesh_draws(pass) ? bus_mask_value(item.pObject, item.bus_tag) : 0;
+		if (!value)
+			continue;
+		RCache.set_Element(item.pSE);
+		bool moved = false;
+		if (bus_hidden_writes_depth(pass))
+			bus_mask_apply(value);
+		else
+			moved = bus_mask_apply_mesh(value, pass);
+		bus_leaf_render(item);
+		if (moved)
+			bus_mask_slot0_restore();
+	}
+}
+
+// tagged queue 1 and sorted items keep their packets and a copy of their matrix, which their own draw then reads too
+void CDSGraphManager::r_dsgraph_bus_keep_forward()
+{
+	bus_forward_packets.clear();
+	bus_forward_sorted.clear();
+	bus_forward_xforms.clear();
+	u32 count = 0;
+	for (auto& packet : RGraph.mapDynamicPasses[1][0])
+		count += packet.item.bus_tag != 0;
+	for (auto* sorted : { &RGraph.mapDynamicSorted.Sorted, &RGraph.mapCustomFOVSorted.Sorted })
+		for (auto& item : *sorted)
+			count += item.bus_tag != 0;
+	if (!count)
+		return;
+	bus_forward_xforms.reserve(count);
+	for (auto& packet : RGraph.mapDynamicPasses[1][0])
+		if (packet.item.bus_tag)
+		{
+			bus_forward_xforms.push_back(*packet.item.pMatrix);
+			packet.item.pMatrix = &bus_forward_xforms.back();
+			bus_forward_packets.push_back(packet);
+		}
+	for (auto* sorted : { &RGraph.mapDynamicSorted.Sorted, &RGraph.mapCustomFOVSorted.Sorted })
+		for (auto& item : *sorted)
+			if (item.bus_tag)
+			{
+				bus_forward_xforms.push_back(*item.pMatrix);
+				item.pMatrix = &bus_forward_xforms.back();
+				bus_forward_sorted.push_back(item);
+			}
+}
+
+// tagged forward, sorted and hidden items over the object mask and particles over their own target, after queue 1 and the sorted draw
+void CDSGraphManager::r_dsgraph_render_bus_forward()
+{
+	PROF_EVENT("r_dsgraph_render_bus_forward");
+	CRenderTarget* T = RImplementation.Target;
+	bool meshes = false;
+	bool particles = false;
+	for (auto& packet : bus_forward_packets)
+		bus_forward_kind(packet.item, bus_forward_bits, meshes, particles);
+	for (auto& item : bus_forward_sorted)
+		bus_forward_kind(item, bus_forward_bits, meshes, particles);
+	for (auto& item : bus_hidden)
+		bus_forward_kind(item, ~0u, meshes, particles);
+	particles = particles && T->rt_bus_particle_mask;
+	const bool hidden = !bus_hidden.empty() && !bus_hidden_rects.empty() && T->rt_bus_hidden_depth;
+	if (meshes || hidden || particles)
+	{
+		ID3DRenderTargetView* saved[4];
+		bus_mask_bind(saved);
+		ID3DDepthStencilView* zb = RCache.get_ZB();
+		if (meshes || hidden)
+		{
+			bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
+			if (hidden)
+			{
+				bus_hidden_depth_resolve(bus_hidden_rects);
+				bus_hidden_depth_pass(bus_hidden, T->rt_bus_mask->pRT);
+				bus_hidden_redraw(bus_hidden);
+				RCache.set_ZB(zb);
+			}
+			if (T->rt_bus_object_id)
+			{
+				bus_mask_pass_begin(bus_pass_id, T->rt_bus_object_id->pRT, 0);
+				bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
+				if (hidden)
+				{
+					RCache.set_ZB(T->rt_bus_hidden_depth->pZRT);
+					bus_hidden_redraw(bus_hidden);
+					RCache.set_ZB(zb);
+				}
+			}
+			if (bus_layer_bits)
+			{
+				bus_mask_pass_begin(bus_pass_layer, T->rt_bus_mask_layer->pRT, bus_layer_bits);
+				bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
+				// hidden leaves on the layer cover through walls, so their depth starts empty
+				if (hidden)
+				{
+					HW.pContext->ClearDepthStencilView(T->rt_bus_hidden_depth->pZRT, D3D_CLEAR_DEPTH, 1.f, 0);
+					bus_hidden_depth_pass(bus_hidden, T->rt_bus_mask_layer->pRT);
+					bus_hidden_redraw(bus_hidden);
+				}
+				RCache.set_ZB(zb);
+			}
+		}
+		// particles draw their tags into their own target alone, so the mask keeps the objects behind them
+		if (particles)
+		{
+			bus_mask_pass_begin(bus_pass_particle, T->rt_bus_particle_mask->pRT, 0);
+			bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
+		}
 		bus_mask_unbind(saved);
+	}
+	bus_hidden.clear();
+	bus_hidden_rects.clear();
+	bus_hidden_xforms.clear();
+	bus_forward_packets.clear();
+	bus_forward_sorted.clear();
+	bus_forward_xforms.clear();
+}
+
+// the tagged objects of the hidden bits the frame drew nowhere, into the hidden mask list far to near
+void CDSGraphManager::r_dsgraph_add_bus_hidden()
+{
+	static xr_vector<IRenderable*> holders;
+	static xr_vector<std::pair<float, CObject*>> found;
+	static bool truncated = false;
+	bus_hidden.clear();
+	bus_hidden_rects.clear();
+	bus_hidden_xforms.clear();
+	bus_hidden_xforms.reserve(bus_hidden_max);
+	ShaderBus::mask_holders(bus_hidden_bits, holders);
+	found.clear();
+	for (IRenderable* r : holders)
+	{
+		CObject* O = fast_dynamic_cast<CObject*>(r);
+		ISpatial* S = r->SpatialComponent.get();
+		dxRender_Visual* V = (dxRender_Visual*)r->renderable.visual;
+		if (!O || !S || O->H_Parent() || !V || !S->spatial.node_ptr || V->vis.hom_frame == Device.dwFrame)
+			continue;
+		if (!(S->spatial.type & STYPE_RENDERABLE))
+			S->spatial_updatesector();
+		if (R4FullDetailRejectSpatial(S, true))
+			continue;
+		CSector* sector = (CSector*)S->spatial.sector;
+		if (!sector || !is_sector_visible(sector))
+			continue;
+		bool seen = false;
+		for (CFrustum& frustum : m_sector_frustums.find(sector)->val.first)
+			if (frustum.testSphere_dirty(S->spatial.sphere.P, S->spatial.sphere.R))
+			{
+				seen = true;
+				break;
+			}
+		if (!seen)
+			continue;
+		if (!(r->renderable.bus_mask & bus_hidden_bits & bus_layer_bits) && !RImplementation.HOM.visible(S->spatial.sphere))
+			continue;
+		found.emplace_back(Device.vCameraPosition.distance_to_sqr(S->spatial.sphere.P), O);
+	}
+	if (found.empty())
+		return;
+
+	std::sort(found.begin(), found.end(), [](const std::pair<float, CObject*>& a, const std::pair<float, CObject*>& b) { return a.first < b.first; });
+	if (found.size() > bus_hidden_max)
+	{
+		if (!truncated)
+			Msg("! [SHADER-BUS] more than %u hidden tagged objects in view, the farthest draw no mask", bus_hidden_max);
+		truncated = true;
+		found.resize(bus_hidden_max);
+	}
+	for (auto it = found.rbegin(); it != found.rend(); ++it)
+	{
+		CObject* O = it->second;
+		dxRender_Visual* V = (dxRender_Visual*)O->renderable.visual;
+		set_Object(O);
+		val_busTag &= bus_hidden_bits;
+		bus_hidden_xforms.push_back(O->renderable.xform);
+		Fmatrix& xform = bus_hidden_xforms.back();
+		const size_t listed = bus_hidden.size();
+		bus_mask_only = true;
+		add_Dynamic(O->renderable.visual, &xform);
+		bus_mask_only = false;
+		// the rectangle of the current pose, for an object whose insert listed a mesh leaf
+		bool mesh = false;
+		for (size_t i = listed; i < bus_hidden.size(); ++i)
+			mesh |= !bus_hidden[i].pVisual->dcast_ParticleCustom();
+		if (mesh)
+		{
+			Fbox3 box = bus_hidden_box(V);
+			box.xform(xform);
+			const Fvector4 rect = bus_hidden_rect(box);
+			if (rect.x < rect.z && rect.y < rect.w)
+				bus_hidden_rects.push_back(rect);
+		}
+		// stamped as drawn and made a crow, so the game updates it like a seen object at any range
+		V->vis.hom_frame = Device.dwFrame;
+		O->MakeMeCrow();
+	}
+	set_Object();
 }
 #endif
 
@@ -935,6 +1223,11 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 					}
 				}
 			}
+#if defined(USE_DX10) || defined(USE_DX11)
+			// tagged objects the frame drew nowhere join the forward mask draw, in the main capture
+			if (i_mask[CDSGraphManager::fl_normal] && bus_hidden_bits)
+				r_dsgraph_add_bus_hidden();
+#endif
 		}
 	}
 }
