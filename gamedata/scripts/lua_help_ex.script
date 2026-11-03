@@ -574,6 +574,8 @@
         function release_pass(number token) -> bool ok -- stops the pass and frees its slot and id
         function release_target(number token) -> bool ok -- frees the target, its history and its id
         function set_mask_layer(number token, bool on) -> bool ok -- puts the token's bit on the mask layer or takes it off from the next frame
+        function set_mask_hidden(number token, bool on) -> bool ok -- lets the token's bit reach tagged objects the game does not draw, or stops it, from the next frame
+        function set_mask_forward(number token, bool on) -> bool ok -- opens the token's bit to forward and sorted meshes or closes it from the next frame
         function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
         function get_uint(string id) -> bool ok, number a, number b, number c, number d -- the bound value as unsigned integers
         function get_row(string id, number i) -> bool ok, number x, number y, number z, number w -- bound row i, false past the rows a shader declared, unsigned on a uint lane

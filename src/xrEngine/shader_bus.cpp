@@ -3,6 +3,7 @@
 
 #include "shader_bus.h"
 #include "IRenderable.h"
+#include "xr_object.h"
 #include "XR_IOConsole.h"
 #include "xr_ioc_cmd.h"
 
@@ -37,6 +38,7 @@ struct bus_object_write
 	IRenderable* object;
 	u16 lane;
 	bool clear;
+	bool engine = false;
 	Fvector4 value;
 };
 
@@ -94,8 +96,16 @@ static u32 g_bus_mask_parked = 0;
 // mask bits a mod put on the layer, and those live as of the last per-frame update
 static u32 g_bus_mask_layer = 0;
 static u32 g_bus_mask_layer_live = 0;
+// mask bits a mod opened to objects the game does not draw, and those live as of the last per-frame update
+static u32 g_bus_mask_hidden = 0;
+static u32 g_bus_mask_hidden_live = 0;
+// mask bits a mod opened to forward and sorted meshes, and those live as of the last per-frame update
+static u32 g_bus_mask_forward = 0;
+static u32 g_bus_mask_forward_live = 0;
 // objects whose mask bits are not 0, so a freed bit leaves all of them at once
 static xr_vector<IRenderable*> g_bus_mask_holders;
+// objects that hold copied mask bits for the engine, outside the object listing and the lane counts
+static xr_vector<IRenderable*> g_bus_mask_copies;
 // the objects at the top of the parent chain of a held item with a live layer bit, rebuilt each per-frame update
 static xr_vector<IRenderable*> g_bus_layer_roots;
 // the engine lane that lists the objects holding live mask bits, and how many rows it filled last
@@ -509,9 +519,13 @@ static void bus_read_cvar(const bus_cvar& c)
 	}
 }
 
-static bool bus_reserved(LPCSTR id)
+static bool bus_reserved(LPCSTR id, bool target = false)
 {
-	if (!id || (0 != strncmp(id, "engine_", 7) && 0 != strncmp(id, "cvar_", 5)))
+	if (!id)
+		return false;
+	const bool output = target && (0 == xr_strcmp(id, "heat") || 0 == xr_strcmp(id, "scene") ||
+	                               0 == xr_strcmp(id, "albedo") || 0 == xr_strcmp(id, "light"));
+	if (!output && 0 != strncmp(id, "engine_", 7) && 0 != strncmp(id, "cvar_", 5))
 		return false;
 
 	ShaderBus::note_refusal(id, "an id reserved for the engine");
@@ -536,6 +550,55 @@ u32 ShaderBus::register_shared(LPCSTR id, LPCSTR owner, LPCSTR description, LPCS
 u32 ShaderBus::register_engine(LPCSTR id, LPCSTR description)
 {
 	return bus_take(id, "engine", description, "engine", false, false);
+}
+
+// live passes that sample the id target and the particle target
+static u32 g_bus_ids_passes = 0;
+static u32 g_bus_particle_passes = 0;
+static u32 g_bus_particle_lane = 0;
+
+void ShaderBus::note_texture(LPCSTR hlsl_name)
+{
+	if (0 == xr_strcmp(hlsl_name, "bus_engine_particle_mask") && !particle_lane())
+	{
+		const u32 token = register_engine("engine_mask_particles", "x is 1 while the particle target holds this frame's particle tags, else 0");
+		xrCriticalSectionGuard guard(&g_bus_lock);
+		g_bus_particle_lane = token;
+	}
+}
+
+void ShaderBus::count_pass_texture(LPCSTR hlsl_name, bool live)
+{
+	u32* passes = nullptr;
+	if (0 == xr_strcmp(hlsl_name, "bus_engine_object_id"))
+		passes = &g_bus_ids_passes;
+	else if (0 == xr_strcmp(hlsl_name, "bus_engine_particle_mask"))
+		passes = &g_bus_particle_passes;
+	if (!passes)
+		return;
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (live)
+		++*passes;
+	else
+		--*passes;
+}
+
+bool ShaderBus::samples_object_ids()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_ids_passes != 0;
+}
+
+bool ShaderBus::samples_particles()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_particle_passes != 0;
+}
+
+u32 ShaderBus::particle_lane()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_particle_lane;
 }
 
 u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
@@ -890,14 +953,14 @@ static void bus_store_object(const bus_object_write& entry)
 	block->values[i].value.set(entry.value);
 }
 
-// takes an object off the holder list, called under the lock
-static void bus_mask_holder_drop(IRenderable* object)
+// takes an object off a holder list, called under the lock
+static void bus_mask_holder_drop(xr_vector<IRenderable*>& list, IRenderable* object)
 {
-	for (u32 i = 0; i < g_bus_mask_holders.size(); ++i)
-		if (g_bus_mask_holders[i] == object)
+	for (u32 i = 0; i < list.size(); ++i)
+		if (list[i] == object)
 		{
-			g_bus_mask_holders[i] = g_bus_mask_holders.back();
-			g_bus_mask_holders.pop_back();
+			list[i] = list.back();
+			list.pop_back();
 			return;
 		}
 }
@@ -912,8 +975,10 @@ void ShaderBus::object_forget(IRenderable* object)
 		[object](const bus_object_write& entry) { return entry.object == object; }), g_bus_object_writes.end());
 	g_bus_shared_values.erase(object);
 
-	// the object's mask bits leave their lanes' counts
-	if (object->renderable.bus_mask >> mask_first_bit)
+	// the object's mask bits leave their lanes' counts, an engine copy never entered them
+	const bool copy = object->renderable.bus_mask &&
+		std::find(g_bus_mask_copies.begin(), g_bus_mask_copies.end(), object) != g_bus_mask_copies.end();
+	if (!copy && (object->renderable.bus_mask >> mask_first_bit))
 		for (u32 bit = mask_first_bit; bit < mask_bits_end; ++bit)
 			if ((object->renderable.bus_mask & (1u << bit)) && g_bus_mask_tokens[bit])
 			{
@@ -922,7 +987,7 @@ void ShaderBus::object_forget(IRenderable* object)
 					--l->objects;
 			}
 	if (object->renderable.bus_mask)
-		bus_mask_holder_drop(object);
+		bus_mask_holder_drop(copy ? g_bus_mask_copies : g_bus_mask_holders, object);
 
 	object_values*& block = object->renderable.bus_values;
 	if (!block)
@@ -1601,14 +1666,18 @@ void ShaderBus::frame_latch()
 				lane* held = g_bus_lanes[entry.lane];
 				if (bits != was)
 				{
-					if (!entry.clear)
-						++held->objects;
-					else if (held->objects)
-						--held->objects;
+					if (!entry.engine)
+					{
+						if (!entry.clear)
+							++held->objects;
+						else if (held->objects)
+							--held->objects;
+					}
+					xr_vector<IRenderable*>& holders = entry.engine ? g_bus_mask_copies : g_bus_mask_holders;
 					if (!was && bits)
-						g_bus_mask_holders.push_back(entry.object);
+						holders.push_back(entry.object);
 					else if (was && !bits)
-						bus_mask_holder_drop(entry.object);
+						bus_mask_holder_drop(holders, entry.object);
 				}
 			}
 			continue;
@@ -1622,18 +1691,19 @@ void ShaderBus::frame_latch()
 	// a parked bit leaves every object that holds it and returns to the pool
 	const u32 freed = g_bus_mask_parked;
 	if (freed)
-		for (u32 i = 0; i < g_bus_mask_holders.size();)
-		{
-			u32& bits = g_bus_mask_holders[i]->renderable.bus_mask;
-			bits &= ~freed;
-			if (bits)
-				++i;
-			else
+		for (xr_vector<IRenderable*>* holders : { &g_bus_mask_holders, &g_bus_mask_copies })
+			for (u32 i = 0; i < holders->size();)
 			{
-				g_bus_mask_holders[i] = g_bus_mask_holders.back();
-				g_bus_mask_holders.pop_back();
+				u32& bits = (*holders)[i]->renderable.bus_mask;
+				bits &= ~freed;
+				if (bits)
+					++i;
+				else
+				{
+					(*holders)[i] = holders->back();
+					holders->pop_back();
+				}
 			}
-		}
 	g_bus_mask_live = 0;
 	for (u32 bit = mask_first_bit; bit < mask_bits_end; ++bit)
 	{
@@ -1644,11 +1714,15 @@ void ShaderBus::frame_latch()
 			g_bus_mask_tokens[bit] = 0;
 			g_bus_mask_parked &= ~b;
 			g_bus_mask_layer &= ~b;
+			g_bus_mask_hidden &= ~b;
+			g_bus_mask_forward &= ~b;
 		}
 		if (g_bus_mask_tokens[bit] && !(g_bus_mask_parked & b))
 			g_bus_mask_live |= b;
 	}
 	g_bus_mask_layer_live = g_bus_mask_layer & g_bus_mask_live;
+	g_bus_mask_hidden_live = g_bus_mask_hidden & g_bus_mask_live;
+	g_bus_mask_forward_live = g_bus_mask_forward & g_bus_mask_live;
 
 	// a held item draws inside its holder, so the holder stays in the frame for the item
 	g_bus_layer_roots.clear();
@@ -1936,6 +2010,31 @@ u32 ShaderBus::get_mask(const IRenderable* object)
 	return object->renderable.bus_mask & g_bus_mask_live;
 }
 
+void ShaderBus::copy_mask(const IRenderable* from, IRenderable* to)
+{
+	const u32 want = from ? from->renderable.bus_mask : 0;
+	const u32 have = to->renderable.bus_mask;
+	if (want == have)
+		return;
+
+	// queued per bit like set_mask, so the lane counts and the holder list follow the target
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 bit = 0; bit < ShaderBus::mask_bits_end; ++bit)
+	{
+		const u32 b = 1u << bit;
+		if (!((want ^ have) & b) || !g_bus_mask_tokens[bit])
+			continue;
+		bus_object_write entry;
+		entry.object = to;
+		entry.lane = g_bus_lanes[g_bus_mask_tokens[bit] & 0xffff]->index;
+		entry.clear = !(want & b);
+		entry.engine = true;
+		entry.value.set(0.f, 0.f, 0.f, 0.f);
+		g_bus_object_writes.push_back(entry);
+		g_bus_objects_used = true;
+	}
+}
+
 bool ShaderBus::release_mask(u32 token)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -1956,11 +2055,15 @@ bool ShaderBus::release_mask(u32 token)
 	return true;
 }
 
-u32 ShaderBus::mask_live_bits(u32* layer)
+u32 ShaderBus::mask_live_bits(u32* layer, u32* hidden, u32* forward)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	if (layer)
 		*layer = g_bus_mask_layer_live;
+	if (hidden)
+		*hidden = g_bus_mask_hidden_live;
+	if (forward)
+		*forward = g_bus_mask_forward_live;
 	return g_bus_mask_live;
 }
 
@@ -1989,6 +2092,56 @@ bool ShaderBus::set_mask_layer(u32 token, bool on)
 		g_bus_mask_layer |= 1u << bit;
 	else
 		g_bus_mask_layer &= ~(1u << bit);
+	++l->writes;
+	return true;
+}
+
+void ShaderBus::mask_holders(u32 bits, xr_vector<IRenderable*>& out)
+{
+	out.clear();
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	// only game objects, since they die on the main thread alone and the caller reads them after the lock
+	for (IRenderable* holder : g_bus_mask_holders)
+		if ((holder->renderable.bus_mask & bits) && fast_dynamic_cast<CObject*>(holder))
+			out.push_back(holder);
+}
+
+bool ShaderBus::set_mask_hidden(u32 token, bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_mask)
+		return bus_refuse_write(l, "hidden draws, it is not a mask lane");
+	const int bit = bus_mask_bit(token);
+	if (bit < 0 || (g_bus_mask_parked & (1u << bit)))
+		return bus_refuse_write(l, "hidden draws, its mask bit is released");
+
+	if (on)
+		g_bus_mask_hidden |= 1u << bit;
+	else
+		g_bus_mask_hidden &= ~(1u << bit);
+	++l->writes;
+	return true;
+}
+
+bool ShaderBus::set_mask_forward(u32 token, bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_mask)
+		return bus_refuse_write(l, "forward draws, it is not a mask lane");
+	const int bit = bus_mask_bit(token);
+	if (bit < 0 || (g_bus_mask_parked & (1u << bit)))
+		return bus_refuse_write(l, "forward draws, its mask bit is released");
+
+	if (on)
+		g_bus_mask_forward |= 1u << bit;
+	else
+		g_bus_mask_forward &= ~(1u << bit);
 	++l->writes;
 	return true;
 }
@@ -2185,6 +2338,8 @@ static LPCSTR bus_pass_refusal(const ShaderBus::pass_spec& spec)
 		if (0 == xr_strcmp(spec.outputs[i], "light") &&
 		    (spec.output_count > 1 || spec.stage != ShaderBus::stage_lighting || spec.blend == ShaderBus::blend_none))
 			return "light as an output, which is the only output of a lighting pass and blends with add or alpha";
+		if (0 == xr_strcmp(spec.outputs[i], "heat") && (spec.output_count > 1 || spec.stage != ShaderBus::stage_scene))
+			return "heat as an output, which is the only output of a scene pass";
 	}
 	if (spec.inputs.size() > ShaderBus::max_pass_inputs)
 		return "more than 16 inputs";
@@ -2227,7 +2382,7 @@ u32 ShaderBus::register_target(LPCSTR id, LPCSTR owner, LPCSTR description, LPCS
 		return 0;
 	if (!enable_targets())
 		return bus_refuse_register("target", id, "this renderer has no targets");
-	if (bus_reserved(id))
+	if (bus_reserved(id, true))
 		return 0;
 	if (xr_strlen(id) > 27)
 	{

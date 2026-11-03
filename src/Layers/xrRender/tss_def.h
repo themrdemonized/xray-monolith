@@ -42,6 +42,8 @@ public:
 	void set_RS(u32 a, u32 b);
 	void set_TSS(u32 a, u32 b, u32 c);
 	void set_SAMP(u32 a, u32 b, u32 c);
+	// recorded value of a render state, or fallback when none was recorded
+	u32 get_RS(u32 a, u32 fallback) const;
 	BOOL equal(SimulatorStates& S);
 	void clear();
 	IDirect3DStateBlock9* record();

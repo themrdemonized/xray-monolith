@@ -31,6 +31,8 @@ struct ECORE_API SVS : public xr_resource_named
 #if defined(USE_DX10) || defined(USE_DX11)
 	ref_input_sign						signature;
 #endif	//	USE_DX10
+	// the output begins with the base uv, so the object mask can sample base alpha
+	bool bus_uv_first = false;
 	SVS();
 	~SVS();
 };
@@ -42,6 +44,11 @@ struct ECORE_API SPS : public xr_resource_named
 {
 	ID3DPixelShader* ps;
 	R_constant_table constants;
+	// the shader samples s_base with smp_base, so the object mask can sample base alpha as the pass does
+	bool bus_base = false;
+	// the slots of s_base and smp_base
+	u8 bus_base_t = 0;
+	u8 bus_base_s = 0;
 	~SPS();
 };
 
@@ -91,6 +98,12 @@ struct ECORE_API SState : public xr_resource_flagged
 {
 	ID3DState* state;
 	SimulatorStates state_code;
+	// blending that keeps all of what is behind, a glow the object mask skips
+	bool bus_additive = false;
+	// blending that hides what is behind by source alpha, the object mask drops fully transparent texels
+	bool bus_alpha_blend = false;
+	// the pass tests and writes depth, so a hidden object's own shader can set its coverage
+	bool bus_zwrite = true;
 	~SState();
 };
 

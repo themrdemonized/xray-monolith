@@ -1653,6 +1653,9 @@ void CBlender_Compile::SetMapping()
 				continue;
 			}
 
+			// the pass samples this texture whoever binds the slot
+			ShaderBus::note_texture(cname);
+
 			bool taken = false;
 			for (u32 i = 0; i < passTextures.size() && !taken; ++i)
 				taken = passTextures[i].first == slot;

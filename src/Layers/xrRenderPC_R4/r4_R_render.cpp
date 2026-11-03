@@ -66,11 +66,16 @@ void CRender::Render()
 {
 	PIX_EVENT_C(CRender_Render, dx10_marker_frame);
 	dx10_annotate_frame();
-	CDSGraphManager::bus_live_bits = ShaderBus::mask_live_bits(&CDSGraphManager::bus_layer_bits);
+	CDSGraphManager::bus_live_bits = ShaderBus::mask_live_bits(&CDSGraphManager::bus_layer_bits, &CDSGraphManager::bus_hidden_bits, &CDSGraphManager::bus_forward_bits);
 	// tagged world items keep their queue 0 packets for the mask pass after the scene
 	GMBase.bus_mask_on = CDSGraphManager::bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
 	if (!GMBase.bus_mask_on || !Target->rt_bus_mask_layer)
 		CDSGraphManager::bus_layer_bits = 0;
+	if (!GMBase.bus_mask_on)
+	{
+		CDSGraphManager::bus_hidden_bits = 0;
+		CDSGraphManager::bus_forward_bits = 0;
+	}
 
 	rmNormal();
 
@@ -370,10 +375,11 @@ void CRender::render_forward()
 		//	Igor: we don't want to render old lods on next frame.
 		GMBase.r_dsgraph_render_static(1); // normal level, secondary priority
 		CParticlesAsync::Wait();
-		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_render_bus_particles();
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_bus_keep_forward();
 		GMBase.r_dsgraph_render_dynamic(1);
 		GMBase.fade_render(); // faded-portals
 		GMBase.r_dsgraph_render_sorted(false); // strict-sorted geoms
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_render_bus_forward();
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 
 		// Item and camera attachment UI draws before the sorted HUD so nearer glass and the post chain cover it

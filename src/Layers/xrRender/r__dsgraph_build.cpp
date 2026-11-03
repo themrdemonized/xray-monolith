@@ -93,6 +93,14 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
         }
     }
 
+	// an object the game does not draw goes to the object mask alone
+	if (bus_mask_only)
+	{
+		if (ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ))
+			bus_hidden.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, false, val_busTag);
+		return;
+	}
+
 	// Distortive geometry should be marked and R2 special-cases it
 	// a) Allow to optimize RT order
 	// b) Should be rendered to special distort buffer in another pass
@@ -217,7 +225,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F && !pVisual->dcast_ParticleCustom())
 	{
-		RGraph.mapDynamicSorted.Sorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+		RGraph.mapDynamicSorted.Sorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud], val_busTag);
 		return;
 	}
 
@@ -254,7 +262,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 #if RENDER==R_R1
 		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], item, pass);
 #else
-		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], { 0, SSA, val_pObject, pVisual, xform, nullptr, i_mask[CDSGraphManager::fl_hud], val_busTag }, pass);
+		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], { 0, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud], val_busTag }, pass);
 #endif
 	}
 }
@@ -469,7 +477,7 @@ void CDSGraphManager::add_Dynamic(IRenderVisual* piVisual, Fmatrix* xform)
 		else
 		{
 			if ((val_busTag & ~ShaderBus::hud_mask_bits) && bus_mask_runs()) pV->CalculateBones(TRUE);
-			if (i_mask[CDSGraphManager::fl_normal])
+			if (i_mask[CDSGraphManager::fl_normal] && !bus_mask_only)
 				pV->CalculateWallmarks();
 			add_leafs_Dynamic(pV->children, xform);
 		}
@@ -536,7 +544,7 @@ void CDSGraphManager::add_Dynamic(dxRender_Visual* pVisual, Fmatrix* xform)
 		else
 		{
 			if ((val_busTag & ~ShaderBus::hud_mask_bits) && bus_mask_runs()) pV->CalculateBones(TRUE);
-			if (i_mask[CDSGraphManager::fl_normal])
+			if (i_mask[CDSGraphManager::fl_normal] && !bus_mask_only)
 				pV->CalculateWallmarks();
 			add_leafs_Dynamic(pV->children, xform);
 		}
