@@ -27,7 +27,7 @@ namespace doors
 		void on_door_destroy(door& door);
 		pcstr get_name() const;
 		CScriptGameObject* lua_game_object() const; //Alundaio
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	void				render			( ) const;
 #endif // #ifdef DEBUG
 
@@ -55,7 +55,7 @@ namespace doors
 	private:
 		doors_type m_open_doors;
 		doors_type m_closed_doors;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	doors_type			m_detected_doors;
 #endif // #ifdef DEBUG
 		CAI_Stalker const& m_object;

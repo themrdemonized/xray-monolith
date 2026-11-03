@@ -47,7 +47,7 @@ protected:
 	mutable _edge_value_type m_weight;
 	bool m_first_time;
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 public:
 	LPCSTR						m_action_name;
 	bool						m_use_log;
@@ -60,8 +60,8 @@ public:
 #endif
 
 public:
-#ifndef LOG_ACTION
-	LPCSTR m_action_name; //alundaio
+#if !defined(DEBUG) && !defined(DEBUG_DRAW) && !defined(LOG_ACTION)
+    LPCSTR m_action_name; //alundaio
 #endif
 	IC CActionBase(const xr_vector<COperatorCondition>& conditions, const xr_vector<COperatorCondition>& effects,
 	               _object_type* object = 0, LPCSTR action_name = "");

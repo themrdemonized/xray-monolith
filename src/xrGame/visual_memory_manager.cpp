@@ -27,6 +27,7 @@
 #include "client_spawn_manager.h"
 #include "memory_manager.h"
 #include "ai/monsters/basemonster/base_monster.h"
+#include "ai_debug_draw.h"
 
 float g_ai_vision_speed_boost = 1.0f;
 
@@ -363,10 +364,19 @@ float CVisualMemoryManager::get_visible_value(const CGameObject* game_object, fl
 	//Alundaio: hijack not_yet_visible_object to lua
 	::luabind::functor<float> funct;
 	if (ai().script_engine().functor("visual_memory_manager.get_visible_value", funct))
+	{
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		ai_debug_draw::on_visible_value_source(true);
+#endif
 		return (funct(m_object ? m_object->lua_game_object() : 0, game_object ? game_object->lua_game_object() : 0,
 		              time_delta, current_state().m_time_quant, luminocity, current_state().m_velocity_factor,
 		              object_velocity, distance, object_distance, always_visible_distance)) * g_ai_vision_speed_boost * m_vision_speed;
+	}
 	//-Alundaio
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ai_debug_draw::on_visible_value_source(false);
+#endif
 
 	return (
 		time_delta /
@@ -553,6 +563,12 @@ void CVisualMemoryManager::add_visible_object(const CObject* object, float time_
 			(*J).m_enabled = true;
 		}
 	}
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	// who last refreshed the (squad-shared) record: m_level_time is shared, the visibility bits are per member
+	if (!fictitious)
+		ai_debug_draw::on_visual_refresh(m_objects, game_object->ID(), self ? self->ID() : u16(-1));
+#endif
 	//	STOP_PROFILE
 }
 

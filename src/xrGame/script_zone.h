@@ -36,7 +36,7 @@ public:
 	virtual CSpaceRestrictor* cast_restrictor() { return this; }
 	virtual CScriptZone* cast_script_zone() { return this; }
 	virtual CGameObject* cast_game_object() { return this; }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual	void	OnRender			();
 #endif
 DECLARE_SCRIPT_REGISTER_FUNCTION

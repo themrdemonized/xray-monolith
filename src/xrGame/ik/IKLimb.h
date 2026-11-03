@@ -55,7 +55,7 @@ public:
 	                  const extrapolation::points& object_pose_extrapolation); //const;
 	bool foot_step() const { return sv_state.foot_step(); }
 	u16 foot_matrix_predict(Fmatrix& foot, Fmatrix& toe, float time, IKinematicsAnimated* K) const;
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 				u16			dbg_ref_bone_id		() const { return m_bones[m_foot.ref_bone()]; }
 		const	CIKFoot		&dbg_ik_foot		() const { return m_foot; }
 #endif
@@ -82,7 +82,7 @@ private:
 	void ToeTimeDiff(Fvector& v, const SCalculateData& cd) const;
 	void ToeTimeDiffPredict(Fvector& v) const;
 	IC static void get_start(Fmatrix& start, SCalculateData& D, u16 bone);
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 				void		DBGDrawSetNewGoal	( SCalculateData& cd, const SIKCollideData &cld );
 #endif
 private:

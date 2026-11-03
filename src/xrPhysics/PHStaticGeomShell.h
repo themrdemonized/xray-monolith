@@ -11,7 +11,7 @@ class CPHStaticGeomShell :
 	public CPHUpdateObject,
 	public IPHStaticGeomShell
 {
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		IPhysicsShellHolder	*ref_object					() { return CPHGeometryOwner::PhysicsRefObject() ;}
 #endif
 

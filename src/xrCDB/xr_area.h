@@ -29,7 +29,7 @@ private:
 	CDB::MODEL Static;
 	Fbox m_BoundingVolume;
 public:
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	FactoryPtr<IObjectSpaceRender> *m_pRender;
 #endif
 private:
@@ -86,7 +86,7 @@ public:
 	const Fbox& GetBoundingVolume() { return m_BoundingVolume; }
 
 	// Debugging
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	void dbgRender();
 #endif
 };

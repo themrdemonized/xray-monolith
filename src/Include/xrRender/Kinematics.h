@@ -111,7 +111,7 @@ public:
 	virtual IKinematicsAnimated* dcast_PKinematicsAnimated() = 0;
 
 	// debug
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void						DebugRender			(Fmatrix& XFORM) = 0;
 #endif
 	virtual shared_str getDebugName() = 0;

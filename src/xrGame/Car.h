@@ -30,7 +30,7 @@ struct dxGeomUserData;
 struct dSurfaceParameters;
 // defs
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	#include "../xrEngine/StatGraph.h"
 	#include "PHDebug.h"
 #endif
@@ -58,7 +58,7 @@ class CCar :
 private:
 	collide::rq_results RQR;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	CFunctionGraph 					m_dbg_power_rpm			;
 	CFunctionGraph 					m_dbg_torque_rpm		;
 	CStatGraph	   					*m_dbg_dynamic_plot		;

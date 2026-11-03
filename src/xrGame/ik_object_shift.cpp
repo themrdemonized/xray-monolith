@@ -2,10 +2,10 @@
 #include "ik_object_shift.h"
 #include "pose_extrapolation.h"
 #include "../xrphysics/mathutils.h"
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "phdebug.h"
 #endif
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 void object_shift::	dbg_draw			( const Fmatrix	&current_pos, const extrapolation::points &predict , const Fvector& start ) const
 {

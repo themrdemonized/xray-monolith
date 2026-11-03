@@ -155,7 +155,7 @@ public:
 	virtual bool IsPointFreezed(RPoint* rp);
 	virtual void SetPointFreezed(RPoint* rp);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		void				OnRender				();
 #endif
 

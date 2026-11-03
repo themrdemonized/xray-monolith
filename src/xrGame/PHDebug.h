@@ -1,6 +1,6 @@
 #ifndef PH_DEBUG_H
 #define PH_DEBUG_H
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 struct dContact;
 #include "../xrEngine/StatGraph.h"
 #include "../xrphysics/debug_output.h"
@@ -57,6 +57,7 @@ void DBG_DrawPHObject( const CPHObject *obj );
 void DBG_DrawContact ( const dContact &c );
 void DBG_DrawTri( CDB::RESULT *T, u32 c );
 void DBG_DrawTri(CDB::TRI *T, const Fvector *V_verts, u32 c );
+void DBG_DrawTri( const Fvector& v0, const Fvector& v1, const Fvector& v2, u32 ac, bool solid );
 void DBG_DrawLine( const Fvector &p0, const Fvector &p1, u32 c );
 void DBG_DrawAABB( const Fvector &center, const Fvector& AABB, u32 c );
 void DBG_DrawOBB( const Fmatrix &m, const Fvector h, u32 c );

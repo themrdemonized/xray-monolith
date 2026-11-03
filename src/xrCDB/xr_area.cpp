@@ -12,11 +12,11 @@ using namespace collide;
 // Purpose	: stores space slots
 //----------------------------------------------------------------------
 CObjectSpace::CObjectSpace()
-#ifdef DEBUG
-	,m_pRender(0)
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	:m_pRender(0)
 #endif
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( RenderFactory )	
 		m_pRender = CNEW(FactoryPtr<IObjectSpaceRender>)() ;
 
@@ -32,7 +32,7 @@ CObjectSpace::~CObjectSpace()
 	//	Sound->set_geometry_occ		(NULL);
 	//	Sound->set_handler			(NULL);
 	//
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	//sh_debug.destroy			();
 	CDELETE(m_pRender);
 #endif
@@ -143,7 +143,7 @@ void CObjectSpace::Create(Fvector* verts, CDB::TRI* tris, const hdrCFORM& H, CDB
 }
 
 //----------------------------------------------------------------------
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CObjectSpace::dbgRender()
 {
 	(*m_pRender)->dbgRender();

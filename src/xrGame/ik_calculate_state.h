@@ -48,14 +48,14 @@ struct calculate_state
 	bool idle;
 	bool blending;
 	u16 ref_bone;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	int		count;
 #endif
 	calculate_state() : ref_bone(u16(-1)),
 	                    calc_time(0), unstuck_time(u32(-1)), foot_step(false), idle(false), blending(false),
 	                    anim_pos(Fidentity),
 	                    b2tob3(Fidentity), speed_blend_l(0), speed_blend_a(0), pick(Fvector().set(0, -1, 0))
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 						, count(-1)
 #endif
 	{

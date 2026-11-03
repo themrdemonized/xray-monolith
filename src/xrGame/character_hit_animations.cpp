@@ -7,7 +7,7 @@
 
 #include "../Include/xrRender/Kinematics.h"
 #include "animation_utils.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "phdebug.h"
 #endif
 
@@ -111,7 +111,7 @@ void character_hit_animation_controller::PlayHitMotion(const Fvector& dir, const
 	Fmatrix m;
 	GetBaseMatrix(m, ea);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask1.test( phDbgHitAnims ) )
 	{
 		DBG_OpenCashedDraw();

@@ -1,3 +1,8 @@
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+#include "debug_output.h"
+#endif // DEBUG
+
 void CPHSimpleCharacter::UpdateStaticDamage(dContact* c, SGameMtl* tri_material, bool bo1)
 {
 	const dReal* v = dBodyGetLinearVel(m_body);
@@ -69,7 +74,7 @@ void CPHSimpleCharacter::UpdateDynamicDamage(dContact* c, u16 obj_material_idx, 
 		c_vel = dSqrt(accepted_energy/m_mass*2.f) * obj_material->fBounceDamageFactor;
 	}
 	else c_vel = 0.f;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgDispObjCollisionDammage)&&c_vel>debug_output().dbg_vel_collid_damage_to_display())
 	{
 		float dbg_my_norm_vell=norm_vel;

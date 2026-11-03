@@ -15,6 +15,7 @@
 #include "inventory.h"
 #include "../xrEngine/CameraBase.h"
 #include "Actor.h"
+#include "ai_debug_draw.h"
 
 //#define SIGHT_TEST
 
@@ -99,6 +100,14 @@ void CSightAction::execute()
 		}
 	default: NODEFAULT;
 	}
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	// object / fire-object sights report their aim point from execute_object / predict_object_position
+	if (SightManager::eSightTypePosition == m_sight_type)
+		ai_debug_draw::on_aim(m_object, u32(m_sight_type), ai_debug_draw::eAimSourcePosition, m_vector3d, Fvector().set(0.f, 0.f, 0.f));
+	else if ((SightManager::eSightTypeObject != m_sight_type) && (SightManager::eSightTypeFireObject != m_sight_type))
+		ai_debug_draw::on_aim(m_object, u32(m_sight_type), ai_debug_draw::eAimSourceNone, Fvector().set(0.f, 0.f, 0.f), Fvector().set(0.f, 0.f, 0.f));
+#endif
 }
 
 void CSightAction::remove_links(CObject* object)
@@ -218,6 +227,10 @@ void CSightAction::execute_object()
 
 	if (m_no_pitch)
 		object().movement().m_head.target.pitch = 0.f;
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ai_debug_draw::on_aim(m_object, u32(m_sight_type), ai_debug_draw::eAimSourceObjectCenter, look_pos, Fvector().set(0.f, 0.f, 0.f));
+#endif
 
 #ifdef SIGHT_TEST
 	Msg					("%6d %s",Device.dwTimeGlobal,m_torso_look ? "eSightTypeFireObject" : "eSightTypeObject");
@@ -382,6 +395,10 @@ void CSightAction::predict_object_position(bool use_exact_position)
 	if (std::find(objects.begin(), objects.end(), m_object_to_look) == objects.end())
 	{
 		m_vector3d = m_object->sight().object_position();
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		// note: execute_position() is NOT called here, the head target keeps its previous value
+		ai_debug_draw::on_aim(m_object, u32(m_sight_type), ai_debug_draw::eAimSourceHeld, m_vector3d, Fvector().set(0.f, 0.f, 0.f));
+#endif
 		return;
 	}
 
@@ -389,6 +406,10 @@ void CSightAction::predict_object_position(bool use_exact_position)
 		m_vector3d = m_object->feel_vision_get_vispoint(const_cast<CGameObject*>(m_object_to_look));
 	else
 		m_vector3d = m_object->sight().object_position();
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	Fvector const dbg_aim_base = m_vector3d;
+#endif
 
 	u32 const count = m_object_to_look->ps_Size();
 	if (count > 1)
@@ -415,6 +436,11 @@ void CSightAction::predict_object_position(bool use_exact_position)
 	}
 
 	VERIFY(_valid(m_vector3d));
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ai_debug_draw::on_aim(m_object, u32(m_sight_type),
+	                      use_exact_position ? ai_debug_draw::eAimSourceVisPoint : ai_debug_draw::eAimSourceLiveBone,
+	                      m_vector3d, Fvector().sub(m_vector3d, dbg_aim_base));
+#endif
 	execute_position(m_object->eye_matrix.c);
 }
 

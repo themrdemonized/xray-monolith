@@ -5403,6 +5403,9 @@
     <ClInclude Include="level_debug.h">
       <Filter>Core\Client\Level Debug</Filter>
     </ClInclude>
+    <ClInclude Include="ai_debug_draw.h">
+      <Filter>Core\Client\Level Debug</Filter>
+    </ClInclude>
     <ClInclude Include="actor_mp_client.h">
       <Filter>Core\Client\Objects\actor\mp\client</Filter>
     </ClInclude>
@@ -9024,6 +9027,9 @@
       <Filter>Core\Client\Level Controller</Filter>
     </ClCompile>
     <ClCompile Include="level_debug.cpp">
+      <Filter>Core\Client\Level Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="ai_debug_draw.cpp">
       <Filter>Core\Client\Level Debug</Filter>
     </ClCompile>
     <ClCompile Include="actor_mp_client.cpp">
