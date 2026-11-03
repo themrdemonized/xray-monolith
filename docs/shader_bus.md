@@ -256,7 +256,7 @@ game exits. Read them in a shader like any lane.
 | `engine_sky_open` | `x` is how open the sky is over the view entity, from `0` to `1`, the value `level.rain_hemi()` returns |
 | `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Declaring it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
 | `engine_mask_objects` | a buffer lane, on DX10 and DX11. Row 0 `x` is how many objects hold a live mask bit, and rows 1 to `x` hold one object each, `x, y, z` its position and `w` its live mask bits as a whole number. Declare it as `Buffer<float4>`, see Masks |
-| `engine_mask_ids` | `x` is `1` while the id target holds this frame's object ids, else `0`. The id target exists while a compiled pass samples `bus_engine_object_id`, on DX10 and DX11 only (see Object ids) |
+| `engine_mask_ids` | `x` is `1` while the id target holds this frame's object ids, else `0`. The id target exists while a compiled pass samples `bus_engine_object_id`, on DX10 and DX11 only (see Object ids). The engine writes it only while a shader declares it, so `shader_bus.get` and the monitor read `0` until one does |
 | `engine_mask_particles` | `x` is `1` while the particle target holds this frame's particle tags, else `0`, on DX10 and DX11 only. Registered when a compiled pass first samples `bus_engine_particle_mask` (see Particle tags) |
 
 ```hlsl
@@ -554,9 +554,10 @@ These never do:
   Hidden objects)
 
 `set_mask` also takes a particles object. A tagged world particle draws its tag into the particle
-target during the forward pass, before the `scene` stage, where its alpha reaches `0.5`, so passes
-from the `scene` stage on see it. The mask and the id target keep the object behind it. HUD
-particles take no tag.
+target during the forward pass, before the `scene` stage, where its alpha reaches `0.5`, or for an
+additive particle wherever it adds light, so passes from the `scene` stage on see it. An additive
+particle's tag follows its soft fade where it meets a surface, and an alpha additive one also
+follows its fog. The mask and the id target keep the object behind it. HUD particles take no tag.
 
 A zone's mask bits reach the particle objects the zone creates, from their second frame, and leave
 the ones it keeps when the zone's bits clear. Within 30 m a zone's idle effect follows every frame.
@@ -643,9 +644,10 @@ uint all = bus_mask_bits(p) | bus_mask_particle_bits(p);
 ```
 
 The last tagged particle drawn at a pixel keeps it, with the particle's own depth test and alpha
-`0.5`. The target exists while a compiled pass samples `bus_engine_particle_mask` and a mod holds a
-live mask bit, under the rules of the mask target, so tagged particles draw into no target while
-no pass reads them. Including `bus_mask.h` alone samples nothing. `bus_mask_particle_bits` returns
+`0.5`, or for an additive particle (source weight one or source alpha, destination weight one) any
+light it adds after its soft fade, and for an alpha additive one after its fog. The target exists
+while a compiled pass samples `bus_engine_particle_mask` and a mod holds a live mask bit, under the
+rules of the mask target, so tagged particles draw into no target while no pass reads them. Including `bus_mask.h` alone samples nothing. `bus_mask_particle_bits` returns
 `0` while the lane's `x` is `0`. A second viewport frame draws no particle tags, and particles draw
 no id and no layer.
 
