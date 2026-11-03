@@ -1114,7 +1114,7 @@ void on_sound(CCustomMonster* npc, const CObject* source, int sound_type, const 
 	sound.power = power;
 	sound.threshold = threshold;
 	// deterministic re-evaluation of the occlusion already folded into power (the engine uses 0.2 jitter)
-	sound.occlusion = ::Sound->get_occlusion_to(npc->spatial.sphere.P, position, 0.f);
+	sound.occlusion = ::Sound->get_occlusion_to(npc->SpatialComponent->spatial.sphere.P, position, 0.f);
 	sound.fake_hit = fake_hit;
 	sound.remembered = remembered;
 	sound.remembered_position = remembered_position;
