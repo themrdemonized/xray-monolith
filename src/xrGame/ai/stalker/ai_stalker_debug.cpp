@@ -1049,6 +1049,49 @@ static void collect_static_hit_ranges(const Fvector &start, const Fvector &direc
 		ranges.push_back	(I->range);
 }
 
+// ai_dbg_visibility_ray_bone: the ray was aimed at the center of that bone's collision shape.
+//	white		the bone's collision shape (current pose)
+//	green box	expected hit: the target's collision form vs the same ray with a unit direction
+//	yellow box	actual hit: the target's collision form vs the ray o_trace built; absent = it missed
+static void draw_vision_bone	(Feel::Vision::feel_visible_Item const& item)
+{
+	CDebugRenderer			&renderer = Level().debug_renderer();
+	if (item.dbg_expected_t >= 0.f)
+		renderer.draw_aabb	(Fvector().mad(item.dbg_src,Fvector(item.dbg_dir).normalize(),item.dbg_expected_t),.015f,.015f,.015f,D3DCOLOR_XRGB(0,255,0), false);
+	if (item.dbg_hit_t >= 0.f)
+		renderer.draw_aabb	(Fvector().mad(item.dbg_src,item.dbg_dir,item.dbg_hit_t),.025f,.025f,.025f,D3DCOLOR_XRGB(255,255,0), false);
+
+	IKinematics				*K = smart_cast<IKinematics*>(item.O->Visual());
+	u16 const				id = K ? K->LL_BoneID(Feel::g_dbg_visibility_ray_bone) : BI_NONE;
+	if (BI_NONE == id)
+		return;
+
+	SBoneShape const		&shape = K->LL_GetData(id).shape;
+	Fmatrix					bone, local, world;
+	bone.mul_43				(item.O->XFORM(),K->LL_GetTransform(id));
+	switch (shape.type) {
+		case SBoneShape::stSphere	:
+			world.scale		(shape.sphere.R,shape.sphere.R,shape.sphere.R);
+			bone.transform_tiny(world.c,shape.sphere.P);
+			renderer.draw_ellipse(world,D3DCOLOR_XRGB(255,255,255), false);
+			break;
+		case SBoneShape::stBox		:
+			shape.box.xform_get(local);
+			world.mul_43	(bone,local);
+			renderer.draw_obb(world,shape.box.m_halfsize,D3DCOLOR_XRGB(255,255,255), false);
+			break;
+		case SBoneShape::stCylinder	: // drawn as its bounding box
+			local.identity	();
+			local.k			= shape.cylinder.m_direction;
+			Fvector::generate_orthonormal_basis(local.k,local.i,local.j);
+			local.c			= shape.cylinder.m_center;
+			world.mul_43	(bone,local);
+			renderer.draw_obb(world,Fvector().set(shape.cylinder.m_radius,shape.cylinder.m_radius,shape.cylinder.m_height/2.f),D3DCOLOR_XRGB(255,255,255), false);
+			break;
+		default					: break;
+	}
+}
+
 // Draws the result of the real vision trace stored by Feel::Vision::o_trace:
 //	blue box			eye (ray start)
 //	green line / box	ray reached the tested point, nothing in the way
@@ -1141,6 +1184,9 @@ void draw_visiblity_rays	(CCustomMonster *self, const CObject *object, collide::
 		if (!front_face)
 			renderer.draw_aabb	(Fvector().mad(start_position,direction,*I),.1f,.1f,.1f,D3DCOLOR_XRGB(255,0,255), false);
 	}
+
+	if (Feel::dbg_visibility_ray_bone_enabled())
+		draw_vision_bone	(*item);
 }
 
 void CAI_Stalker::dbg_draw_visibility_rays	()

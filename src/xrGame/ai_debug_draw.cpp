@@ -32,6 +32,7 @@
 #include "actor.h"
 #include "level.h"
 #include "debug_renderer.h"
+#include "../Include/xrRender/Kinematics.h"
 #include "ui_base.h"
 #include "ai_sounds.h"
 #include "../xrEngine/GameFont.h"
@@ -546,6 +547,17 @@ namespace
 				block.add(trace_result_color(item->dbg_result), "  vision ray: %s, vis %.2f%s, %dms ago",
 				          trace_result_name(item->dbg_result), item->dbg_vis, item->dbg_cached ? " (cached)" : "",
 				          item->dbg_time ? int(now() - item->dbg_time) : -1);
+			if (item && item->dbg_time && Feel::dbg_visibility_ray_bone_enabled())
+			{
+				IKinematics* K = smart_cast<IKinematics*>(target->Visual());
+				float const length = item->dbg_dir.magnitude();
+				string64 expected = "MISS", actual = "MISS";
+				if (K && item->dbg_expected_elem >= 0)
+					xr_sprintf(expected, "%.3fm on %s", item->dbg_expected_t, K->LL_BoneName_dbg(u16(item->dbg_expected_elem)));
+				if (K && item->dbg_hit_elem >= 0)
+					xr_sprintf(actual, "%.3fm on %s", item->dbg_hit_t * length, K->LL_BoneName_dbg(u16(item->dbg_hit_elem)));
+				block.add(color_light, "  vision bone %s: expected %s | actual %s", Feel::g_dbg_visibility_ray_bone, expected, actual);
+			}
 		}
 
 		block.add(color_grey, "  cfg: still_visible %ums, time_quant %.2f, velocity_factor %.2f, decrease %.2f, transparency %.2f",
