@@ -257,7 +257,7 @@ game exits. Read them in a shader like any lane.
 | `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Declaring it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
 | `engine_mask_objects` | a buffer lane, on DX10 and DX11. Row 0 `x` is how many objects hold a live mask bit, and rows 1 to `x` hold one object each, `x, y, z` its position and `w` its live mask bits as a whole number. Declare it as `Buffer<float4>`, see Masks |
 | `engine_mask_ids` | `x` is `1` while the id target holds this frame's object ids, else `0`. The id target exists while a compiled pass samples `bus_engine_object_id`, on DX10 and DX11 only (see Object ids). The engine writes it only while a shader declares it, so `shader_bus.get` and the monitor read `0` until one does |
-| `engine_mask_particles` | `x` is `1` while the particle target holds this frame's particle tags, else `0`, on DX10 and DX11 only. Registered when a compiled pass first samples `bus_engine_particle_mask` (see Particle tags) |
+| `engine_mask_particles` | `x` is `1` while the particle target holds this frame's particle tags, else `0`. The particle target exists while a compiled pass samples `bus_engine_particle_mask`, on DX10 and DX11 only (see Particle tags). The engine registers the lane when a shader first declares it, so a boot with no reader lists nothing |
 
 ```hlsl
 uniform float4 bus_engine_sun_los;

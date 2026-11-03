@@ -38,8 +38,7 @@ static bool bus_mask_begin()
 	const bool hud = ShaderBus::declared(lane);
 	// an engine target exists only while a compiled pass samples its texture
 	const bool ids = ShaderBus::samples_object_ids();
-	const u32 particles_lane = ShaderBus::particle_lane();
-	const bool particles = particles_lane && ShaderBus::samples_particles();
+	const bool particles = ShaderBus::samples_particles();
 	const u32 cover = ShaderBus::samples_cover();
 	u32 layer = 0, hidden = 0, forward = 0;
 	const bool world = ShaderBus::mask_live_bits(&layer, &hidden, &forward) != 0;
@@ -152,7 +151,7 @@ static bool bus_mask_begin()
 		ShaderBus::set(lane, T->rt_bus_mask ? 1.f : 0.f, 0.f, 0.f, 0.f);
 	if (ShaderBus::declared(ids_lane))
 		ShaderBus::set(ids_lane, T->rt_bus_object_id ? 1.f : 0.f, 0.f, 0.f, 0.f);
-	if (particles_lane)
+	if (const u32 particles_lane = ShaderBus::particle_lane())
 		ShaderBus::set(particles_lane, T->rt_bus_particle_mask ? 1.f : 0.f, 0.f, 0.f, 0.f);
 	return hud && T->rt_bus_mask;
 }
