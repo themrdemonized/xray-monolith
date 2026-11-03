@@ -42,7 +42,7 @@ namespace smart_cover
 		virtual bool register_schedule() const { return false; }
 		virtual void Center(Fvector& result) const;
 		virtual float Radius() const;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual	void		OnRender						();
 #endif // DEBUG
 		bool inside(Fvector const& position) const;

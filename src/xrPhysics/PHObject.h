@@ -15,13 +15,13 @@ class CPHMoveStorage;
 class CPHSynchronize;
 
 typedef void CollideCallback(CPHObject* obj1, CPHObject* obj2, dGeomID o1, dGeomID o2);
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 class IPhysicsShellHolder;
 #endif
 class CPHObject:
 	public ISpatialOwner
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	friend struct SPHObjDBGDraw;
 #endif
 	DECLARE_PHLIST_ITEM(CPHObject)
@@ -133,8 +133,8 @@ public:
 	{
 	}
 
-#ifdef		DEBUG
-virtual		IPhysicsShellHolder	*ref_object					()										=0;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    virtual	IPhysicsShellHolder	*ref_object()=0;
 #endif
 
 	IC CLBits& collide_bits() { return m_collide_bits; }

@@ -15,7 +15,7 @@
 #include "ik_collide_data.h"
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "PHDebug.h"
 #endif
 
@@ -204,7 +204,7 @@ bool Pick(ik_pick_result& r, const ik_pick_query& q, CObject* ignore_object)
 			break;
 	}
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask1.test( phDbgDrawIKCollision ) && collided && !R.O )
 	{
 		CDB::TRI	*tri	= Level( ).ObjectSpace.GetStaticTris( ) + R.element;
@@ -219,16 +219,10 @@ bool Pick(ik_pick_result& r, const ik_pick_query& q, CObject* ignore_object)
 	return collided;
 }
 
-//void DBG_DrawTri( const Fvector& v0, const Fvector& v1, const Fvector& v2, u32 ac, bool solid );
-
 void chose_best_plane(Fplane& p, const Fvector& v, Fplane& p0, Fplane& p1, Fplane& p2)
 {
 	MAX_OF(p0.n.dotproduct(v), p = p0, p1.n.dotproduct(v), p = p1, p2.n.dotproduct(v), p = p2);
 }
-
-#ifdef	DEBUG
-void DBG_DrawTri( const Fvector& v0, const Fvector& v1, const Fvector& v2, u32 ac, bool solid );
-#endif
 
 void ik_foot_collider::collide(SIKCollideData& cld, const ik_foot_geom& foot_geom, CGameObject* O, bool foot_step)
 {
@@ -277,7 +271,7 @@ void ik_foot_collider::collide(SIKCollideData& cld, const ik_foot_geom& foot_geo
 	//////////////////////////////////////////////////////////////////////////////////////
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask1.test( phDbgDrawIKCollision ) )
 	{
 		DBG_DrawPoint( pos_toe, 0.01, D3DCOLOR_XRGB( 255, 0, 0));
@@ -326,7 +320,7 @@ void ik_foot_collider::collide(SIKCollideData& cld, const ik_foot_geom& foot_geo
 		}
 
 		cld.m_plane = plane;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 			if( ph_dbg_draw_mask1.test( phDbgDrawIKCollision ) )
 			{
 				DBG_DrawPoint( pos_toe, 0.01, D3DCOLOR_XRGB( 255, 0, 0));

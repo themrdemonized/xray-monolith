@@ -36,7 +36,7 @@ public:
 
 	virtual CTeamBaseZone* cast_team_base_zone() { return this; };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual	void	OnRender			();
 #endif
 };

@@ -15,6 +15,7 @@
 #include "game_cl_mp.h"
 #include "reward_event_generator.h"
 #include "../Layers/xrRender/xrRender_console.h"
+#include "ai_debug_draw.h"
 
 #define FLAME_TIME 0.05f
 
@@ -173,6 +174,9 @@ void CWeapon::FireBullet(const Fvector& pos,
 	bool send_hit, int iShotNum)
 {
 	CShootingObject::FireBullet(pos, shot_dir, fire_disp, cartridge, parent_id, weapon_id, send_hit, iShotNum);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ai_debug_draw::on_shot(H_Parent(), pos, m_vCurrentShootDir);
+#endif
 	
 	temperature += sil_glow_shot_temp;
 	if (temperature > sil_glow_max_temp)

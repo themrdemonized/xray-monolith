@@ -37,7 +37,7 @@ public:
 	virtual CPhysicsShellHolder* cast_physics_shell_holder() { return this; }
 	virtual CClimableObject* cast_climable_object() { return this; }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void	OnRender			();
 #endif
 protected:

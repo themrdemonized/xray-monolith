@@ -291,7 +291,7 @@ protected:
 protected:
 	virtual void update_last_material();
 public:
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		void		OnRender						();
 #endif
 };

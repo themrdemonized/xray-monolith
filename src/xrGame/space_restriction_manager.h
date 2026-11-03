@@ -23,7 +23,7 @@ class CSpaceRestriction;
 
 class CSpaceRestrictionManager : public CSpaceRestrictionHolder
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	friend class CLevelGraph;
 #endif
 	struct CClientRestriction;
@@ -77,7 +77,7 @@ public:
 
 	bool restriction_presented(shared_str restrictions, shared_str restriction) const;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	IC		const SPACE_RESTRICTIONS &restrictions				() const;
 #endif
 };

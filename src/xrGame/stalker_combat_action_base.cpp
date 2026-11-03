@@ -21,6 +21,7 @@
 #include "agent_enemy_manager.h"
 #include "inventory_item.h"
 #include "smart_cover.h"
+#include "ai_debug_draw.h"
 
 using namespace StalkerSpace;
 
@@ -60,11 +61,19 @@ void CStalkerActionCombatBase::fire()
 	float yaw, pitch;
 	direction.getHP(yaw, pitch);
 	const MonsterSpace::SBoneRotation& current_angles = object().movement().head_orientation();
-	if (angle_difference(-yaw, current_angles.current.yaw) > g_ai_aim_fire_angle)
+	float const yaw_difference = angle_difference(-yaw, current_angles.current.yaw);
+	if (yaw_difference > g_ai_aim_fire_angle)
 	{
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		ai_debug_draw::on_fire_decision(&object(), yaw_difference, false);
+#endif
 		aim_ready();
 		return;
 	}
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ai_debug_draw::on_fire_decision(&object(), yaw_difference, true);
+#endif
 
 	u32 min_queue_size, max_queue_size, min_queue_interval, max_queue_interval;
 	float distance = enemy_position.distance_to(object_position);

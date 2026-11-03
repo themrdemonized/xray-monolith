@@ -19,15 +19,46 @@ Vision::~Vision()
 {
 }
 
-struct SFeelParam
-{
-	Vision* parent;
-	Vision::feel_visible_Item* item;
-	float vis;
-	float vis_threshold;
+	struct SFeelParam
+	{
+		Vision* parent;
+		Vision::feel_visible_Item* item;
+		float vis;
+		float vis_threshold;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		float dbg_block_range;
+#endif
 
-	SFeelParam(Vision* _parent, Vision::feel_visible_Item* _item, float _vis_threshold) : parent(_parent), item(_item), vis(1.f), vis_threshold(_vis_threshold) {}
-};
+		SFeelParam(Vision* _parent, Vision::feel_visible_Item* _item, float _vis_threshold) : parent(_parent),
+		                                                                                      item(_item), vis(1.f),
+		                                                                                      vis_threshold(
+			                                                                                      _vis_threshold)
+		{
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+			dbg_block_range = -1.f;
+#endif
+		}
+	};
+
+	IC BOOL feel_vision_callback(collide::rq_result& result, LPVOID params)
+	{
+		SFeelParam* fp = (SFeelParam*)params;
+		float vis = fp->parent->feel_vision_mtl_transp(result.O, result.element);
+		fp->vis *= vis;
+		if (NULL == result.O && fis_zero(vis))
+		{
+			CDB::TRI* T = g_pGameLevel->ObjectSpace.GetStaticTris() + result.element;
+			Fvector* V = g_pGameLevel->ObjectSpace.GetStaticVerts();
+			fp->item->Cache.verts[0].set(V[T->verts[0]]);
+			fp->item->Cache.verts[1].set(V[T->verts[1]]);
+			fp->item->Cache.verts[2].set(V[T->verts[2]]);
+		}
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		if (fp->vis <= fp->vis_threshold)
+			fp->dbg_block_range = result.range;
+#endif
+		return (fp->vis > fp->vis_threshold);
+	}
 
 #ifdef SPATIAL_CHANGE
 IC BOOL feel_vision_test_callback(const collide::ray_defs& rd, CObject* object, LPVOID user_data)
@@ -41,20 +72,29 @@ IC BOOL feel_vision_test_callback(const collide::ray_defs& rd, CObject* object, 
 }
 #endif
 
-void Vision::o_new(CObject* O)
-{
-	xrSRWLockGuard guard(&lock_visible, false);
-	feel_visible.push_back(feel_visible_Item());
-	feel_visible_Item& I = feel_visible.back();
-	I.O = O;
-	I.Cache_vis = 1.f;
-	I.Cache.verts[0].set(0, 0, 0);
-	I.Cache.verts[1].set(0, 0, 0);
-	I.Cache.verts[2].set(0, 0, 0);
-	I.fuzzy = -EPS_S;
-	I.cp_LP = O->get_new_local_point_on_mesh(I.bone_id);
-	I.cp_LAST = O->get_last_local_point_on_mesh(I.cp_LP, I.bone_id);
-}
+	void Vision::o_new(CObject* O)
+	{
+		xrSRWLockGuard guard(&lock_visible, false);
+		feel_visible.push_back(feel_visible_Item());
+		feel_visible_Item& I = feel_visible.back();
+		I.O = O;
+		I.Cache_vis = 1.f;
+		I.Cache.verts[0].set(0, 0, 0);
+		I.Cache.verts[1].set(0, 0, 0);
+		I.Cache.verts[2].set(0, 0, 0);
+		I.fuzzy = -EPS_S;
+		I.cp_LP = O->get_new_local_point_on_mesh(I.bone_id);
+		I.cp_LAST = O->get_last_local_point_on_mesh(I.cp_LP, I.bone_id);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		I.dbg_src.set(0, 0, 0);
+		I.dbg_dst.set(0, 0, 0);
+		I.dbg_vis = 0.f;
+		I.dbg_block_range = -1.f;
+		I.dbg_time = 0;
+		I.dbg_result = dbg_trace_none;
+		I.dbg_cached = false;
+#endif
+	}
 
 void Vision::o_delete(CObject* O)
 {
@@ -170,18 +210,22 @@ void Vision::feel_vision_update(Fvector& P, float dt, float vis_threshold)
 	o_trace(P, dt, vis_threshold);
 }
 
-void Vision::o_trace(Fvector& P, float dt, float vis_threshold)
-{
-	RQR.r_clear();
-	xrSRWLockGuard guard(&lock_visible, true);
-	xr_vector<feel_visible_Item>::iterator I = feel_visible.begin(), E = feel_visible.end();
-	for (; I != E; I++)
+	void Vision::o_trace(Fvector& P, float dt, float vis_threshold)
 	{
-		if (0 == I->O->CFORM())
+		RQR.r_clear();
+		xrSRWLockGuard guard(&lock_visible, true);
+		xr_vector<feel_visible_Item>::iterator I = feel_visible.begin(), E = feel_visible.end();
+		for (; I != E; I++)
 		{
-			I->fuzzy = -1;
-			continue;
-		}
+			if (0 == I->O->CFORM())
+			{
+				I->fuzzy = -1;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_result = dbg_trace_no_cform;
+				I->dbg_time = Device.dwTimeGlobal;
+#endif
+				continue;
+			}
 
 		// verify relation
 		// if (positive(I->fuzzy) && I->O->Position().similar(I->cp_LR_dst,lr_granularity) && P.similar(I->cp_LR_src,lr_granularity))
@@ -191,43 +235,64 @@ void Vision::o_trace(Fvector& P, float dt, float vis_threshold)
 		I->cp_LR_src = P;
 		I->cp_LAST = I->O->get_last_local_point_on_mesh(I->cp_LP, I->bone_id);
 
-		//
-		Fvector D, OP = I->cp_LAST;
-		D.sub(OP, P);
-		if (fis_zero(D.magnitude()))
-		{
-			I->fuzzy = 1.f;
-			continue;
-		}
-
-		float f = D.magnitude() + .2f;
-		if (f > fuzzy_guaranteed)
-		{
-			D.div(f);
-			// setup ray defs & feel params
-			collide::ray_defs RD(P, D, f, CDB::OPT_CULL,
-				collide::rq_target(
-					collide::rqtStatic | /**/collide::rqtObject | /**/collide::rqtObstacle));
-			SFeelParam feel_params(this, &*I, vis_threshold);
-			// check cache
-			if (I->Cache.result && I->Cache.similar(P, D, f))
+			//
+			Fvector D, OP = I->cp_LAST;
+			D.sub(OP, P);
+			if (fis_zero(D.magnitude()))
 			{
-				// similar with previous query
-				feel_params.vis = I->Cache_vis;
-				// Log("cache 0");
+				I->fuzzy = 1.f;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_src = P;
+				I->dbg_dst = OP;
+				I->dbg_vis = 1.f;
+				I->dbg_block_range = -1.f;
+				I->dbg_result = dbg_trace_near;
+				I->dbg_cached = false;
+				I->dbg_time = Device.dwTimeGlobal;
+#endif
+				continue;
 			}
-			else
+
+			float f = D.magnitude() + .2f;
+			if (f > fuzzy_guaranteed)
 			{
-				float _u, _v, _range;
-				if (CDB::TestRayTri(P, D, I->Cache.verts, _u, _v, _range, false) && (_range > 0 && _range < f))
+				D.div(f);
+				// setup ray defs & feel params
+				collide::ray_defs RD(P, D, f, CDB::OPT_CULL,
+				                     collide::rq_target(
+					                     collide::rqtStatic | /**/collide::rqtObject | /**/collide::rqtObstacle));
+				SFeelParam feel_params(this, &*I, vis_threshold);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				bool dbg_cached = false;
+				bool dbg_cached_tri = false;
+				float dbg_object_range = -1.f;
+#endif
+				// check cache
+				if (I->Cache.result && I->Cache.similar(P, D, f))
 				{
-					feel_params.vis = 0.f;
-					// Log("cache 1");
+					// similar with previous query
+					feel_params.vis = I->Cache_vis;
+					// Log("cache 0");
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+					dbg_cached = true;
+#endif
 				}
 				else
 				{
-					// cache outdated. real query.
-					VERIFY(!fis_zero(RD.dir.magnitude()));
+					float _u, _v, _range;
+					if (CDB::TestRayTri(P, D, I->Cache.verts, _u, _v, _range, false) && (_range > 0 && _range < f))
+					{
+						feel_params.vis = 0.f;
+						// Log("cache 1");
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+						dbg_cached_tri = true;
+						feel_params.dbg_block_range = _range;
+#endif
+					}
+					else
+					{
+						// cache outdated. real query.
+						VERIFY(!fis_zero(RD.dir.magnitude()));
 
 					auto cb = [](collide::rq_result& result, LPVOID params) -> BOOL
 					{
@@ -290,32 +355,68 @@ void Vision::o_trace(Fvector& P, float dt, float vis_threshold)
 				if (object && object->collidable.model && !object->collidable.model->_RayQuery(RD, RQR))
 					continue;
 
-				collision_found = true;
-				break;
-			}
+					collision_found = true;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+					if (RQR.r_count())
+						dbg_object_range = RQR.r_begin()->range;
+#endif
+					break;
+				}
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_src = P;
+				I->dbg_dst = OP;
+				I->dbg_vis = feel_params.vis;
+				I->dbg_cached = dbg_cached;
+				I->dbg_time = Device.dwTimeGlobal;
+				if (feel_params.vis < feel_params.vis_threshold)
+				{
+					I->dbg_result = u8(dbg_cached_tri ? dbg_trace_blocked_cached_tri : dbg_trace_blocked);
+					I->dbg_block_range = feel_params.dbg_block_range;
+				}
+				else if (collision_found)
+				{
+					I->dbg_result = dbg_trace_blocked_object;
+					I->dbg_block_range = dbg_object_range;
+				}
+				else
+				{
+					I->dbg_result = u8((feel_params.vis < 1.f - EPS_L) ? dbg_trace_attenuated : dbg_trace_visible);
+					I->dbg_block_range = -1.f;
+				}
+#endif
 
 			if (collision_found)
 				feel_params.vis = 0.f;
 
-			if (feel_params.vis < feel_params.vis_threshold)
-			{
-				// INVISIBLE, choose next point
-				I->fuzzy -= fuzzy_update_novis * dt;
-				clamp(I->fuzzy, -.5f, 1.f);
-				I->cp_LP = I->O->get_new_local_point_on_mesh(I->bone_id);
+				if (feel_params.vis < feel_params.vis_threshold)
+				{
+					// INVISIBLE, choose next point
+					I->fuzzy -= fuzzy_update_novis * dt;
+					clamp(I->fuzzy, -.5f, 1.f);
+					I->cp_LP = I->O->get_new_local_point_on_mesh(I->bone_id);
+				}
+				else
+				{
+					// VISIBLE
+					I->fuzzy += fuzzy_update_vis * dt;
+					clamp(I->fuzzy, -.5f, 1.f);
+				}
 			}
 			else
 			{
-				// VISIBLE
+				// VISIBLE, 'cause near
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				I->dbg_src = P;
+				I->dbg_dst = OP;
+				I->dbg_vis = 1.f;
+				I->dbg_block_range = -1.f;
+				I->dbg_result = dbg_trace_near;
+				I->dbg_cached = false;
+				I->dbg_time = Device.dwTimeGlobal;
+#endif
 				I->fuzzy += fuzzy_update_vis * dt;
 				clamp(I->fuzzy, -.5f, 1.f);
 			}
 		}
-		else
-		{
-			// VISIBLE, 'cause near
-			I->fuzzy += fuzzy_update_vis * dt;
-			clamp(I->fuzzy, -.5f, 1.f);
-		}
 	}
-}

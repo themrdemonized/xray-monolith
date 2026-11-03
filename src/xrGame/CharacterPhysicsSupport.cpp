@@ -40,7 +40,7 @@
 #include "../build_config_defines.h"
 
 //const float default_hinge_friction = 5.f;//gray_wolf comment
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "PHDebug.h"
 extern	BOOL death_anim_debug;
 #endif // DEBUG
@@ -275,7 +275,7 @@ void CCharacterPhysicsSupport::SpawnInitPhysics(CSE_Abstract* e)
 {
 	if (m_EntityAlife.g_Alive())
 	{
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if( ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject)&&stricmp( PH_DBG_ObjectTrackName( ), *m_EntityAlife.cName( ) )==0 )
 		{
 			Msg("CCharacterPhysicsSupport::SpawnInitPhysics obj %s before collision correction %f,%f,%f", PH_DBG_ObjectTrackName(), m_EntityAlife.Position().x, m_EntityAlife.Position().y, m_EntityAlife.Position( ).z );
@@ -291,7 +291,7 @@ void CCharacterPhysicsSupport::SpawnInitPhysics(CSE_Abstract* e)
 
 		SpawnCharacterCreate();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if( ph_dbg_draw_mask1.test( ph_m1_DbgTrackObject ) && stricmp( PH_DBG_ObjectTrackName( ), *m_EntityAlife.cName()) == 0 )
 		{
 			Msg( "CCharacterPhysicsSupport::SpawnInitPhysics obj %s after collision correction %f,%f,%f", PH_DBG_ObjectTrackName(),m_EntityAlife.Position( ).x, m_EntityAlife.Position().y, m_EntityAlife.Position().z );
@@ -583,7 +583,7 @@ IC void CCharacterPhysicsSupport::UpdateDeathAnims()
 		m_flags.set(fl_death_anim_on,TRUE);
 	}
 }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void	DBG_PhysBones( CObject &O );
 void	DBG_DrawBones( CObject &O );
 void	DBG_DrawBind ( CObject &O );
@@ -611,7 +611,7 @@ void CCharacterPhysicsSupport::in_UpdateCL()
 	{
 		return;
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( dbg_draw_character_bones )
 				dbg_draw_geoms( m_weapon_geoms );
 
@@ -669,7 +669,7 @@ void CCharacterPhysicsSupport::in_UpdateCL()
 		}
 	}
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(Type()==etStalker && ph_dbg_draw_mask1.test(phDbgHitAnims))
 	{
 		Fmatrix m;
@@ -883,7 +883,7 @@ void CCharacterPhysicsSupport::update_animation_collision()
 			destroy_animation_collision();
 	}
 }
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 BOOL dbg_draw_ragdoll_spawn = FALSE;
 #endif
 void CCharacterPhysicsSupport::ActivateShell(CObject* who)
@@ -1207,7 +1207,7 @@ void CCharacterPhysicsSupport::EndActivateFreeShell(CObject* who, const Fvector&
 {
 	VERIFY(m_pPhysicsShell);
 	VERIFY(m_eState==esDead);
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if( dbg_draw_ragdoll_spawn )
 {
 	DBG_OpenCashedDraw();
@@ -1219,7 +1219,7 @@ if( dbg_draw_ragdoll_spawn )
 	CollisionCorrectObjPos(dp);
 	m_pPhysicsShell->SetGlTransformDynamic(mXFORM);
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if( dbg_draw_ragdoll_spawn )
 {
 	DBG_OpenCashedDraw();
@@ -1230,7 +1230,7 @@ if( dbg_draw_ragdoll_spawn )
 	//fly back after correction
 	FlyTo(Fvector().sub(inital_entity_position, m_EntityAlife.Position()));
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 if( dbg_draw_ragdoll_spawn )
 {
 	DBG_OpenCashedDraw();

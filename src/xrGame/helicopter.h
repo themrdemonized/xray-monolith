@@ -373,7 +373,7 @@ public:
 	float GetHeliHealth() const { return inherited::GetfHealth(); }
 	float SetHeliHealth(float value) { return inherited::SetfHealth(value); }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 public:
 	virtual void			OnRender						();
 #endif

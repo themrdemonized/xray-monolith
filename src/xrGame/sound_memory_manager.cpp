@@ -23,6 +23,7 @@
 #include "profiler.h"
 #include "client_spawn_manager.h"
 #include "../xrEngine/IGame_Persistent.h"
+#include "ai_debug_draw.h"
 
 #include "stalker_movement_manager_smart_cover.h"
 #include "movement_manager_space.h"
@@ -185,6 +186,9 @@ void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound
 		sound_power *= m_world_factor;
 
 	VERIFY(_valid(sound_power));
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	bool dbg_fake_hit = false;
+#endif
 	if (sound_power >= m_sound_threshold)
 	{
 		if (is_sound_type(sound_type, SOUND_TYPE_WEAPON_SHOOTING))
@@ -193,7 +197,12 @@ void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound
 			CEntityAlive* _entity_alive = smart_cast<CEntityAlive*>(object);
 			if (_entity_alive && (self->ID() != _entity_alive->ID()) && (_entity_alive->g_Team() != entity_alive->
 				g_Team()))
+			{
 				m_object->memory().hit().add(_entity_alive);
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+				dbg_fake_hit = true;
+#endif
+			}
 		}
 		if (!m_stalker || !m_stalker->memory().enemy().selected())
 			add(object, sound_type, position, sound_power);
@@ -209,6 +218,10 @@ void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound
 			}
 		}
 	}
+
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	ai_debug_draw::on_sound(m_object, object, sound_type, position, sound_power, m_sound_threshold, dbg_fake_hit);
+#endif
 
 	m_last_sound_time = Device.dwTimeGlobal;
 	VERIFY(_valid(m_sound_threshold));
@@ -315,6 +328,9 @@ void CSoundMemoryManager::add(const CObject* object, int sound_type, const Fvect
 #ifdef USE_FIRST_LEVEL_TIME
 		sound_object.m_first_level_time	= Device.dwTimeGlobal;
 #endif
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		ai_debug_draw::on_sound_remembered(m_object, sound_object.m_object_params.m_position);
+#endif
 		add(sound_object);
 	}
 	else
@@ -325,6 +341,9 @@ void CSoundMemoryManager::add(const CObject* object, int sound_type, const Fvect
 			           : ((*J).m_squad_mask.get() | m_stalker->agent_manager().member().mask(m_stalker))));
 		if (!game_object)
 			(*J).m_object_params.m_position = position;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+		ai_debug_draw::on_sound_remembered(m_object, (*J).m_object_params.m_position);
+#endif
 	}
 }
 

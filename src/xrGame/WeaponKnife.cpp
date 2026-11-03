@@ -17,7 +17,7 @@
 
 #define KNIFE_MATERIAL_NAME "objects\\knife"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 	extern BOOL g_bDrawBulletHit;
 #endif //#ifdef DEBUG
@@ -426,7 +426,7 @@ bool CWeaponKnife::GetBriefInfo(II_BriefInfo& info)
 	return true;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CWeaponKnife::OnRender()
 {
 	CDebugRenderer& renderer	= Level().debug_renderer();
@@ -438,7 +438,7 @@ void CWeaponKnife::OnRender()
 			float	sc_r				= i->second;
 			Fmatrix	sphere				= Fmatrix().scale(sc_r, sc_r, sc_r);
 			sphere.c					= i->first;
-			renderer.draw_ellipse		(sphere, D3DCOLOR_XRGB(100, 255, 0));
+			renderer.draw_ellipse		(sphere, D3DCOLOR_XRGB(100, 255, 0), false);
 		}
 		/*
 		Fmatrix	sphere				= Fmatrix().scale(.05f, .05f, .05f);
@@ -460,7 +460,7 @@ void CWeaponKnife::OnRender()
 		sphere.c		= *i;
 		u8				hit_color = u8(255 * hit_power);
 		hit_power		*= m_NextHitDivideFactor;
-		renderer.draw_ellipse(sphere, D3DCOLOR_XRGB(hit_color, 50, 0));
+		renderer.draw_ellipse(sphere, D3DCOLOR_XRGB(hit_color, 50, 0), false);
 	}
 	
 	for (dbg_draw_data::obbes_t::const_iterator i = m_dbg_data.m_target_boxes.begin(),
@@ -468,7 +468,7 @@ void CWeaponKnife::OnRender()
 	{
 		Fmatrix	tmp_matrix;
 		tmp_matrix.set(i->m_rotate.i, i->m_rotate.j, i->m_rotate.k, i->m_translate);
-		renderer.draw_obb(tmp_matrix, i->m_halfsize, D3DCOLOR_XRGB(0, 255, 0));
+		renderer.draw_obb(tmp_matrix, i->m_halfsize, D3DCOLOR_XRGB(0, 255, 0), false);
 	}
 }
 #endif

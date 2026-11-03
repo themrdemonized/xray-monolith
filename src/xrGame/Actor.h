@@ -135,7 +135,7 @@ public:
 	                            float power);
 	virtual Feel::Sound* dcast_FeelSound() { return this; }
 	float m_snd_noise;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     virtual void						OnRender			();
 
 #endif
@@ -615,7 +615,7 @@ protected:
 	float HCoeff[3][4]; //коэффициэнты для сплайна Эрмита
 	Fvector IPosS, IPosH, IPosL; //положение актера после интерполяции Бизье, Эрмита, линейной
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     DEF_DEQUE		(VIS_POSITION, Fvector);
 
     VIS_POSITION	LastPosS;
@@ -647,7 +647,7 @@ protected:
 	void CalculateInterpolationParams();
 	//---------------------------------------------
 	virtual void make_Interpolation();
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     //---------------------------------------------
     virtual void			OnRender_Network();
     //---------------------------------------------

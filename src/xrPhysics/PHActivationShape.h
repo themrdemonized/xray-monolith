@@ -13,7 +13,7 @@ class CPHActivationShape : public CPHObject
 	Flags16 m_flags;
 	CSafeFixedRotationState m_safe_state;
 
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 virtual		IPhysicsShellHolder	*ref_object					();
 #endif
 

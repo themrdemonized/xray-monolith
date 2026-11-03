@@ -17,7 +17,7 @@ public:
 	RENDER_FACTORY_DECLARE(StatGraphRender)
 	RENDER_FACTORY_DECLARE(ConsoleRender)
 	RENDER_FACTORY_DECLARE(RenderDeviceRender)
-#	ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		RENDER_FACTORY_DECLARE(ObjectSpaceRender)
 #	endif // DEBUG
 	RENDER_FACTORY_DECLARE(ApplicationRender)

@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "PHDebug.h"
 #include "alife_space.h"
 #include "hit.h"
