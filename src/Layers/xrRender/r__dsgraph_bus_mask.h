@@ -40,8 +40,9 @@ static bool bus_mask_begin()
 	const bool ids = ShaderBus::samples_object_ids();
 	const u32 particles_lane = ShaderBus::particle_lane();
 	const bool particles = particles_lane && ShaderBus::samples_particles();
-	u32 layer = 0, hidden = 0;
-	const bool world = ShaderBus::mask_live_bits(&layer, &hidden) != 0;
+	const u32 cover = ShaderBus::samples_cover();
+	u32 layer = 0, hidden = 0, forward = 0;
+	const bool world = ShaderBus::mask_live_bits(&layer, &hidden, &forward) != 0;
 	const bool held = hud || world;
 
 	CRenderTarget* T = RImplementation.Target;
@@ -88,8 +89,26 @@ static bool bus_mask_begin()
 	else if (!T->rt_bus_mask_layer)
 		T->rt_bus_mask_layer.create("$user$bus_engine_mask_layer", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
 
-	// the hidden depth follows the mask target while a hidden bit is live
-	if (!hidden || !T->rt_bus_mask)
+	// the coverage target follows the mask target while a forward or hidden bit is live and a pass samples coverage
+	if (!cover || !(hidden | forward) || !T->rt_bus_mask)
+		T->rt_bus_cover_mask.destroy();
+	else if (!T->rt_bus_cover_mask)
+		T->rt_bus_cover_mask.create("$user$bus_engine_cover_mask", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
+
+	// the coverage ids follow the coverage target while a pass samples them
+	if (!(cover & ShaderBus::cover_ids) || !T->rt_bus_cover_mask)
+		T->rt_bus_cover_object_id.destroy();
+	else if (!T->rt_bus_cover_object_id)
+		T->rt_bus_cover_object_id.create("$user$bus_engine_cover_object_id", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
+
+	// the coverage layer follows the coverage target while a forward or hidden bit is on the layer and a pass samples it
+	if (!(cover & ShaderBus::cover_layer) || !(layer & (hidden | forward)) || !T->rt_bus_cover_mask)
+		T->rt_bus_cover_layer.destroy();
+	else if (!T->rt_bus_cover_layer)
+		T->rt_bus_cover_layer.create("$user$bus_engine_cover_layer", Device.dwWidth, Device.dwHeight, D3DFMT_R32F);
+
+	// the hidden depth follows the coverage target while a hidden bit is live
+	if (!hidden || !T->rt_bus_cover_mask)
 		T->rt_bus_hidden_depth.destroy();
 	else if (!T->rt_bus_hidden_depth)
 	{
@@ -117,6 +136,12 @@ static bool bus_mask_begin()
 			HW.pContext->ClearRenderTargetView(T->rt_bus_mask_layer->pRT, zero);
 		if (T->rt_bus_particle_mask)
 			HW.pContext->ClearRenderTargetView(T->rt_bus_particle_mask->pRT, zero);
+		if (T->rt_bus_cover_mask)
+			HW.pContext->ClearRenderTargetView(T->rt_bus_cover_mask->pRT, zero);
+		if (T->rt_bus_cover_object_id)
+			HW.pContext->ClearRenderTargetView(T->rt_bus_cover_object_id->pRT, zero);
+		if (T->rt_bus_cover_layer)
+			HW.pContext->ClearRenderTargetView(T->rt_bus_cover_layer->pRT, zero);
 	}
 
 	if (hud)

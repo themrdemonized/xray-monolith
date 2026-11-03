@@ -71,7 +71,7 @@ void CRender::Render()
 	GMBase.bus_mask_on = CDSGraphManager::bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
 	if (!GMBase.bus_mask_on || !Target->rt_bus_mask_layer)
 		CDSGraphManager::bus_layer_bits = 0;
-	if (!GMBase.bus_mask_on)
+	if (!GMBase.bus_mask_on || !Target->rt_bus_cover_mask)
 	{
 		CDSGraphManager::bus_hidden_bits = 0;
 		CDSGraphManager::bus_forward_bits = 0;

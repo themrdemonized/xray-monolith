@@ -522,8 +522,8 @@ bit from the lane and tests it against the mask.
 | `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back while the bit is held. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
 | `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object, a `ScriptAttachment` or a particles object. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal on each lane logs a line |
 | `shader_bus.set_mask_layer(token, on)` | `true` if the token holds a live bit. From the next frame on `true` puts its bit on the mask layer and `false` takes it off. A released token returns `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts off the layer |
-| `shader_bus.set_mask_forward(token, on)` | `true` if the token holds a live bit. From the next frame on `true` lets its bit reach the forward and sorted mesh draws of tagged objects and `false` stops it (see Forward meshes). The token of a lane that is not a mask and a released token return `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts closed |
-| `shader_bus.set_mask_hidden(token, on)` | `true` if the token holds a live bit. From the next frame on `true` lets its bit reach tagged objects the game does not draw and `false` stops it (see Hidden objects). The token of a lane that is not a mask and a released token return `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts closed |
+| `shader_bus.set_mask_forward(token, on)` | `true` if the token holds a live bit. From the next frame on `true` lets its bit reach the forward and sorted mesh draws of tagged objects in the coverage targets and `false` stops it (see Forward meshes). The token of a lane that is not a mask and a released token return `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts closed |
+| `shader_bus.set_mask_hidden(token, on)` | `true` if the token holds a live bit. From the next frame on `true` lets its bit reach tagged objects the game does not draw in the coverage targets and `false` stops it (see Hidden objects). The token of a lane that is not a mask and a released token return `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts closed |
 | `shader_bus.get_mask(obj)` | the live mask bits `obj` carries, `0` for none or `nil` |
 | `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere, every object that carried it loses it, the lane reads `0`, and the bit returns to the pool, so `register_mask` can hand it out again inside the level. Until that frame, `register_mask` with the same id and `owner` takes it back with the objects that still carry it |
 
@@ -538,8 +538,8 @@ These draws carry an object's tag, its live bits together:
   main pass
 - an attachment parented to it and an item it holds, with their own bits added to its bits
 - the forward and sorted mesh draws of a tagged object whose mask opts in with `set_mask_forward`,
-  which draw their tag, id and layer bits during the forward pass with their own depth test and the
-  element's own coverage. An element whose pixel shader title holds `_aref` clips where that shader
+  which draw their tag, id and layer bits into the coverage targets, never the mask, during the
+  forward pass with their own depth test and the element's own coverage (see Forward meshes). An element whose pixel shader title holds `_aref` clips where that shader
   clips, at `def_aref`. An alpha-blended element drops only fully transparent texels, an opaque one
   covers its triangles, and an additive element (destination weight one) draws none. A vertex
   layout the mask cannot sample from covers its triangles
@@ -609,9 +609,10 @@ The ids draw with the world tags, from the same draws and the same depth test, s
 belongs to the draw whose tag the mask holds. An item an object holds and an attachment parented
 to it draw that object's id. A level root attachment, particles and HUD draws draw none, and where
 a tagged particle covers a tagged object the mask and this target keep the object's tag and id,
-and the particle target holds the particle's tag. The target exists while a compiled pass samples
-`bus_engine_object_id` and a mod holds a live mask bit, under the rules of the mask target, and
-every tagged world draw of a game object draws a second time into it. `bus_mask_object_id` reads the lane, so a shader that calls it
+and the particle target holds the particle's tag. Forward and hidden draws write their ids into the
+coverage id target and never into this one (see Forward meshes). The target exists while a compiled
+pass samples `bus_engine_object_id` and a mod holds a live mask bit, under the rules of the mask
+target, and every tagged opaque world draw of a game object draws a second time into it. `bus_mask_object_id` reads the lane, so a shader that calls it
 declares it, and returns `0` while the lane's `x` is `0`.
 
 A full screen pass reads an object's own values through the id. The mod keeps a buffer lane with a
@@ -661,7 +662,8 @@ shader_bus.set_mask_layer(token, true)
 
 ```hlsl
 uint mine = bus_mymark;
-bool behind = (bus_mask_layer_bits(p) & mine) && !(bus_mask_bits(p) & mine);
+bool behind = ((bus_mask_layer_bits(p) | bus_mask_cover_layer_bits(p)) & mine)
+	&& !((bus_mask_bits(p) | bus_mask_cover_bits(p)) & mine);
 ```
 
 Where two layer draws overlap, the one drawn last keeps the pixel. An object holding a bit on the
@@ -670,8 +672,9 @@ out to 60 m as a seen object is, drawn into the G-buffer, where depth rejects it
 into the layer. An item on the layer keeps the object holding it in the frame.
 The layer still leaves out an object outside the view and one in a part of the level the renderer
 does not reach through portals. The target exists while a bit on the layer is live and the mask
-target exists. A second viewport frame draws no layer. Particles draw none, and a particles object
-with a bit on the layer stays out of the frame when occlusion hides it.
+target exists. Forward and hidden draws on the layer write their layer bits into the coverage layer
+target (see Forward meshes). A second viewport frame draws no layer. Particles draw none, and a
+particles object with a bit on the layer stays out of the frame when occlusion hides it.
 
 #### Forward meshes
 
@@ -682,12 +685,32 @@ with or without it. Each element draws with its own depth test and the depth wri
 draws that write no depth the last drawn keeps the pixel. Passes see these tags from the `scene`
 stage on.
 
+These draws and the hidden-object draws land in three coverage targets and never in the mask, the
+id target or the layer target, so a pass that reads only those sees the frame without them.
+`bus_mask.h` declares `Texture2D<float> bus_engine_cover_mask`, `bus_engine_cover_object_id` and
+`bus_engine_cover_layer`, with the encodings of the mask, id and layer targets, and decodes a pixel
+with `bus_mask_cover_bits`, `bus_mask_cover_object_id` and `bus_mask_cover_layer_bits`. It defines
+`BUS_MASK_COVER`, so a shader can test for these helpers and still build against an older
+`bus_mask.h`. A pass ORs the two bit sets, and takes the coverage id where the coverage bits hold
+its bit, since coverage always lies in front of the opaque draw at that pixel:
+
+```hlsl
+uint bits = bus_mask_bits(p) | bus_mask_cover_bits(p);
+uint id1 = (bus_mask_cover_bits(p) & mine) ? bus_mask_cover_object_id(p) : bus_mask_object_id(p);
+```
+
+The coverage targets exist while a compiled pass samples one of them, a forward or hidden bit is
+live and the mask target exists, and each reads `0` while it does not. The coverage id target also
+needs a pass that samples it, and the coverage layer target a pass that samples it and a forward or
+hidden bit on the layer. With no pass sampling a coverage target, forward and hidden meshes draw
+nothing and the hidden walk does not run.
+
 #### Hidden objects
 
 From version `8` on DX10 and DX11, `shader_bus.set_mask_hidden(token, true)` lets a mask reach
 tagged objects the game does not draw, such as an item or a creature a script hid. After the
-main gather each frame the renderer walks the objects holding a hidden bit and draws into the mask
-the ones it drew nowhere this frame:
+main gather each frame the renderer walks the objects holding a hidden bit and draws into the
+coverage targets the ones it drew nowhere this frame:
 - a held item never draws on its own, and an object the frame already drew takes its tag as usual
 - an object outside the view, or in a part of the level the renderer does not reach through
   portals, draws nothing, and the occlusion test hides it unless its bit is also on the layer
@@ -697,8 +720,8 @@ the ones it drew nowhere this frame:
   the pixel
 - bones advance and the object updates as a drawn object does, at any range
 
-Hidden-object tags, their ids and their layer bits draw during the forward pass after lighting, so
-passes see them from the `scene` stage on.
+Hidden-object tags, their ids and their layer bits draw into the coverage targets during the
+forward pass after lighting, so passes see them from the `scene` stage on (see Forward meshes).
 
 #### Per object rows
 
