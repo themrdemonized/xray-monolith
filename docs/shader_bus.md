@@ -555,9 +555,10 @@ These never do:
 
 `set_mask` also takes a particles object. A tagged world particle draws its tag into the particle
 target during the forward pass, before the `scene` stage, where its alpha reaches `0.5`, or for an
-additive particle wherever it adds light, so passes from the `scene` stage on see it. An additive
-particle's tag follows its soft fade where it meets a surface, and an alpha additive one also
-follows its fog. The mask and the id target keep the object behind it. HUD particles take no tag.
+additive particle wherever it adds at least 0.4 of an 8-bit step of light, so passes from the `scene`
+stage on see it. An additive particle's tag follows its soft fade where it meets a surface, and an
+alpha additive one also follows its fog. The mask and the id target keep the object behind it. HUD
+particles take no tag.
 
 A zone's mask bits reach the particle objects the zone creates, from their second frame, and leave
 the ones it keeps when the zone's bits clear. Within 30 m a zone's idle effect follows every frame.
@@ -644,9 +645,10 @@ uint all = bus_mask_bits(p) | bus_mask_particle_bits(p);
 ```
 
 The last tagged particle drawn at a pixel keeps it, with the particle's own depth test and alpha
-`0.5`, or for an additive particle (source weight one or source alpha, destination weight one) any
-light it adds after its soft fade, and for an alpha additive one after its fog. The target exists
-while a compiled pass samples `bus_engine_particle_mask` and a mod holds a live mask bit, under the
+`0.5`, or for an additive particle (source weight one or source alpha, destination weight one) at
+least 0.4 of an 8-bit step of light after its soft fade, and for an alpha additive one after its fog.
+D3D lets a float land on an 8-bit value within 0.6 of a step, so less light never changes a pixel.
+The target exists while a compiled pass samples `bus_engine_particle_mask` and a mod holds a live mask bit, under the
 rules of the mask target, so tagged particles draw into no target while no pass reads them. Including `bus_mask.h` alone samples nothing. `bus_mask_particle_bits` returns
 `0` while the lane's `x` is `0`. A second viewport frame draws no particle tags, and particles draw
 no id and no layer.
