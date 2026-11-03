@@ -94,6 +94,11 @@ SState* CResourceManager::_CreateState(SimulatorStates& state_code)
 	const bool blend = state_code.get_RS(D3DRS_ALPHABLENDENABLE, FALSE) != FALSE;
 	const u32 dst = state_code.get_RS(D3DRS_DESTBLEND, D3DBLEND_ZERO);
 	v_states.back()->bus_additive = blend && dst == D3DBLEND_ONE;
+	const u32 src = state_code.get_RS(D3DRS_SRCBLEND, D3DBLEND_ONE);
+	if (v_states.back()->bus_additive && src == D3DBLEND_ONE)
+		v_states.back()->bus_add_source = SState::bus_add_one;
+	else if (v_states.back()->bus_additive && src == D3DBLEND_SRCALPHA)
+		v_states.back()->bus_add_source = SState::bus_add_alpha;
 	v_states.back()->bus_alpha_blend = blend && dst == D3DBLEND_INVSRCALPHA;
 	v_states.back()->bus_zwrite = state_code.get_RS(D3DRS_ZENABLE, TRUE) != FALSE
 		&& state_code.get_RS(D3DRS_ZFUNC, D3DCMP_LESSEQUAL) != D3DCMP_ALWAYS

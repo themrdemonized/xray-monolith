@@ -63,6 +63,10 @@ static bool bus_mask_begin()
 			T->s_bus_mask = DEV->_CreatePS("bus_mask");
 		if (!T->s_bus_mask_particle)
 			T->s_bus_mask_particle = DEV->_CreatePS("bus_mask_particle");
+		if (!T->s_bus_mask_particle_add)
+			T->s_bus_mask_particle_add = DEV->_CreatePS("bus_mask_particle_add");
+		if (!T->s_bus_mask_particle_alpha_add)
+			T->s_bus_mask_particle_alpha_add = DEV->_CreatePS("bus_mask_particle_alpha_add");
 		if (!T->s_bus_mask_cutout)
 			T->s_bus_mask_cutout = DEV->_CreatePS("bus_mask_cutout");
 		if (!T->s_bus_mask_blend)
@@ -189,10 +193,13 @@ static void bus_mask_apply(u32 tag)
 }
 
 // mask pixel shader and states for a particle, which keeps its own depth test
-static void bus_mask_apply_particle(u32 tag)
+// an additive particle covers where it adds light, any other where its alpha reaches half
+static void bus_mask_apply_particle(u32 tag, const SPass* pass)
 {
 	CRenderTarget* T = RImplementation.Target;
-	RCache.set_PS(T->s_bus_mask_particle);
+	const u8 add = pass->state->bus_add_source;
+	RCache.set_PS(add == SState::bus_add_one ? T->s_bus_mask_particle_add :
+		add == SState::bus_add_alpha ? T->s_bus_mask_particle_alpha_add : T->s_bus_mask_particle);
 	RCache.set_Stencil(FALSE);
 	StateManager.SetBlendState(T->bs_bus_mask);
 	StateManager.SetBlendFactor(tag * (1.f / 16777216.f));

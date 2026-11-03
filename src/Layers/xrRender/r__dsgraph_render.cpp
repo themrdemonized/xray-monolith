@@ -786,13 +786,13 @@ static void bus_leaf_render(R_dsgraph::_MatrixItemS& P)
 	}
 }
 
-// one tagged forward draw into the bound mask target, a particle keeps its alpha clip and a mesh copies its pass coverage
+// one tagged forward draw into the bound mask target, a particle covers what it draws and a mesh copies its pass coverage
 static void bus_forward_draw(R_dsgraph::_MatrixItemS& P, u32 value)
 {
 	RCache.set_Element(P.se);
 	bool moved = false;
 	if (P.pVisual->dcast_ParticleCustom())
-		bus_mask_apply_particle(value);
+		bus_mask_apply_particle(value, P.se->passes[0]._get());
 	else
 		moved = bus_mask_apply_mesh(value, P.se->passes[0]._get());
 	bus_leaf_render(P);

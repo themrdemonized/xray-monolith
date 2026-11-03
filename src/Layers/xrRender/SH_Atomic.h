@@ -100,6 +100,9 @@ struct ECORE_API SState : public xr_resource_flagged
 	SimulatorStates state_code;
 	// blending that keeps all of what is behind, a glow the object mask skips
 	bool bus_additive = false;
+	// the source factor of additive blending a particle mask copies, one or source alpha, else none
+	enum : u8 { bus_add_none, bus_add_one, bus_add_alpha };
+	u8 bus_add_source = bus_add_none;
 	// blending that hides what is behind by source alpha, the object mask drops fully transparent texels
 	bool bus_alpha_blend = false;
 	// the pass tests and writes depth, so a hidden object's own shader can set its coverage

@@ -243,6 +243,8 @@ public:
 	ref_geom& bus_quad() { return g_combine; } // the screen quad geometry, for the bus passes drawn outside the target
 	ref_ps s_bus_mask;
 	ref_ps s_bus_mask_particle;
+	ref_ps s_bus_mask_particle_add;
+	ref_ps s_bus_mask_particle_alpha_add;
 	ref_ps s_bus_mask_cutout;
 	ref_ps s_bus_mask_blend;
 	ID3DBlendState* bs_bus_mask = nullptr;
