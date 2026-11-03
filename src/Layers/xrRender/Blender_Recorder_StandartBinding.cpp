@@ -1694,6 +1694,10 @@ void CBlender_Compile::SetMapping()
 		}
 #endif
 
+		// a constant no stage reads declares no lane
+		if (!C->used)
+			continue;
+
 		if (C->type != RC_float && C->type != RC_uint)
 		{
 			if (C->type == RC_int || C->type == RC_bool)
