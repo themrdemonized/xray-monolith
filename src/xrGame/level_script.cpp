@@ -3041,7 +3041,7 @@ void CLevel::script_register(lua_State* L)
 		def("set_hand_target_enabled", set_hand_target_enabled),
 		def("get_hand_target_enabled", get_hand_target_enabled),
 		def("set_arm_ik_enabled", set_arm_ik_enabled),
-		def("get_arm_ik_enabled", get_arm_ik_enabled)
+		def("get_arm_ik_enabled", get_arm_ik_enabled),
 		def("set_hud_offset", (void (*)(int, int, float, float, float))(set_hud_offset)),
 		def("set_hud_offset", (void (*)(int, int, const Fvector&))(set_hud_offset)),
 		def("get_hud_transform", get_hud_transform)
