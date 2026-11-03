@@ -66,6 +66,23 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	float SSA = CalcSSA(distSQ, Center, pVisual);
 	if (SSA <= r_ssaDISCARD) return;
 
+	// an object the game does not draw goes to the object mask alone
+	if (RI.val_bMaskOnly)
+	{
+		ShaderElement* sh = RI.rimp_select_sh_dynamic(pVisual, distSQ);
+		if (!sh)
+			return;
+		_MatrixItemS& P = (pVisual->dcast_ParticleCustom() ? bus_forward : bus_hidden).emplace_back();
+		P.ssa = SSA;
+		P.pObject = RI.val_pObject;
+		P.pVisual = pVisual;
+		P.Matrix = *RI.val_pTransform;
+		P.se = sh;
+		P.fov = RI.val_fCustomFOV;
+		P.bus_tag = RI.val_busTag;
+		return;
+	}
+
 	// Distortive geometry should be marked and R2 special-cases it
 	// a) Allow to optimize RT order
 	// b) Should be rendered to special distort buffer in another pass
@@ -246,16 +263,19 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #endif
 	if (RI.val_bInvisible) return;
 
-	// a tagged world particle also draws into the object mask after the forward pass
-	if (RI.val_busTag && sh->flags.iPriority / 2 && pVisual->dcast_ParticleCustom() && !pVisual->dcast_ParticleCustom()->GetHudMode())
+	// a tagged world particle or a forward mesh of a mask opened to forward draws also draws into the mask after the forward pass
+	IParticleCustom* bus_particle = pVisual->dcast_ParticleCustom();
+	const u32 bus_tag = bus_particle ? (bus_particle->GetHudMode() ? 0 : RI.val_busTag) : RI.val_busTag & bus_forward_bits;
+	if (bus_tag && RI.phase == CRender::PHASE_NORMAL && sh->flags.iPriority / 2 && !sh->flags.bWmark)
 	{
-		_MatrixItemS& P = bus_particles.emplace_back();
+		_MatrixItemS& P = bus_forward.emplace_back();
 		P.ssa = SSA;
 		P.pObject = RI.val_pObject;
 		P.pVisual = pVisual;
 		P.Matrix = *RI.val_pTransform;
 		P.se = sh;
-		P.bus_tag = RI.val_busTag;
+		P.fov = RI.val_fCustomFOV;
+		P.bus_tag = bus_tag;
 	}
 
 	// strict-sorting selection
@@ -955,7 +975,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			else
 			{
 				pV->CalculateBones(TRUE);
-				if (!get_UI3D()) pV->CalculateWallmarks();
+				if (!get_UI3D() && !val_bMaskOnly) pV->CalculateWallmarks();
 				I = pV->children.begin();
 				E = pV->children.end();
 				for (; I != E; ++I) add_leafs_Dynamic((dxRender_Visual*)*I);

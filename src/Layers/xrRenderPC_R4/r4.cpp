@@ -1070,6 +1070,20 @@ static HRESULT create_shader(
 		{
 			//	Let constant table parse it's data
 			sps_result->constants.parse(pReflection, RC_dest_pixel);
+			// a freshly parsed table is in string order while get() searches by pointer, so scan it
+			const R_constant* b = nullptr;
+			const R_constant* s = nullptr;
+			for (const ref_constant& c : sps_result->constants.table)
+				if (!xr_strcmp(c->name, "s_base"))
+					b = c._get();
+				else if (!xr_strcmp(c->name, "smp_base"))
+					s = c._get();
+			sps_result->bus_base = b && s && b->type == RC_dx10texture && s->type == RC_sampler;
+			if (sps_result->bus_base)
+			{
+				sps_result->bus_base_t = u8(b->samp.index);
+				sps_result->bus_base_s = u8(s->samp.index);
+			}
 
 			_RELEASE(pReflection);
 		}
@@ -1120,6 +1134,10 @@ static HRESULT create_shader(
 
 			//	Let constant table parse it's data
 			svs_result->constants.parse(pReflection, RC_dest_vertex);
+			D3D11_SIGNATURE_PARAMETER_DESC d;
+			svs_result->bus_uv_first = SUCCEEDED(pReflection->GetOutputParameterDesc(0, &d)) &&
+				0 == xr_strcmp(d.SemanticName, "TEXCOORD") && d.SemanticIndex == 0 && d.Register == 0 &&
+				(d.Mask & 3) == 3 && !(d.ReadWriteMask & 3);
 
 			_RELEASE(pReflection);
 		}

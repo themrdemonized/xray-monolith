@@ -170,7 +170,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene`, `backbuffer`, a render target id or its `<id>_prev`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
 | `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB, `engine_mask_objects` not counted. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX10 and DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
 | `shader_bus.set_late(token, on)` | `true` if the token is valid and the lane is not shared. From the next frame on, `true` copies the lane again after the frame callbacks, so a write from those callbacks reaches the same frame's draws, and `false` stops it. The first refusal on each lane logs a line. See Late lanes |
-| `shader_bus.register_target(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id over 27 characters or one the engine reserves, an id another `owner` or another kind of lane holds, a renderer without targets, 16 live targets or targets that would pass 1024 MB. See Render targets and passes |
+| `shader_bus.register_target(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id over 27 characters or one the engine reserves (`heat`, `scene`, `albedo` and `light` among them), an id another `owner` or another kind of lane holds, a renderer without targets, 16 live targets or targets that would pass 1024 MB. See Render targets and passes |
 | `shader_bus.register_pass(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id the engine reserves or another `owner` or kind of lane holds, a renderer without passes, a `cs` pass on a renderer without compute, or 32 live passes. See Render targets and passes |
 | `shader_bus.enable_pass(token, on)` | `true` if the token is a live pass. `false` stops the pass drawing, `true` on a stopped pass runs it again from a fresh start, and a call that does not change the state changes nothing |
 | `shader_bus.release_pass(token)` | `true` if the token is a pass. The pass stops and its slot is free, and the id can be registered again |
@@ -246,7 +246,7 @@ Reads and listing are open to every script. Only the token returned by `register
 
 ### Engine lanes
 
-The engine registers five lanes itself, two on DX9, with the `owner` string `engine`, and fills them every frame once a
+The engine registers six lanes itself, two on DX9, with the `owner` string `engine`, and fills them every frame once a
 shader has declared them, so they cost nothing until one does. The declaration lasts until the
 game exits. Read them in a shader like any lane.
 
@@ -256,7 +256,8 @@ game exits. Read them in a shader like any lane.
 | `engine_sky_open` | `x` is how open the sky is over the view entity, from `0` to `1`, the value `level.rain_hemi()` returns |
 | `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Declaring it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
 | `engine_mask_objects` | a buffer lane, on DX10 and DX11. Row 0 `x` is how many objects hold a live mask bit, and rows 1 to `x` hold one object each, `x, y, z` its position and `w` its live mask bits as a whole number. Declare it as `Buffer<float4>`, see Masks |
-| `engine_mask_ids` | `x` is `1` while the id target holds this frame's object ids, else `0`. Declaring it makes the engine draw the ids, on DX10 and DX11 only (see Object ids) |
+| `engine_mask_ids` | `x` is `1` while the id target holds this frame's object ids, else `0`. The id target exists while a compiled pass samples `bus_engine_object_id`, on DX10 and DX11 only (see Object ids) |
+| `engine_mask_particles` | `x` is `1` while the particle target holds this frame's particle tags, else `0`, on DX10 and DX11 only. Registered when a compiled pass first samples `bus_engine_particle_mask` (see Particle tags) |
 
 ```hlsl
 uniform float4 bus_engine_sun_los;
@@ -429,16 +430,22 @@ uint bits = bus_mask_bits(int2(I.hpos.xy));
 ```
 
 Bits 0 to 9 are the HUD bits below and bits 10 to 23 belong to mods. A pixel holds the tag of the
-last tagged draw whose depth equals the depth buffer there, so only the visible surface counts and
-the tags of two draws never combine. A pixel where nothing tagged drew reads `0`.
+last tagged object draw that passed its depth test there. Among draws that write no depth, such as
+forward meshes and hidden objects, the last drawn keeps the pixel. Tagged particles draw into a
+target of their own (see Particle tags), so the mask keeps the tag of the object behind a particle,
+and a shader combines the two tags of a pixel with `|`. Two object draws never combine in the mask,
+and two particle draws never combine in the particle target. A pixel where nothing tagged drew
+reads `0`.
 
 The target exists while a shader declares `bus_engine_hud_mask` or a mod holds a live mask bit,
 and it needs MSAA off, and `vid_restart` keeps the MSAA the device was created with. With MSAA on
 the engine logs one `!` line and keeps no target, `masks()` returns `false`, `register_mask` still
 returns a token but no tag draws, and without a target the texture reads `0`. The target is cleared
-every frame. The HUD bits draw with the HUD and the world tags right after the G-buffer, so the
-G-buffer's own draws cannot read this frame's tags, while passes from the `gbuffer` stage on and
-the lighting, combine and post shaders can. A pass at half resolution scales its pixel coordinates.
+every frame. The HUD bits draw with the HUD and the world tags of the G-buffer draws right after
+the G-buffer, so the G-buffer's own draws cannot read this frame's tags, while passes from the
+`gbuffer` stage on and the lighting, combine and post shaders can. Forward, sorted and hidden-object
+tags, their ids and their layer bits draw during the forward pass after lighting, so passes see them
+from the `scene` stage on. A pass at half resolution scales its pixel coordinates.
 On the frame the target first appears only the HUD bits draw, so a bit registered and set in the
 same frame shows on the world from the second frame after the call. A second viewport frame, such
 as a scope view, draws no world tags.
@@ -515,6 +522,8 @@ bit from the lane and tests it against the mask.
 | `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back while the bit is held. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
 | `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object, a `ScriptAttachment` or a particles object. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. `nil`, a released token or the token of a lane that is not a mask returns `false`, and the first refusal on each lane logs a line |
 | `shader_bus.set_mask_layer(token, on)` | `true` if the token holds a live bit. From the next frame on `true` puts its bit on the mask layer and `false` takes it off. A released token returns `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts off the layer |
+| `shader_bus.set_mask_forward(token, on)` | `true` if the token holds a live bit. From the next frame on `true` lets its bit reach the forward and sorted mesh draws of tagged objects and `false` stops it (see Forward meshes). The token of a lane that is not a mask and a released token return `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts closed |
+| `shader_bus.set_mask_hidden(token, on)` | `true` if the token holds a live bit. From the next frame on `true` lets its bit reach tagged objects the game does not draw and `false` stops it (see Hidden objects). The token of a lane that is not a mask and a released token return `false`, and the first refusal on each lane logs a line. A bit released and handed out again starts closed |
 | `shader_bus.get_mask(obj)` | the live mask bits `obj` carries, `0` for none or `nil` |
 | `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere, every object that carried it loses it, the lane reads `0`, and the bit returns to the pool, so `register_mask` can hand it out again inside the level. Until that frame, `register_mask` with the same id and `owner` takes it back with the objects that still carry it |
 
@@ -528,16 +537,32 @@ These draws carry an object's tag, its live bits together:
 - the opaque dynamic draws of a game object or a level root attachment the renderer draws, in the
   main pass
 - an attachment parented to it and an item it holds, with their own bits added to its bits
+- the forward and sorted mesh draws of a tagged object whose mask opts in with `set_mask_forward`,
+  which draw their tag, id and layer bits during the forward pass with their own depth test and the
+  element's own coverage. An element whose pixel shader title holds `_aref` clips where that shader
+  clips, at `def_aref`. An alpha-blended element drops only fully transparent texels, an opaque one
+  covers its triangles, and an additive element (destination weight one) draws none. A vertex
+  layout the mask cannot sample from covers its triangles
 
 These never do:
 - level geometry and other static draws, water, grass and details
-- translucent and sorted draws, emissive and distortion draws, wallmarks and the forward pass
+- forward and sorted meshes of a mask that has not opted in with `set_mask_forward`, and additive
+  elements
+- wallmarks
 - shadows
-- an object the renderer culls, so a fully hidden object draws no tag in the mask (see Mask layer)
+- an object the renderer culls, and an object the game does not draw unless its mask opts in (see
+  Hidden objects)
 
-`set_mask` also takes a particles object. A tagged world particle draws its tag during the forward
-pass, before the `scene` stage, where its alpha reaches `0.5`, over the tag of whatever is behind
-it, so passes from the `scene` stage on see it. HUD particles take no tag.
+`set_mask` also takes a particles object. A tagged world particle draws its tag into the particle
+target during the forward pass, before the `scene` stage, where its alpha reaches `0.5`, so passes
+from the `scene` stage on see it. The mask and the id target keep the object behind it. HUD
+particles take no tag.
+
+A zone's mask bits reach the particle objects the zone creates, from their second frame, and leave
+the ones it keeps when the zone's bits clear. Within 30 m a zone's idle effect follows every frame.
+Beyond it, and for a campfire's on and off effects at any range, they follow per update tick, about
+300 ms at 30 m at 60 fps and longer with distance, so a shorter pulse can miss them. The engine holds these copies:
+they get no row in `engine_mask_objects` and the lane's `objects` count leaves them out. Effects the zone plays on a victim take none.
 
 A shader reads every object that holds a live bit through the engine lane `engine_mask_objects`,
 which the engine fills once a shader declares it:
@@ -583,10 +608,10 @@ uint id1 = bus_mask_object_id(int2(I.hpos.xy)); // 0 for none, else the object's
 The ids draw with the world tags, from the same draws and the same depth test, so a pixel's id
 belongs to the draw whose tag the mask holds. An item an object holds and an attachment parented
 to it draw that object's id. A level root attachment, particles and HUD draws draw none, and where
-a tagged particle covers a tagged object the mask holds the particle's tag and this target the
-object's id. The target exists while a shader declares `bus_engine_mask_ids` and a mod holds a
-live mask bit, under the rules of the mask target, and every tagged world draw of a game object
-draws a second time into it. `bus_mask_object_id` reads the lane, so a shader that calls it
+a tagged particle covers a tagged object the mask and this target keep the object's tag and id,
+and the particle target holds the particle's tag. The target exists while a compiled pass samples
+`bus_engine_object_id` and a mod holds a live mask bit, under the rules of the mask target, and
+every tagged world draw of a game object draws a second time into it. `bus_mask_object_id` reads the lane, so a shader that calls it
 declares it, and returns `0` while the lane's `x` is `0`.
 
 A full screen pass reads an object's own values through the id. The mod keeps a buffer lane with a
@@ -605,6 +630,23 @@ float4 mark = id1 ? bus_mymarks.Load(id1 - 1) : 0;
 ```
 
 The rows belong to the mod, which clears an object's row when the object goes.
+
+#### Particle tags
+
+From version `8` on DX10 and DX11, `Texture2D<float> bus_engine_particle_mask` holds the tags of
+tagged world particles as tag × 2^-24, `0` where none drew. `bus_mask.h` declares it and decodes a
+pixel with `bus_mask_particle_bits`:
+
+```hlsl
+uint all = bus_mask_bits(p) | bus_mask_particle_bits(p);
+```
+
+The last tagged particle drawn at a pixel keeps it, with the particle's own depth test and alpha
+`0.5`. The target exists while a compiled pass samples `bus_engine_particle_mask` and a mod holds a
+live mask bit, under the rules of the mask target, so tagged particles draw into no target while
+no pass reads them. Including `bus_mask.h` alone samples nothing. `bus_mask_particle_bits` returns
+`0` while the lane's `x` is `0`. A second viewport frame draws no particle tags, and particles draw
+no id and no layer.
 
 #### Mask layer
 
@@ -630,6 +672,33 @@ The layer still leaves out an object outside the view and one in a part of the l
 does not reach through portals. The target exists while a bit on the layer is live and the mask
 target exists. A second viewport frame draws no layer. Particles draw none, and a particles object
 with a bit on the layer stays out of the frame when occlusion hides it.
+
+#### Forward meshes
+
+From version `8` on DX10 and DX11, `shader_bus.set_mask_forward(token, true)` opens a mask to the
+forward and sorted mesh draws of the objects that hold its bit, such as glass, cloaks and glowing
+parts, which otherwise draw no tag. The opt-in is per mask, and tagged particles draw their tags
+with or without it. Each element draws with its own depth test and the depth write off, so among
+draws that write no depth the last drawn keeps the pixel. Passes see these tags from the `scene`
+stage on.
+
+#### Hidden objects
+
+From version `8` on DX10 and DX11, `shader_bus.set_mask_hidden(token, true)` lets a mask reach
+tagged objects the game does not draw, such as an item or a creature a script hid. After the
+main gather each frame the renderer walks the objects holding a hidden bit and draws into the mask
+the ones it drew nowhere this frame:
+- a held item never draws on its own, and an object the frame already drew takes its tag as usual
+- an object outside the view, or in a part of the level the renderer does not reach through
+  portals, draws nothing, and the occlusion test hides it unless its bit is also on the layer
+- the 16 nearest draw, and past that the farthest draw no mask and the log gets one `!` line per
+  session
+- the draws write no depth, so where two hidden objects overlap the last drawn, the nearer, keeps
+  the pixel
+- bones advance and the object updates as a drawn object does, at any range
+
+Hidden-object tags, their ids and their layer bits draw during the forward pass after lighting, so
+passes see them from the `scene` stage on.
 
 #### Per object rows
 
@@ -1062,6 +1131,8 @@ The single outputs are:
   leaves its alpha, the gloss, as it was (`none` replaces the colour, `add` and `alpha` combine with it)
 - `"light"` on a `lighting` pass with blend `add` or `alpha`, which blends into the light
   accumulation (see Stages)
+- `"heat"` on a `scene` pass, which draws into `$user$heat` with the pass's `blend`, after the
+  G-buffer and the forward draws wrote their heat. It is refused under MSAA
 - on a `cs` pass, one buffer lane of the owner
 
 A pass shader compiles with the defines the renderer gives its stock shaders, `SHADER_BUS`,
@@ -1105,6 +1176,7 @@ the log, and it draws nothing. The reasons are:
 - a constant the pass binds as a texture is not a texture, or an `smp_` constant is not a sampler
 - a `cs` pass writes `"scene"`, or an `svp` pass writes a history target
 - a `lighting` pass writes `"light"` under `-r4xx`, which emulates a GPU that cannot blend 16-bit float targets
+- a pass writes `"heat"` with MSAA on, or reads the heat target it writes
 - a `cs` shader does not declare each output as a `RWTexture2D` or `RWBuffer` called `bus_<id>`
 - a `cs` pass declares its buffer lane as anything but `RWBuffer<float4>` for a float lane, or
   `RWBuffer<uint4>` or `RWBuffer<uint>` for a uint lane

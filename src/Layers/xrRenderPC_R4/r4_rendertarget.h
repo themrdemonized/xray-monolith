@@ -234,8 +234,14 @@ public:
 	ref_rt rt_bus_mask; // shader bus mask, R32F, tag times 2^-24
 	ref_rt rt_bus_object_id; // shader bus object ids, R32F, id + 1 times 2^-24
 	ref_rt rt_bus_mask_layer; // shader bus mask layer, R32F, layer bits times 2^-24
+	ref_rt rt_bus_particle_mask; // shader bus particle tags, R32F, tag times 2^-24
+	ref_rt rt_bus_hidden_depth; // shader bus hidden coverage depth, D24S8, the scene depth and hidden tagged objects
+	ref_shader s_bus_hidden_resolve; // the scene depth into the hidden coverage depth inside a rectangle
+	ref_geom& bus_quad() { return g_combine; } // the screen quad geometry, for the bus passes drawn outside the target
 	ref_ps s_bus_mask;
 	ref_ps s_bus_mask_particle;
+	ref_ps s_bus_mask_cutout;
+	ref_ps s_bus_mask_blend;
 	ID3DBlendState* bs_bus_mask = nullptr;
 
 	ref_shader s_ssfx_dumb;

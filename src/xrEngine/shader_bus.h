@@ -260,6 +260,16 @@ namespace ShaderBus
 	ENGINE_API u32 register_shared(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
 	// a lane the engine fills, scripts cannot register ids starting engine_
 	ENGINE_API u32 register_engine(LPCSTR id, LPCSTR description);
+	// records an engine texture a compiled pass samples, the particle tag lane registers on its first bind
+	ENGINE_API void note_texture(LPCSTR hlsl_name);
+	// counts a pass that samples an engine texture as the renderer creates or releases it
+	ENGINE_API void count_pass_texture(LPCSTR hlsl_name, bool live);
+	// true while a live pass samples the object id target
+	ENGINE_API bool samples_object_ids();
+	// true while a live pass samples the particle target
+	ENGINE_API bool samples_particles();
+	// the particle tag lane, 0 until a compiled pass samples the particle target
+	ENGINE_API u32 particle_lane();
 	// true once a shader declares the lane the token writes
 	ENGINE_API bool declared(u32 token);
 	ENGINE_API bool set(u32 token, float x, float y, float z, float w);
@@ -350,14 +360,23 @@ namespace ShaderBus
 	ENGINE_API bool set_mask(u32 token, IRenderable* object, bool on);
 	// the object's mask bits that are live
 	ENGINE_API u32 get_mask(const IRenderable* object);
+	// queues writes so the target holds the source's mask bits from the next frame on, none with no source
+	// the target holds them for the engine, outside the object listing and the lane counts
+	ENGINE_API void copy_mask(const IRenderable* from, IRenderable* to);
 	// drops the bit from the next frame on, when it leaves every object and returns to the pool
 	ENGINE_API bool release_mask(u32 token);
-	// object mask bits as of the last per-frame update, and the layer bits among them when asked
-	ENGINE_API u32 mask_live_bits(u32* layer = nullptr);
+	// object mask bits as of the last per-frame update, and the layer and hidden bits among them when asked
+	ENGINE_API u32 mask_live_bits(u32* layer = nullptr, u32* hidden = nullptr, u32* forward = nullptr);
 	// true for an object holding an item with a layer bit, as of the last per-frame update
 	ENGINE_API bool layer_root(const IRenderable* object);
 	// puts the token's mask bit on the layer or takes it off, from the next frame on
 	ENGINE_API bool set_mask_layer(u32 token, bool on);
+	// lets the token's mask bit reach tagged objects the game does not draw, or stops it, from the next frame on
+	ENGINE_API bool set_mask_hidden(u32 token, bool on);
+	// opens the token's bit to forward and sorted meshes or closes it from the next frame
+	ENGINE_API bool set_mask_forward(u32 token, bool on);
+	// the objects holding any of the bits, copied under the bus lock
+	ENGINE_API void mask_holders(u32 bits, xr_vector<IRenderable*>& out);
 	// the object mask bit a token holds, parked or live, -1 for none
 	ENGINE_API int mask_bit(u32 token);
 	// arms a w by h block centred at x, y in 0..1 of light, scene or backbuffer, an empty source disarms
