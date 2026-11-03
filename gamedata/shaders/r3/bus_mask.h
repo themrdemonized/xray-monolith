@@ -11,6 +11,14 @@ uint bus_mask_object_id(int2 p) { return bus_engine_mask_ids.x > 0 ? (uint)(bus_
 // mask layer, the layer bits of tagged draws with no depth test, times 2^-24
 Texture2D<float> bus_engine_mask_layer;
 uint bus_mask_layer_bits(int2 p) { return (uint)(bus_engine_mask_layer.Load(int3(p, 0)) * 16777216.0); }
+// coverage targets, the tags, ids and layer bits of tagged forward and hidden draws, read beside the targets above
+#define BUS_MASK_COVER 1
+Texture2D<float> bus_engine_cover_mask;
+uint bus_mask_cover_bits(int2 p) { return (uint)(bus_engine_cover_mask.Load(int3(p, 0)) * 16777216.0); }
+Texture2D<float> bus_engine_cover_object_id;
+uint bus_mask_cover_object_id(int2 p) { return (uint)(bus_engine_cover_object_id.Load(int3(p, 0)) * 16777216.0); }
+Texture2D<float> bus_engine_cover_layer;
+uint bus_mask_cover_layer_bits(int2 p) { return (uint)(bus_engine_cover_layer.Load(int3(p, 0)) * 16777216.0); }
 // particle tag target, the tags of tagged world particles times 2^-24, 0 where none drew
 Texture2D<float> bus_engine_particle_mask;
 // x is 1 while the particle target holds this frame's particle tags, a pass that samples bus_engine_particle_mask makes the engine draw them
