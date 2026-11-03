@@ -151,7 +151,8 @@ void CWeaponMagazined::Load(LPCSTR section)
 	m_sSndShotCurrent = IsSilencerAttached() ? "sndSilencerShot" : "sndShot";
 
 	//звуки и партиклы глушителя, еслит такой есть
-	if (m_eSilencerStatus == ALife::eAddonAttachable || m_eSilencerStatus == ALife::eAddonPermanent)
+	if (m_eSilencerStatus == ALife::eAddonAttachable || m_eSilencerStatus == ALife::eAddonPermanent ||
+		!m_bUseEngineAttachments)
 	{
 		if (pSettings->line_exist(section, "silencer_flame_particles"))
 			m_sSilencerFlameParticles = pSettings->r_string(section, "silencer_flame_particles");
@@ -920,7 +921,7 @@ void CWeaponMagazined::OnShot()
 #ifdef EXTENDED_WEAPON_CALLBACKS
 	CGameObject* object = smart_cast<CGameObject*>(H_Parent());
 	if (object)
-		object->callback(GameObject::eOnWeaponFired)(object->lua_game_object(), this->lua_game_object(), iAmmoElapsed);
+		object->callback(GameObject::eOnWeaponFired)(object->lua_game_object(), this->lua_game_object(), iAmmoElapsed, 0, *m_ammoTypes[m_ammoType], 0);
 #endif
 
 	// Эффект сдвига (отдача)
@@ -1512,6 +1513,9 @@ bool CWeaponMagazined::Detach(const char* item_section_name, bool b_spawn_item)
 extern int scope_2dtexactive; //crookr
 void CWeaponMagazined::InitAddons()
 {
+	if (!m_bUseEngineAttachments)
+		return;
+
 	if (IsScopeAttached())
 	{
 		shared_str scope_tex_name;
@@ -2086,7 +2090,8 @@ bool CWeaponMagazined::install_upgrade_impl(LPCSTR section, bool test)
 	}
 	result |= result2;
 
-	if (m_eSilencerStatus == ALife::eAddonAttachable || m_eSilencerStatus == ALife::eAddonPermanent)
+	if (m_eSilencerStatus == ALife::eAddonAttachable || m_eSilencerStatus == ALife::eAddonPermanent ||
+		!m_bUseEngineAttachments)
 	{
 		result |= process_if_exists_set(section, "silencer_flame_particles", &CInifile::r_string,
 		                                m_sSilencerFlameParticles, test);

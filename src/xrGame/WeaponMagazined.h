@@ -96,6 +96,11 @@ public:
 		return this;
 	}
 
+	void SetShootSound(LPCSTR s)
+	{
+		m_sSndShotCurrent = s;
+	}
+
 	virtual void SetDefaults();
 	virtual void FireStart();
 	virtual void FireEnd();

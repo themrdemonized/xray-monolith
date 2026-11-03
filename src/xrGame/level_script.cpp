@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "pch_script.h"
+#include "../xrEngine/LightAnimLibrary.h"
 #include "level.h"
 #include "actor.h"
 #include "script_game_object.h"
@@ -1057,6 +1058,11 @@ void remove_hud_motion_cam_effectors()
 		actor->Cameras().RemoveHudMotionEffectors();
 }
 
+bool is_demo_record()
+{
+    return g_pGameLevel->Cameras().GetCamEffector(ECamEffectorType::cefDemo);
+}
+
 float get_snd_volume()
 {
 	return psSoundVFactor;
@@ -1671,6 +1677,23 @@ void hud_adj_offs(int off, int idx, float x, float y, float z)
 		g_player_hud->m_adjust_offset[off][idx].set(x, y, z);
 }
 
+void set_hud_offset(int type, int idx, float x, float y, float z)
+{
+	attachable_hud_item * hi = g_player_hud->attached_item(0);
+	if (hi)
+		hi->m_measures.m_hands_offset[type][idx].set(x, y, z);
+}
+
+void set_hud_offset(int type, int idx, const Fvector& offs)
+{
+    set_hud_offset(type, idx, offs.x, offs.y, offs.z);
+}
+
+Fmatrix get_hud_transform()
+{
+	return g_player_hud->m_transform_2;
+}
+
 #include "Inventory.h"
 #include "Weapon.h"
 
@@ -2236,6 +2259,11 @@ void prefetch_model(LPCSTR name)
 {
 	::Render->models_PrefetchOne(name);
 }
+
+bool model_prefetched(LPCSTR name)
+{
+    return ::Render->models_Exists(name, true);
+}
 #endif
 //-Alundaio
 
@@ -2565,6 +2593,10 @@ void take_screenshot(LPCSTR path, Fvector2 dimensions, IRender_interface::DxEnco
 	Render->TakeScreenshot(path, dimensions, dx_encoding);
 }
 
+bool TopInputReceiver()
+{
+	return CurrentGameUI() && CurrentGameUI()->TopInputReceiver();
+}
 
 #pragma optimize("s",on)
 
@@ -2695,6 +2727,79 @@ void set_hand_motion_marks(LPCSTR name, ::luabind::object table)
 void set_part_cycle_time(u8 part, float time, float set_time)
 {
 	g_player_hud->set_part_cycle_time(part, time, set_time);
+}
+
+// lucy: getters and setters for first person hands IK
+// Bone IDs 0-20 use the left-hand skeleton; higher IDs use the right-hand skeleton.
+Fmatrix hands_bone_anim_pos(u16 bone_id)
+{
+	Fmatrix res;
+	res.identity();
+	if (!g_player_hud) return res;
+
+	IKinematicsAnimated* model = bone_id > 20 ? g_player_hud->m_model : g_player_hud->m_model_2;
+	if (model)
+	{
+		IKinematics* skeleton = model->dcast_PKinematics();
+		if (skeleton && bone_id < skeleton->LL_BoneCount())
+			skeleton->Bone_GetAnimPos(res, bone_id, u8(-1), true);
+	}
+
+	return res;
+}
+
+// 0 = right hand, 1 = left hand
+void set_hand_target_transform(u8 hand, Fmatrix transform)
+{
+	if (!g_player_hud || hand > 1) return;
+	const u8 ik_id = hand == 0 ? 7 : 3;
+
+	g_player_hud->m_ik_transforms[ik_id].first = transform;
+	g_player_hud->m_ik_transforms[ik_id].second = true;
+}
+
+// 0 = right hand, 1 = left hand
+void set_hand_target_enabled(u8 hand, bool state)
+{
+	if (!g_player_hud || hand > 1) return;
+	const u8 ik_id = hand == 0 ? 7 : 3;
+
+	g_player_hud->m_ik_transforms[ik_id].second = state;
+}
+
+// 0 = right hand, 1 = left hand
+bool get_hand_target_enabled(u8 hand)
+{
+	if (!g_player_hud || hand > 1) return false;
+	const u8 ik_id = hand == 0 ? 7 : 3;
+
+	return g_player_hud->m_ik_transforms[ik_id].second;
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void set_arm_ik_enabled(u8 hand, bool enabled)
+{
+	if (g_player_hud) g_player_hud->set_arm_ik_enabled(hand, enabled);
+}
+
+// 0 = right hand, 1 = left hand
+bool get_arm_ik_enabled(u8 hand)
+{
+	return g_player_hud && hand < 2 && g_player_hud->m_arm_ik[1 - hand].enabled;
+}
+
+::luabind::object list_lanims()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	int i = 1;
+	for (auto& item : LALib.Items)
+	{
+		table[i] = *item->cName;
+		++i;
+	}
+
+	return table;
 }
 
 void CLevel::script_register(lua_State* L)
@@ -2938,6 +3043,7 @@ void CLevel::script_register(lua_State* L)
             def("get_pp_effector_factor", &get_pp_effector_factor),
             def("get_pp_effector_length", &get_pp_effector_length),
             def("check_pp_effector", &check_pp_effector),
+			def("is_demo_record", &is_demo_record),
 
 			def("add_complex_effector", &add_complex_effector),
 			def("remove_complex_effector", &remove_complex_effector),
@@ -3056,7 +3162,16 @@ void CLevel::script_register(lua_State* L)
 		def("enabled", hud_adj_state),
 		def("set_vector", hud_adj_offs),
 		def("set_value", hud_adj_value),
-		def("remove_hud_model", remove_hud_model)
+		def("remove_hud_model", remove_hud_model),
+		def("hands_bone_anim_pos", hands_bone_anim_pos),
+		def("set_hand_target_transform", set_hand_target_transform),
+		def("set_hand_target_enabled", set_hand_target_enabled),
+		def("get_hand_target_enabled", get_hand_target_enabled),
+		def("set_arm_ik_enabled", set_arm_ik_enabled),
+		def("get_arm_ik_enabled", get_arm_ik_enabled),
+		def("set_hud_offset", (void (*)(int, int, float, float, float))(set_hud_offset)),
+		def("set_hud_offset", (void (*)(int, int, const Fvector&))(set_hud_offset)),
+		def("get_hud_transform", get_hud_transform)
 	];
 
 	module(L, "relation_registry")
@@ -3145,7 +3260,9 @@ void CLevel::script_register(lua_State* L)
 		def("actor_lower_weapon", actor_set_safemode),
 		def("prefetch_texture", prefetch_texture),
 		def("prefetch_model", prefetch_model),
+		def("model_prefetched", model_prefetched),
 		def("get_visual_userdata", GetVisualUserdata),
+		def("list_lanims", list_lanims),
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
 		def("world2ui_many", world2ui_many),
@@ -3153,7 +3270,7 @@ void CLevel::script_register(lua_State* L)
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector&, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
-		
+		def("top_input_receiver", TopInputReceiver),
 		// demonized: adjust game news time
 		def("change_game_news_show_time", &change_game_news_show_time),
 		def("update_pda_news_from_uiwindow", &update_pda_news_from_uiwindow),
