@@ -555,6 +555,8 @@ u32 ShaderBus::register_engine(LPCSTR id, LPCSTR description)
 // live passes that sample the id target and the particle target
 static u32 g_bus_ids_passes = 0;
 static u32 g_bus_particle_passes = 0;
+// live passes that sample the coverage mask, ids and layer
+static u32 g_bus_cover_passes[3] = {};
 static u32 g_bus_particle_lane = 0;
 
 void ShaderBus::note_texture(LPCSTR hlsl_name)
@@ -574,6 +576,12 @@ void ShaderBus::count_pass_texture(LPCSTR hlsl_name, bool live)
 		passes = &g_bus_ids_passes;
 	else if (0 == xr_strcmp(hlsl_name, "bus_engine_particle_mask"))
 		passes = &g_bus_particle_passes;
+	else if (0 == xr_strcmp(hlsl_name, "bus_engine_cover_mask"))
+		passes = &g_bus_cover_passes[0];
+	else if (0 == xr_strcmp(hlsl_name, "bus_engine_cover_object_id"))
+		passes = &g_bus_cover_passes[1];
+	else if (0 == xr_strcmp(hlsl_name, "bus_engine_cover_layer"))
+		passes = &g_bus_cover_passes[2];
 	if (!passes)
 		return;
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -593,6 +601,13 @@ bool ShaderBus::samples_particles()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	return g_bus_particle_passes != 0;
+}
+
+u32 ShaderBus::samples_cover()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return (g_bus_cover_passes[0] ? cover_mask : 0) | (g_bus_cover_passes[1] ? cover_ids : 0) |
+		(g_bus_cover_passes[2] ? cover_layer : 0);
 }
 
 u32 ShaderBus::particle_lane()

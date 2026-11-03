@@ -268,6 +268,14 @@ namespace ShaderBus
 	ENGINE_API bool samples_object_ids();
 	// true while a live pass samples the particle target
 	ENGINE_API bool samples_particles();
+	// coverage targets a live pass samples, as bits
+	enum : u32
+	{
+		cover_mask = 1,
+		cover_ids = 2,
+		cover_layer = 4
+	};
+	ENGINE_API u32 samples_cover();
 	// the particle tag lane, 0 until a compiled pass samples the particle target
 	ENGINE_API u32 particle_lane();
 	// true once a shader declares the lane the token writes

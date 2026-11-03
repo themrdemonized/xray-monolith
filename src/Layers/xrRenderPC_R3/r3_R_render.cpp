@@ -236,7 +236,7 @@ void CRender::Render()
 	bus_live_bits = ShaderBus::mask_live_bits(&bus_layer_bits, &bus_hidden_bits, &bus_forward_bits);
 	if (!Target->rt_bus_mask_layer || Device.m_SecondViewport.IsSVPFrame())
 		bus_layer_bits = 0;
-	if (!Target->rt_bus_mask || Device.m_SecondViewport.IsSVPFrame())
+	if (!Target->rt_bus_cover_mask || Device.m_SecondViewport.IsSVPFrame())
 	{
 		bus_hidden_bits = 0;
 		bus_forward_bits = 0;
