@@ -321,6 +321,18 @@ void dx10StateManager::SetDepthEnable(u32 Enable)
 	}
 }
 
+void dx10StateManager::SetDepthWriteEnable(u32 Enable)
+{
+	ValidateDSDesc();
+
+	const bool write = m_DSDesc.DepthWriteMask != D3D_DEPTH_WRITE_MASK_ZERO;
+	if (write != !!Enable)
+	{
+		m_bDSSChanged = true;
+		m_DSDesc.DepthWriteMask = Enable ? D3D_DEPTH_WRITE_MASK_ALL : D3D_DEPTH_WRITE_MASK_ZERO;
+	}
+}
+
 void dx10StateManager::SetColorWriteEnable(u32 WriteMask)
 {
 	ValidateBDesc();

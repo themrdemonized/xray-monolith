@@ -154,6 +154,14 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 				break; // exit loop on frustums
 			}
 		}
+		// tagged objects the frame drew nowhere are culled while occlusion is live and join the forward mask draw
+		if (bus_hidden_bits && phase == PHASE_NORMAL)
+		{
+			if (pmask[0] && !pmask[1])
+				r_dsgraph_collect_bus_hidden();
+			else if (pmask[1])
+				r_dsgraph_add_bus_hidden();
+		}
 		if (g_pGameLevel && (phase == PHASE_NORMAL))
 		{
 			g_hud->Render_Last(); // HUD
@@ -232,9 +240,14 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
-	bus_live_bits = ShaderBus::mask_live_bits(&bus_layer_bits);
+	bus_live_bits = ShaderBus::mask_live_bits(&bus_layer_bits, &bus_hidden_bits, &bus_forward_bits);
 	if (!Target->rt_bus_mask_layer || Device.m_SecondViewport.IsSVPFrame())
 		bus_layer_bits = 0;
+	if (!Target->rt_bus_mask || Device.m_SecondViewport.IsSVPFrame())
+	{
+		bus_hidden_bits = 0;
+		bus_forward_bits = 0;
+	}
 
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 
@@ -776,7 +789,7 @@ void CRender::render_forward()
 		r_dsgraph_render_graph(1); // normal level, secondary priority
 		PortalTraverser.fade_render(); // faded-portals
 		r_dsgraph_render_sorted(); // strict-sorted geoms
-		r_dsgraph_render_bus_particles();
+		r_dsgraph_render_bus_forward();
 		//g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 	}
 
