@@ -260,14 +260,14 @@ namespace ShaderBus
 	ENGINE_API u32 register_shared(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
 	// a lane the engine fills, scripts cannot register ids starting engine_
 	ENGINE_API u32 register_engine(LPCSTR id, LPCSTR description);
-	// records an engine texture a compiled pass samples, the particle tag lane registers on its first bind
-	ENGINE_API void note_texture(LPCSTR hlsl_name);
 	// counts a pass that samples an engine texture as the renderer creates or releases it
 	ENGINE_API void count_pass_texture(LPCSTR hlsl_name, bool live);
 	// true while a live pass samples the object id target
 	ENGINE_API bool samples_object_ids();
 	// true while a live pass samples the particle target
 	ENGINE_API bool samples_particles();
+	// the particle tag lane, 0 until a shader declares it
+	ENGINE_API u32 particle_lane();
 	// coverage targets a live pass samples, as bits
 	enum : u32
 	{
@@ -276,8 +276,6 @@ namespace ShaderBus
 		cover_layer = 4
 	};
 	ENGINE_API u32 samples_cover();
-	// the particle tag lane, 0 until a compiled pass samples the particle target
-	ENGINE_API u32 particle_lane();
 	// true once a shader declares the lane the token writes
 	ENGINE_API bool declared(u32 token);
 	ENGINE_API bool set(u32 token, float x, float y, float z, float w);
