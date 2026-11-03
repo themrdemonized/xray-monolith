@@ -232,6 +232,7 @@ void R_constant_table::merge(R_constant_table* T)
 			C->dimension = src->dimension;
 			C->return_type = src->return_type;
 			C->components = src->components;
+			C->used = src->used;
 			table_tmp.push_back(C);
 		}
 		else
@@ -253,6 +254,7 @@ void R_constant_table::merge(R_constant_table* T)
 			VERIFY2(!(C->destination&src->destination&RC_dest_sampler),
 			        "Can't have samplers or textures with the same name for PS, VS and GS.");
 			C->destination |= src->destination;
+			C->used |= src->used;
 			VERIFY(C->type == src->type);
 			R_constant_load& sL = src->get_load(src->destination);
 			R_constant_load& dL = C->get_load(src->destination);

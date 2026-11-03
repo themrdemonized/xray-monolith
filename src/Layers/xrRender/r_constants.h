@@ -123,6 +123,8 @@ struct ECORE_API R_constant : public xr_resource
 	u8 dimension = 0;
 	u8 return_type = 0;
 	u8 components = 0;
+	// false while no stage reads the constant, which only DX10 and DX11 reflection reports
+	bool used = true;
 
 	R_constant_load ps;
 	R_constant_load vs;

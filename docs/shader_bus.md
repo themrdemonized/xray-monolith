@@ -25,7 +25,9 @@ uniform float4 bus_myeffect;
 
 That is all. When the pass compiles, the renderer sees the name in the reflected constant table
 and attaches a binder that writes the lane's current bound value on every constant table switch.
-The part of the name after `bus_` is the lane id, so `bus_myeffect` is the lane `myeffect`.
+The part of the name after `bus_` is the lane id, so `bus_myeffect` is the lane `myeffect`. On
+DX10 and DX11 a shader declares only the `bus_` constants it reads, so a header included for one
+lane declares none of its others.
 
 A lane binds a `float`, `float2`, `float3` or `float4`. On DX10 and DX11 it also binds an array
 of those, a `float4x4`, `float3x4` or `float2x4` matrix, or an array of matrices, as rows of 16
@@ -254,7 +256,7 @@ game exits. Read them in a shader like any lane.
 |---|---|
 | `engine_sun_los` | `x` is `1` when nothing blocks a ray of 500 m from the camera toward the sun, else `0` |
 | `engine_sky_open` | `x` is how open the sky is over the view entity, from `0` to `1`, the value `level.rain_hemi()` returns |
-| `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Declaring it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
+| `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Reading it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
 | `engine_mask_objects` | a buffer lane, on DX10 and DX11. Row 0 `x` is how many objects hold a live mask bit, and rows 1 to `x` hold one object each, `x, y, z` its position and `w` its live mask bits as a whole number. Declare it as `Buffer<float4>`, see Masks |
 | `engine_mask_ids` | `x` is `1` while the id target holds this frame's object ids, else `0`. The id target exists while a compiled pass samples `bus_engine_object_id`, on DX10 and DX11 only (see Object ids). The engine writes it only while a shader declares it, so `shader_bus.get` and the monitor read `0` until one does |
 | `engine_mask_particles` | `x` is `1` while the particle target holds this frame's particle tags, else `0`. The particle target exists while a compiled pass samples `bus_engine_particle_mask`, on DX10 and DX11 only (see Particle tags). The engine registers the lane when a shader first declares it, so a boot with no reader lists nothing |
@@ -476,8 +478,8 @@ as a scope view, draws no world tags.
 `hud_all(p)`, `hud_items(p)` and `hud_actor(p)` test a group at pixel `p`. They read the engine lane
 `bus_engine_hud_mask`, whose `x` is `1` while the target holds this frame's HUD bits, so they are
 `false` while it is `0`, and `hud_mask_live()` tests that alone. The engine draws HUD bits only
-while a shader declares `bus_engine_hud_mask`, as these helpers do, and world tags alone never
-draw them.
+while a shader reads `bus_engine_hud_mask`, as these helpers do, so a shader that tests the bits
+itself reads the lane too. World tags alone never draw them.
 
 `BUS_HUD_LENS` means world depth here. On DX11, a 3D scope lens draws its item's bit with
 `BUS_HUD_LENS` and puts world depth back behind it, so the pixel shows the world through the lens
