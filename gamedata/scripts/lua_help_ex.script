@@ -25,6 +25,7 @@
         allow_accel_during_lookout [0; 1] // flag to allow 'running' speed during left or right lookouts
 
         scale_hud_motion_marks_by_speed [1; 0] // flag to scale motion marks by speed, default is on
+        hud_ik_compensation [0; 1] // Anchor enabled arm IK shoulders to the camera and idle HUD offset. Default: 0
 
         npc_dont_drop_weapons_on_death [0; 1] // flag to disable NPCs dropping weapons on death
 
