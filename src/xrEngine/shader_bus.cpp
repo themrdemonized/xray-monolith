@@ -305,6 +305,8 @@ static void bus_refuse(LPCSTR hlsl_name, LPCSTR reason)
 }
 
 static void bus_bind_cvar(ShaderBus::lane* l, LPCSTR hlsl_name);
+static u32 bus_take_locked(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn, bool share);
+static u32 g_bus_particle_lane = 0;
 
 ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name, u32 rows, u8 kind)
 {
@@ -325,6 +327,10 @@ ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name, u32 rows, u8 kind)
 		return nullptr;
 	if (!l->registered && 0 == strncmp(id, "cvar_", 5))
 		bus_bind_cvar(l, hlsl_name);
+	// the particle tag lane registers once a shader declares it, so a boot with no reader logs nothing new
+	if (!l->registered && 0 == xr_strcmp(id, "engine_mask_particles"))
+		g_bus_particle_lane = bus_take_locked(id, "engine",
+			"x is 1 while the particle target holds this frame's particle tags, else 0", "engine", false, false);
 	l->hlsl = hlsl_name;
 	l->rows_declared = _max(l->rows_declared, rows);
 	l->declared_kinds |= u8(1 << kind);
@@ -557,17 +563,6 @@ static u32 g_bus_ids_passes = 0;
 static u32 g_bus_particle_passes = 0;
 // live passes that sample the coverage mask, ids and layer
 static u32 g_bus_cover_passes[3] = {};
-static u32 g_bus_particle_lane = 0;
-
-void ShaderBus::note_texture(LPCSTR hlsl_name)
-{
-	if (0 == xr_strcmp(hlsl_name, "bus_engine_particle_mask") && !particle_lane())
-	{
-		const u32 token = register_engine("engine_mask_particles", "x is 1 while the particle target holds this frame's particle tags, else 0");
-		xrCriticalSectionGuard guard(&g_bus_lock);
-		g_bus_particle_lane = token;
-	}
-}
 
 void ShaderBus::count_pass_texture(LPCSTR hlsl_name, bool live)
 {
@@ -603,17 +598,17 @@ bool ShaderBus::samples_particles()
 	return g_bus_particle_passes != 0;
 }
 
+u32 ShaderBus::particle_lane()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_particle_lane;
+}
+
 u32 ShaderBus::samples_cover()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	return (g_bus_cover_passes[0] ? cover_mask : 0) | (g_bus_cover_passes[1] ? cover_ids : 0) |
 		(g_bus_cover_passes[2] ? cover_layer : 0);
-}
-
-u32 ShaderBus::particle_lane()
-{
-	xrCriticalSectionGuard guard(&g_bus_lock);
-	return g_bus_particle_lane;
 }
 
 u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
