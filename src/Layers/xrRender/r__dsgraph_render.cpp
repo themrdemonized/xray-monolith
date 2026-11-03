@@ -487,7 +487,7 @@ void CDSGraphManager::r_dsgraph_bus_keep_forward()
 			}
 }
 
-// tagged forward, sorted and hidden items over the object mask and particles over their own target, after queue 1 and the sorted draw
+// tagged forward, sorted and hidden items into the coverage targets and particles into their own target, after queue 1 and the sorted draw
 void CDSGraphManager::r_dsgraph_render_bus_forward()
 {
 	PROF_EVENT("r_dsgraph_render_bus_forward");
@@ -501,6 +501,7 @@ void CDSGraphManager::r_dsgraph_render_bus_forward()
 	for (auto& item : bus_hidden)
 		bus_forward_kind(item, ~0u, meshes, particles);
 	particles = particles && T->rt_bus_particle_mask;
+	meshes = meshes && T->rt_bus_cover_mask;
 	const bool hidden = !bus_hidden.empty() && !bus_hidden_rects.empty() && T->rt_bus_hidden_depth;
 	if (meshes || hidden || particles)
 	{
@@ -509,17 +510,18 @@ void CDSGraphManager::r_dsgraph_render_bus_forward()
 		ID3DDepthStencilView* zb = RCache.get_ZB();
 		if (meshes || hidden)
 		{
+			bus_mask_pass_begin(bus_pass_tag, T->rt_bus_cover_mask->pRT, 0);
 			bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
 			if (hidden)
 			{
 				bus_hidden_depth_resolve(bus_hidden_rects);
-				bus_hidden_depth_pass(bus_hidden, T->rt_bus_mask->pRT);
+				bus_hidden_depth_pass(bus_hidden, T->rt_bus_cover_mask->pRT);
 				bus_hidden_redraw(bus_hidden);
 				RCache.set_ZB(zb);
 			}
-			if (T->rt_bus_object_id)
+			if (T->rt_bus_cover_object_id)
 			{
-				bus_mask_pass_begin(bus_pass_id, T->rt_bus_object_id->pRT, 0);
+				bus_mask_pass_begin(bus_pass_id, T->rt_bus_cover_object_id->pRT, 0);
 				bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
 				if (hidden)
 				{
@@ -528,15 +530,15 @@ void CDSGraphManager::r_dsgraph_render_bus_forward()
 					RCache.set_ZB(zb);
 				}
 			}
-			if (bus_layer_bits)
+			if (bus_layer_bits && T->rt_bus_cover_layer)
 			{
-				bus_mask_pass_begin(bus_pass_layer, T->rt_bus_mask_layer->pRT, bus_layer_bits);
+				bus_mask_pass_begin(bus_pass_layer, T->rt_bus_cover_layer->pRT, bus_layer_bits);
 				bus_forward_walk(bus_forward_packets, bus_forward_sorted, bus_hidden);
 				// hidden leaves on the layer cover through walls, so their depth starts empty
 				if (hidden)
 				{
 					HW.pContext->ClearDepthStencilView(T->rt_bus_hidden_depth->pZRT, D3D_CLEAR_DEPTH, 1.f, 0);
-					bus_hidden_depth_pass(bus_hidden, T->rt_bus_mask_layer->pRT);
+					bus_hidden_depth_pass(bus_hidden, T->rt_bus_cover_layer->pRT);
 					bus_hidden_redraw(bus_hidden);
 				}
 				RCache.set_ZB(zb);
