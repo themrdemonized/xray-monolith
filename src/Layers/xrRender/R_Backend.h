@@ -67,7 +67,10 @@ class ECORE_API R_bus_object
 	void write_defaults();
 
 public:
-	R_bus_object() : drawn(nullptr) { unmap(); }
+	// true while a mask target is bound, so a particle drawn into it keeps its smoothing as the colour draw left it
+	bool redraw;
+
+	R_bus_object() : drawn(nullptr), redraw(false) { unmap(); }
 	void unmap()
 	{
 		count = 0;

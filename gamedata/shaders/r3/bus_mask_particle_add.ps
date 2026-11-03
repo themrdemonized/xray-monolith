@@ -1,0 +1,16 @@
+// object mask for an additive particle, the tag wherever the particle's own shader adds light
+// the particle shader's soft fade, clip and fog run unchanged
+#define main bus_particle_main
+#include "particle.ps"
+#undef main
+
+float main(v2p I) : SV_Target
+{
+	float4 c = bus_particle_main(I);
+#ifdef BUS_ADD_ALPHA
+	c.rgb *= c.a;
+#endif
+	if (max(c.r, max(c.g, c.b)) <= 0)
+		discard;
+	return 1.0;
+}

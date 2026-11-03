@@ -530,7 +530,7 @@ bool ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 				m.velI.set(m.vel);
 				m.sizeI.set(m.size);
 			}
-			else
+			else if (!RCache.bus_object.redraw)
 			{
 				float dt = 1.f-10.f*Device.fTimeDelta;
 				clamp(dt,0.f,0.99f);

@@ -333,13 +333,13 @@ static void bus_leaf_render(const Item& item)
 	item.pVisual->Render(LOD);
 }
 
-// one tagged forward draw into the bound mask target over states already set, a particle keeps its alpha clip and a mesh copies its pass coverage
+// one tagged forward draw into the bound mask target over states already set, a particle covers what it draws and a mesh copies its pass coverage
 template <typename Item>
 static void bus_forward_draw(const Item& item, u32 value)
 {
 	bool moved = false;
 	if (item.pVisual->dcast_ParticleCustom())
-		bus_mask_apply_particle(value);
+		bus_mask_apply_particle(value, item.pSE->passes[0]._get());
 	else
 		moved = bus_mask_apply_mesh(value, item.pSE->passes[0]._get());
 	bus_leaf_render(item);
