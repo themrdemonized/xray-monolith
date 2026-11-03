@@ -550,6 +550,7 @@
     <ClInclude Include="blender_luminance.h" />
     <ClInclude Include="blender_pp_bloom.h" />
     <ClInclude Include="blender_smaa.h" />
+    <ClInclude Include="blender_temporal_aa.h" />
     <ClInclude Include="blender_ssao.h" />
     <ClInclude Include="blender_ss_sunshafts.h" />
     <ClInclude Include="..\..\xrEngine\cl_intersect.h" />
@@ -752,6 +753,7 @@
     <ClCompile Include="blender_luminance.cpp" />
     <ClCompile Include="blender_pp_bloom.cpp" />
     <ClCompile Include="blender_smaa.cpp" />
+    <ClCompile Include="blender_temporal_aa.cpp" />
     <ClCompile Include="blender_ssao.cpp" />
     <ClCompile Include="blender_ss_sunshafts.cpp" />
     <ClCompile Include="ComputeShader.cpp" />
@@ -778,6 +780,7 @@
     <ClCompile Include="r4_rendertarget_phase_accumulator.cpp" />
     <ClCompile Include="r4_rendertarget_phase_bloom.cpp" />
     <ClCompile Include="r4_rendertarget_phase_combine.cpp" />
+    <ClCompile Include="r4_rendertarget_phase_temporal_aa.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdao.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdr10_bloom.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdr10_lens_flare.cpp" />

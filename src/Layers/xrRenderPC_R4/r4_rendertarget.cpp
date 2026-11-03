@@ -19,6 +19,7 @@
 #include "blender_gasmask_drops.h"
 #include "blender_gasmask_dudv.h"
 #include "blender_smaa.h"
+#include "blender_temporal_aa.h"
 #include "blender_blur.h"
 #include "blender_dof.h"
 #include "blender_pp_bloom.h"
@@ -350,6 +351,15 @@ void generate_jitter(DWORD* dest, u32 elem_count)
 CRenderTarget::CRenderTarget()
 {
 	u32 SampleCount = 1;
+	m_temporalFrame = 0;
+	m_temporalMode = 0;
+	m_temporalHistoryValid = false;
+	m_temporalReset = true;
+	m_temporalCurrent.identity();
+	m_temporalPrevious.identity();
+	m_temporalPreviousFull.identity();
+	m_temporalCameraPosition.set(0.f, 0.f, 0.f);
+	m_temporalJitter.set(0.f, 0.f);
 
 	if (ps_r_ssao_mode != 2/*hdao*/)
 		ps_r_ssao = _min(ps_r_ssao, 3);
@@ -416,6 +426,7 @@ CRenderTarget::CRenderTarget()
 	b_heatvision = xr_new<CBlender_heatvision>(); //--DSR-- HeatVision
 	b_lut = xr_new<CBlender_lut>();
 	b_smaa = xr_new<CBlender_smaa>();
+	b_temporal_prepare = xr_new<CBlender_temporal_prepare>();
 
 	// HDR10
 	b_hdr10_bloom_downsample = xr_new<CBlender_hdr10_bloom_downsample>();
@@ -899,6 +910,20 @@ CRenderTarget::CRenderTarget()
 		s_smaa.create(b_smaa, "r3\\smaa");
 	}
 
+	// Native-resolution temporal resolve and history.
+	{
+		u32 w = Device.dwWidth;
+		u32 h = Device.dwHeight;
+		const D3DFORMAT outputFormat = RImplementation.o.dx11_hdr10 ? D3DFMT_A16B16G16R16F : D3DFMT_A8R8G8B8;
+
+		rt_temporal_velocity.create(r4_RT_temporal_velocity, w, h, D3DFMT_G16R16F);
+		rt_temporal_depth.create(r4_RT_temporal_depth, w, h, D3DFMT_R32F);
+		rt_temporal_reactive.create(r4_RT_temporal_reactive, w, h, D3DFMT_L8);
+		rt_temporal_output.create(r4_RT_temporal_output, w, h, outputFormat);
+		rt_temporal_history.create(r4_RT_temporal_history, w, h, outputFormat);
+		s_temporal_prepare.create(b_temporal_prepare, "r3\\temporal_prepare");
+	}
+
 	// TONEMAP
 	{
 		rt_LUM_64.create(r2_RT_luminance_t64, 64, 64, D3DFMT_A16B16G16R16F);
@@ -1379,6 +1404,7 @@ CRenderTarget::~CRenderTarget()
 	xr_delete(b_heatvision); //--DSR-- HeatVision
 	xr_delete(b_lut);
 	xr_delete(b_smaa);
+	xr_delete(b_temporal_prepare);
 
 	// [ SSS Stuff ]
 	xr_delete(b_ssfx_fog_scattering); // SSS MotionBlur
