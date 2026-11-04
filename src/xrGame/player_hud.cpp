@@ -1008,7 +1008,7 @@ void player_hud::update_parkour_ik()
         // Scaling the whole arm instead shrinks it and exposes the sleeve ends.
         Fvector view;
         Device.mView.transform_tiny(view, world);
-        const float depth=view.z;
+        const float depth=view.z, aboveEyes=view.y;
         if (!_valid(view) || _abs(Device.mProjectHud._11) < EPS || _abs(Device.mProjectHud._22) < EPS)
         { arm.valid = false; arm.weight = 0.f; continue; }
         const float sx=Device.mProject._11/Device.mProjectHud._11;
@@ -1064,8 +1064,10 @@ void player_hud::update_parkour_ik()
             // so first-person hands leave the edge exactly when the body's do.
             release=parkour.HandRelease(side==1 ? 0 : 1); // HUD [1] is the left hand
             // As the body goes up and over, the edge passes under the eyes: a hand
-            // pinned to it would sweep back around the camera. It lets go first.
-            if (m_parkour_release_depth>0.f)
+            // pinned to it would sweep back around the camera. It lets go first. An
+            // edge still above the eyes (hanging, or grabbed overhead against a fence)
+            // is held, however close.
+            if (m_parkour_release_depth>0.f && aboveEyes<-.05f)
                 arm.early_release=_max(arm.early_release,clampr((m_parkour_release_depth-depth)/.2f,0.f,1.f));
             release=_max(release,arm.early_release);
         }
