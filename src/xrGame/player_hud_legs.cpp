@@ -31,6 +31,7 @@ void player_legs_controller::destroy()
     }
 
     m_visual_name = "";
+    m_clip_hidden = false;
 }
 
 bool player_legs_controller::resolve_config(CActor* actor, shared_str& sect, shared_str& model)
@@ -156,6 +157,8 @@ bool player_legs_controller::ensure_model(const shared_str& sect, const shared_s
 
 // TODO : clean up later
 float legs_spine_offset_y = 0.1f;
+// In a parkour clip, parts of the legs model this close to the camera are folded away.
+static constexpr float LegsNearEyes = .38f;
 void player_legs_controller::copy_bones_from_actor(CActor* actor)
 {
     if (!actor || !m_model || !m_shadow_model)
@@ -173,12 +176,77 @@ void player_legs_controller::copy_bones_from_actor(CActor* actor)
     // Legs only for the main pass
     m_model->CopyBonesFrom(actor_K);
 
-    if (auto BoneID = m_model->LL_BoneID("bip01_spine"); BoneID != BI_NONE)
+    // A parkour clip places the whole body in the world and the camera rides its
+    // eyes: draw it as it is, from the waist down, with nothing shifted.
+    const bool clip = actor->Parkour().ClipWeight() > .5f;
+    if (clip != m_clip_hidden)
+    {
+        if (clip)
+        {
+            m_clip_visible = m_model->LL_GetBonesVisible();
+            if (auto chest = m_model->LL_BoneID("bip01_spine2"); chest != BI_NONE)
+                m_model->LL_SetBoneVisible(chest, false, true);
+        }
+        else
+            m_model->LL_SetBonesVisible(m_clip_visible);
+        m_clip_hidden = clip;
+    }
+
+    if (auto BoneID = m_model->LL_BoneID("bip01_spine"); !clip && BoneID != BI_NONE)
     {
         auto& BoneInstance = m_model->LL_GetData(BoneID);
         auto& transform = m_model->LL_GetTransform(BoneInstance.GetParentID());
         transform.c.y += legs_spine_offset_y;
         m_model->Bone_Calculate(&BoneInstance, &transform);
+    }
+
+    // In a clip the body is drawn where it really is, right under the eyes, and leans
+    // over the edge: fold everything from the lower ribs up into the waist (a zero-scale
+    // pose), so no torso shows under the camera whatever the model's visibility groups.
+    if (actor->Parkour().ClipWeight() > 0.f)
+    {
+        const u16 ribs = m_model->LL_BoneID("bip01_spine1");
+        if (ribs != BI_NONE)
+        {
+            Fmatrix fold;
+            fold.identity();
+            fold.i.set(0.f, 0.f, 0.f); fold.j.set(0.f, 0.f, 0.f); fold.k.set(0.f, 0.f, 0.f);
+            fold.c.set(m_model->LL_GetTransform(ribs).c);
+            for (u16 id = 0, count = m_model->LL_BoneCount(); id < count; ++id)
+                for (u16 bone = id; bone != BI_NONE; bone = m_model->LL_GetData(bone).GetParentID())
+                    if (bone == ribs)
+                    {
+                        CBoneInstance& instance = m_model->LL_GetBoneInstance(id);
+                        instance.mTransform = fold;
+                        instance.mRenderTransform = fold;
+                        break;
+                    }
+        }
+        // Whatever comes up to the eyes (knees tucked in a roll, a squat after a hard
+        // landing, a thigh pulled over an edge) folds away too, with everything below
+        // it: the camera would see its polygons from inside.
+        const u16 count = m_model->LL_BoneCount();
+        xr_vector<u8> nearEyes(count, 0);
+        for (u16 id = 0; id < count; ++id)
+        {
+            Fvector world;
+            actor->XFORM().transform_tiny(world, m_model->LL_GetTransform(id).c);
+            nearEyes[id] = world.distance_to(Device.vCameraPosition) < LegsNearEyes;
+        }
+        for (u16 id = 0; id < count; ++id)
+        {
+            u16 top = BI_NONE;
+            for (u16 bone = id; bone != BI_NONE; bone = m_model->LL_GetData(bone).GetParentID())
+                if (nearEyes[bone]) top = bone;
+            if (top == BI_NONE) continue;
+            Fmatrix fold;
+            fold.identity();
+            fold.i.set(0.f, 0.f, 0.f); fold.j.set(0.f, 0.f, 0.f); fold.k.set(0.f, 0.f, 0.f);
+            fold.c.set(m_model->LL_GetTransform(top).c);
+            CBoneInstance& instance = m_model->LL_GetBoneInstance(id);
+            instance.mTransform = fold;
+            instance.mRenderTransform = fold;
+        }
     }
 
     static LPCSTR bonesToHide[] = { "bip01_neck", "bip01_l_upperarm", "bip01_r_upperarm" };
@@ -233,6 +301,8 @@ void player_legs_controller::update(CActor* actor, bool isShadowPass)
 
     float offset = m_fwd_offset.has_value() ? m_fwd_offset.value() : legs_fwd_offset;
     m_legs_transform.c.mad(fwd, offset);
+    if (const float clip = actor->Parkour().ClipWeight(); clip > 0.f)
+        m_legs_transform.c.lerp(m_legs_transform.c, actor->XFORM().c, clip);
 
     // Move actor's XFORM for correct shadow placement
     actor->XFORMShadow.translate_over(m_legs_transform.c);
@@ -250,6 +320,11 @@ void player_legs_controller::render(bool isShadowPass)
 
     u32 move_state = actor->MovingState();
     if (move_state & mcClimb)
+        return;
+
+    // A roll or hard landing tumbles the legs through the view: they are not drawn
+    // until the body is up again (the shadow still shows the whole body).
+    if (!isShadowPass && actor->Parkour().PerformedClip())
         return;
 
     IRenderVisual* visual = model->dcast_RenderVisual();

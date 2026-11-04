@@ -271,7 +271,7 @@ float CActor::CameraHeight()
 {
 	Fvector R;
 	character_physics_support()->movement()->Box().getsize(R);
-	return m_fCamHeightFactor * (R.y - cammera_into_collision_shift);
+	return Parkour().CameraFactor(m_fCamHeightFactor) * (R.y - cammera_into_collision_shift);
 }
 
 IC float viewport_near(float& w, float& h)
@@ -503,6 +503,7 @@ void CActor::cam_Update(float dt, float fFOV)
 
 	if (cam_freelook != eflDisabled && cam_active != eacFreeLook)
 		camUpdateFreelook(dt);
+    if (Parkour().Active()) Parkour().UpdateCamera(dt);
 
 	if ((mstate_real & mcClimb) && (cam_active != eacFreeLook))
 	{
@@ -584,6 +585,34 @@ void CActor::cam_Update(float dt, float fFOV)
 	float _viewport_near = VIEWPORT_NEAR;
 	// calc point
 	xform.transform_tiny(point);
+	// Parkour: the eyes follow the body's lean toward the edge (the same bend the
+	// third-person spine shows), so both views move as one body.
+	if (const float lean = Parkour().Lean())
+	{
+		point.mad(Parkour().Result().direction, sinf(lean)*CActorParkour::LeanPivot);
+		point.y -= (1.f - cosf(lean))*CActorParkour::LeanPivot;
+	}
+	// An authored parkour clip moves the head itself: the eyes ride it, mixed in and
+	// out with the clip, so the camera never sits inside or ahead of the body.
+	Fvector clipEye;
+	if (Parkour().ClipEye(clipEye))
+	{
+		const float weight = Parkour().ClipWeight();
+		switch (Parkour().ClipCamera())
+		{
+		case 1: // a performed clip, view kept level: only the eyes' height (never into the floor)
+			point.y += (_max(clipEye.y, XFORM().c.y + .45f) - point.y)*weight;
+			break;
+		case 2: // the view turns over with the head
+			point.lerp(point, clipEye, weight);
+			// Wrapped: a finished roll is a whole turn, the same view as none, so the
+			// fade out must not unwind it backwards.
+			dangle.x += angle_normalize_signed(Parkour().ClipPitch())*weight;
+			break;
+		default:
+			point.lerp(point, clipEye, weight);
+		}
+	}
 
 	CCameraBase* C = cam_Active();
 
@@ -597,7 +626,9 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 	if (Level().CurrentEntity() == this)
 	{
+		const Fvector free = cameras[eacFirstEye]->vPosition;
 		collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+		cameras[eacFirstEye]->vPosition = Parkour().SteadyCameraPush(free, cameras[eacFirstEye]->vPosition, dt);
 	}
 
     static bool firstPersonDeathDied = false;

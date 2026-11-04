@@ -20,6 +20,7 @@
 #include "script_export_space.h"
 
 #include "player_hud_legs.h"
+#include "ActorParkour.h"
 
 #ifdef STATIONARYMGUN_NEW
 #include "WeaponStatMgun.h"
@@ -83,11 +84,28 @@ class CActor :
 #endif
 {
 	friend class CActorCondition;
+	friend class CActorParkour;
 private:
 	typedef CEntityAlive inherited;
 public:
 	CActor();
 	virtual ~CActor();
+	CActorParkour& Parkour() { return m_parkour; }
+	const CActorParkour& Parkour() const { return m_parkour; }
+	void SetScriptMovementScale(float scale);
+	// Walk/run cycles played at the pace the body really moves (off unless a script asks).
+	void SetLegsSpeedSync(bool on) { m_legsSpeedSync = on; }
+private:
+	CActorParkour m_parkour;
+	float m_scriptMovementScale = 1.f;
+	u32 m_scriptMovementScaleTime = 0;
+	// The configured gait factors (scripts and effects change the live ones): the speed
+	// each walk/run animation is made for.
+	struct { float walkAccel = 0.f, run = 1.f, runBack = 1.f, walkBack = 1.f, crouch = 1.f, climb = 1.f, sprint = 1.f,
+		walkStrafe = 1.f, runStrafe = 1.f, sprintStrafe = 1.f; } m_legsBase;
+	float m_legsNominalSpeed = 0.f, m_legsPace = 1.f;
+	bool m_legsSpeedSync = false;
+public:
 
 // demonized: First Person Death
 public:

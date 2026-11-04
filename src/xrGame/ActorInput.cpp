@@ -42,6 +42,20 @@ extern u32 hud_adj_mode;
 
 void CActor::IR_OnKeyboardPress(int cmd)
 {
+	if (Parkour().Active())
+	{
+		if (cmd == kFREELOOK) return; // bounded freelook is already active during traversal
+		if (cmd == kJUMP) return;
+		if (cmd == kCROUCH && !Parkour().Performing()) Parkour().Cancel("input_cancel");
+		// Keep menus, camera and movement key releases functioning. Item actions
+		// cannot replace the arm animation or fire a hidden weapon mid-traverse;
+		// a weapon the move keeps in the free right hand fires (the first press raises
+		// a lowered one, as it always does) wherever the bounded view looks.
+		if ((cmd == kWPN_FIRE && ((Parkour().HandMask() & 2) || Parkour().Performing())) || cmd == kWPN_ZOOM || cmd == kWPN_RELOAD || cmd == kDETECTOR ||
+			cmd == kUSE || cmd == kDROP || cmd == kNEXT_SLOT || cmd == kPREV_SLOT ||
+			cmd == kWPN_1 || cmd == kWPN_2 || cmd == kWPN_3 || cmd == kWPN_4 || cmd == kWPN_5 || cmd == kWPN_6)
+			return;
+	}
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote()) return;
