@@ -455,4 +455,22 @@ void HUD_SOUND_COLLECTION_LAYERED::LoadSound(CInifile const* ini, LPCSTR section
 		snd_item.m_alias = alias;
 	}
 }
+
+// empties the layers in place, since copying a collection leaves its active sound pointers dangling
+void HUD_SOUND_COLLECTION_LAYERED::UnLoadSound(LPCSTR alias)
+{
+	for (HUD_SOUND_COLLECTION& layer : m_sound_items)
+	{
+		if (layer.m_alias != alias)
+			continue;
+
+		for (HUD_SOUND_ITEM& item : layer.m_sound_items)
+		{
+			HUD_SOUND_ITEM::StopSound(item);
+			HUD_SOUND_ITEM::DestroySound(item);
+		}
+		layer.m_sound_items.clear();
+		layer.m_alias = shared_str();
+	}
+}
 //-Alundaio

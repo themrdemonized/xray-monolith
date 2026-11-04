@@ -2017,6 +2017,25 @@ bool CWeaponMagazined::GetBriefInfo(II_BriefInfo& info)
 	return true;
 }
 
+// an upgrade sound has to point at a layered sound section or a sound file, otherwise the weapon keeps its own
+static bool upgrade_sound_exists(LPCSTR section, LPCSTR line)
+{
+	string_path name;
+	_GetItem(pSettings->r_string(section, line), 0, name);
+	if (pSettings->section_exist(name))
+		return true;
+
+	xr_strlwr(name);
+	if (strext(name))
+		*strext(name) = 0;
+	xr_strcat(name, ".ogg");
+	if (FS.exist("$game_sounds$", name))
+		return true;
+
+	Msg("! upgrade [%s] %s points to a missing sound, the weapon keeps its own", section, line);
+	return false;
+}
+
 bool CWeaponMagazined::install_upgrade_impl(LPCSTR section, bool test)
 {
 	bool result = inherited::install_upgrade_impl(section, test);
@@ -2043,48 +2062,36 @@ bool CWeaponMagazined::install_upgrade_impl(LPCSTR section, bool test)
 	result |= process_if_exists_set(section, "base_dispersioned_bullets_speed", &CInifile::r_float,
 	                                m_fBaseDispersionedBulletsSpeed, test);
 
+	struct upgrade_sound
+	{
+		LPCSTR line;
+		LPCSTR alias;
+		bool exclusive;
+		ESoundTypes type;
+	};
+
 	// sounds (name of the sound, volume (0.0 - 1.0), delay (sec))
-	result2 = process_if_exists_set(section, "snd_draw", &CInifile::r_string, str, test);
-	if (result2 && !test)
+	// an upgrade sound replaces the loaded one instead of layering on top of it
+	const upgrade_sound sounds[] = {
+		{"snd_draw", "sndShow", false, m_eSoundShow},
+		{"snd_holster", "sndHide", false, m_eSoundHide},
+		{"snd_shoot", "sndShot", false, m_eSoundShot},
+		{"snd_shoot_actor", "sndShotActor", false, m_eSoundShot},
+		{"snd_shoot_actor_first", "sndShotActorFirst", false, m_eSoundShot},
+		{"snd_empty", "sndEmptyClick", false, m_eSoundEmptyClick},
+		{"snd_reload", "sndReload", true, m_eSoundReload},
+		{"snd_reload_empty", "sndReloadEmpty", true, m_eSoundReloadEmpty},
+	};
+	for (const upgrade_sound& snd : sounds)
 	{
-		m_sounds.LoadSound(section, "snd_draw", "sndShow", false, m_eSoundShow);
+		result2 = process_if_exists_set(section, snd.line, &CInifile::r_string, str, test);
+		if (result2 && !test && upgrade_sound_exists(section, snd.line))
+		{
+			m_sounds.UnLoadSound(snd.alias);
+			m_sounds.LoadSound(section, snd.line, snd.alias, snd.exclusive, snd.type);
+		}
+		result |= result2;
 	}
-	result |= result2;
-
-	result2 = process_if_exists_set(section, "snd_holster", &CInifile::r_string, str, test);
-	if (result2 && !test)
-	{
-		m_sounds.LoadSound(section, "snd_holster", "sndHide", false, m_eSoundHide);
-	}
-	result |= result2;
-
-	result2 = process_if_exists_set(section, "snd_shoot", &CInifile::r_string, str, test);
-	if (result2 && !test)
-	{
-		m_sounds.LoadSound(section, "snd_shoot", "sndShot", false, m_eSoundShot);
-	}
-	result |= result2;
-
-	result2 = process_if_exists_set(section, "snd_empty", &CInifile::r_string, str, test);
-	if (result2 && !test)
-	{
-		m_sounds.LoadSound(section, "snd_empty", "sndEmptyClick", false, m_eSoundEmptyClick);
-	}
-	result |= result2;
-
-	result2 = process_if_exists_set(section, "snd_reload", &CInifile::r_string, str, test);
-	if (result2 && !test)
-	{
-		m_sounds.LoadSound(section, "snd_reload", "sndReload", true, m_eSoundReload);
-	}
-	result |= result2;
-
-	result2 = process_if_exists_set(section, "snd_reload_empty", &CInifile::r_string, str, test);
-	if (result2 && !test)
-	{
-		m_sounds.LoadSound(section, "snd_reload_empty", "sndReloadEmpty", true, m_eSoundReloadEmpty);
-	}
-	result |= result2;
 
 	if (m_eSilencerStatus == ALife::eAddonAttachable || m_eSilencerStatus == ALife::eAddonPermanent)
 	{
@@ -2093,12 +2100,33 @@ bool CWeaponMagazined::install_upgrade_impl(LPCSTR section, bool test)
 		result |= process_if_exists_set(section, "silencer_smoke_particles", &CInifile::r_string,
 		                                m_sSilencerSmokeParticles, test);
 
-		result2 = process_if_exists_set(section, "snd_silncer_shot", &CInifile::r_string, str, test);
-		if (result2 && !test)
+		// a weapon that only takes a silencer through an upgrade never loaded its own silencer particles and sounds
+		if (!test && !m_sSilencerFlameParticles && pSettings->line_exist(cNameSect().c_str(), "silencer_flame_particles"))
+			m_sSilencerFlameParticles = pSettings->r_string(cNameSect().c_str(), "silencer_flame_particles");
+		if (!test && !m_sSilencerSmokeParticles && pSettings->line_exist(cNameSect().c_str(), "silencer_smoke_particles"))
+			m_sSilencerSmokeParticles = pSettings->r_string(cNameSect().c_str(), "silencer_smoke_particles");
+
+		const upgrade_sound silencer_sounds[] = {
+			{"snd_silncer_shot", "sndSilencerShot", false, m_eSoundShot},
+			{"snd_silncer_shot_actor", "sndSilencerShotActor", false, m_eSoundShot},
+			{"snd_silncer_shoot_actor_first", "sndSilencerShotActorFirst", false, m_eSoundShot},
+			{"snd_silncer_shot_misfire", "sndSilencerShotMisfire", false, m_eSoundShot},
+			{"snd_silncer_shot_misfire_actor", "sndSilencerShotMisfireActor", false, m_eSoundShot},
+		};
+		for (const upgrade_sound& snd : silencer_sounds)
 		{
-			m_sounds.LoadSound(section, "snd_silncer_shot", "sndSilencerShot", false, m_eSoundShot);
+			result2 = process_if_exists_set(section, snd.line, &CInifile::r_string, str, test);
+			if (result2 && !test && upgrade_sound_exists(section, snd.line))
+			{
+				m_sounds.UnLoadSound(snd.alias);
+				m_sounds.LoadSound(section, snd.line, snd.alias, snd.exclusive, snd.type);
+			}
+			else if (!test && !m_sounds.FindSoundItem(snd.alias, false) && pSettings->line_exist(cNameSect().c_str(), snd.line))
+			{
+				m_sounds.LoadSound(cNameSect().c_str(), snd.line, snd.alias, snd.exclusive, snd.type);
+			}
+			result |= result2;
 		}
-		result |= result2;
 	}
 
 	// fov for zoom mode
