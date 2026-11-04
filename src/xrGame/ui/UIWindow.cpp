@@ -329,6 +329,7 @@ void CUIWindow::DetachChild(CUIWindow* pChild)
 		return;
 
 	erase_capture_subtree(pChild);
+	ReleaseKeyboardCaptureFrom(pChild);
 
 	{
 		xrCriticalSectionGuard guard(csUi);
@@ -344,6 +345,14 @@ void CUIWindow::DetachChild(CUIWindow* pChild)
     if (pChild->IsAutoDelete())
         if (std::find(m_ChildWndToDelete.begin(), m_ChildWndToDelete.end(), pChild) == m_ChildWndToDelete.end())
             m_ChildWndToDelete.push_back(pChild);
+}
+
+// SetKeyboardCapture stores, in each ancestor, the child on the path to the capturer. A detached
+// (or dying) child would otherwise stay in that chain and the next capture would message freed memory.
+void CUIWindow::ReleaseKeyboardCaptureFrom(CUIWindow* child)
+{
+	for (CUIWindow* w = this; w && w->m_pKeyboardCapturer == child; child = w, w = w->GetParent())
+		w->m_pKeyboardCapturer = NULL;
 }
 
 void CUIWindow::DetachAll()

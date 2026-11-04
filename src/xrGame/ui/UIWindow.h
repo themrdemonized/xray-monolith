@@ -394,6 +394,8 @@ protected:
 
 	//дочернее окно которое, захватило ввод клавиатуры
 	CUIWindow* m_pKeyboardCapturer;
+	// Drops keyboard capture held through 'child' here and in every ancestor routing to us.
+	void ReleaseKeyboardCaptureFrom(CUIWindow* child);
 
 	//кому шлем сообщения
 	CUIWindow* m_pMessageTarget;
