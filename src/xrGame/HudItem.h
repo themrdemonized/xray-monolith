@@ -98,18 +98,6 @@ protected:
 		fl_inertion_allow = (1 << 3),
 	};
 
-	struct
-	{
-		const CMotionDef* m_current_motion_def;
-		shared_str m_current_motion;
-		u32 m_dwMotionCurrTm;
-		u32 m_dwMotionStartTm;
-		u32 m_dwMotionEndTm;
-		u32 m_startedMotionState;
-		u8 m_started_rnd_anim_idx;
-		bool m_bStopAtEndAnimIsRunning;
-	};
-
 	attachable_hud_item* m_attachable;
 
 	float m_fLR_CameraFactor; // Фактор бокового наклона худа при ходьбе [-1; +1]
@@ -124,6 +112,20 @@ protected:
 	Fmatrix script_ui_matrix;
 
 public:
+
+	struct
+	{
+		const CMotionDef* m_current_motion_def;
+		shared_str m_current_motion;
+		u32 m_startedMotionState;
+		u8 m_started_rnd_anim_idx;
+		bool m_bStopAtEndAnimIsRunning;
+		float m_fPreviousMotionTime;
+		float m_fCurrentMotionTime;
+		float m_fCurrentMotionLength;
+		float m_fCurrentMotionSpeed;
+	};
+
 	virtual void Load(LPCSTR section);
 	virtual BOOL net_Spawn(CSE_Abstract* DC) { return TRUE; };
 
@@ -148,6 +150,7 @@ public:
 	BOOL GetHUDmode();
 	void PlayBlendAnm(LPCSTR name, float speed = 1.f, float power = 1.f, bool stop_old = true);
 	IC bool IsPending() const { return !!m_huditem_flags.test(fl_pending); }
+	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 
 	virtual void DeleteHudItemData();
 
@@ -174,7 +177,7 @@ public:
 
 	virtual void OnAnimationEnd(u32 state);
 
-	virtual void OnMotionMark(u32 state, const motion_marks& M);
+	virtual void OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end);
 
 	virtual void PlayAnimIdle();
 	virtual bool TryPlayAnimBore();
@@ -196,7 +199,7 @@ public:
 	virtual void UpdateXForm() = 0;
 
 	u32 PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed = 1.f, float end = 0.f, bool bMixIn2 = true);
-	u32 PlayHUDMotion_noCB(const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true);
+	bool PlayHUDMotion_noCB(const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true);
 	void StopCurrentAnimWithoutCallback();
 
 	IC void RenderHud(BOOL B) { m_huditem_flags.set(fl_renderhud, B); }
@@ -230,7 +233,6 @@ public:
 	virtual bool CheckCompatibility(CHudItem*) { return true; }
 protected:
 
-	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 	shared_str hud_sect;
 
 	//êàäðû ìîìåíòà ïåðåñ÷åòà XFORM è FirePos

@@ -432,7 +432,7 @@ void CModelPool::Prefetch_One(LPCSTR N, bool assert)
 		Delete(V,FALSE);
 }
 
-bool CModelPool::Exists(LPCSTR N)
+bool CModelPool::Exists(LPCSTR N, bool no_prefetch)
 {
 	string_path low_name;
 	VERIFY(xr_strlen(N) < sizeof(low_name));
@@ -451,6 +451,7 @@ bool CModelPool::Exists(LPCSTR N)
 		return true;
 
 	// Prefetch model
+    if (no_prefetch) return false;
 	dxRender_Visual* V = Create(N, 0, false);
 	if (V) 
 	{
