@@ -62,7 +62,7 @@ void cphysics_shell_scripted::freeze()
 	{
 		get_ElementByStoreOrder(i)->Fix();
 	}
-	physics_impl().collide_class_bits().set(2, TRUE); //cbNCStatic
+	physics_impl().collide_class_bits().set((1 << 1) | (1 << 12) | (1 << 13), TRUE); //cbNCStatic | cbClassFrozen | cbNCClassFrozen
 }
 
 void cphysics_shell_scripted::unfreeze()
@@ -72,7 +72,7 @@ void cphysics_shell_scripted::unfreeze()
 	{
 		get_ElementByStoreOrder(i)->ReleaseFixed();
 	}
-	physics_impl().collide_class_bits().set(2, FALSE); //cbNCStatic
+	physics_impl().collide_class_bits().set((1 << 1) | (1 << 12) | (1 << 13), FALSE); //cbNCStatic | cbClassFrozen | cbNCClassFrozen
 }
 
 #pragma optimize("s",on)
