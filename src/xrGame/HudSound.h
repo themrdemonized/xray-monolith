@@ -69,6 +69,12 @@ struct HUD_SOUND_ITEM
 class HUD_SOUND_COLLECTION
 {
 public:
+	HUD_SOUND_COLLECTION() = default;
+	// moving keeps the items where they are, so their active sound pointers stay valid when a vector grows
+	HUD_SOUND_COLLECTION(HUD_SOUND_COLLECTION&& other) noexcept
+		: m_alias(other.m_alias), m_sound_items(std::move(other.m_sound_items))
+	{
+	}
 	~HUD_SOUND_COLLECTION();
 	shared_str m_alias; //Alundaio: For use when it's part of a layered Collection
 	xr_vector<HUD_SOUND_ITEM> m_sound_items; //Alundaio: made public
@@ -88,7 +94,8 @@ public:
 //Alundaio:
 class HUD_SOUND_COLLECTION_LAYERED
 {
-	xr_vector<HUD_SOUND_COLLECTION> m_sound_items;
+	// std::vector moves layers as it grows, xalloc can only copy them
+	std::vector<HUD_SOUND_COLLECTION> m_sound_items;
 public:
 	~HUD_SOUND_COLLECTION_LAYERED();
 	HUD_SOUND_ITEM* FindSoundItem(LPCSTR alias, bool b_assert);

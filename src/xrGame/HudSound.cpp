@@ -250,21 +250,13 @@ sndShot is played, it will play all the sound items with the same alias.
 //----------------------------------------------------------
 HUD_SOUND_COLLECTION_LAYERED::~HUD_SOUND_COLLECTION_LAYERED()
 {
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
-
-	for (; it != it_e; ++it)
-	{
-		it->~HUD_SOUND_COLLECTION();
-	}
-
 	m_sound_items.clear();
 }
 
 void HUD_SOUND_COLLECTION_LAYERED::StopAllSounds()
 {
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
+	auto it = m_sound_items.begin();
+	auto it_e = m_sound_items.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -274,8 +266,8 @@ void HUD_SOUND_COLLECTION_LAYERED::StopAllSounds()
 
 void HUD_SOUND_COLLECTION_LAYERED::StopSound(LPCSTR alias)
 {
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
+	auto it = m_sound_items.begin();
+	auto it_e = m_sound_items.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -286,8 +278,8 @@ void HUD_SOUND_COLLECTION_LAYERED::StopSound(LPCSTR alias)
 
 void HUD_SOUND_COLLECTION_LAYERED::SetPosition(LPCSTR alias, const Fvector& pos)
 {
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
+	auto it = m_sound_items.begin();
+	auto it_e = m_sound_items.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -390,8 +382,8 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
 		}
 	}
 
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
+	auto it = m_sound_items.begin();
+	auto it_e = m_sound_items.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -403,8 +395,8 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
 
 HUD_SOUND_ITEM* HUD_SOUND_COLLECTION_LAYERED::FindSoundItem(LPCSTR alias, bool b_assert)
 {
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
+	auto it = m_sound_items.begin();
+	auto it_e = m_sound_items.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -456,7 +448,7 @@ void HUD_SOUND_COLLECTION_LAYERED::LoadSound(CInifile const* ini, LPCSTR section
 	}
 }
 
-// empties the layers in place, since copying a collection leaves its active sound pointers dangling
+// empties the layers in place so the other layers never shift
 void HUD_SOUND_COLLECTION_LAYERED::UnLoadSound(LPCSTR alias)
 {
 	for (HUD_SOUND_COLLECTION& layer : m_sound_items)
