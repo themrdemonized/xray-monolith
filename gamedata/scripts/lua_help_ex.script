@@ -25,6 +25,7 @@
         allow_accel_during_lookout [0; 1] // flag to allow 'running' speed during left or right lookouts
 
         scale_hud_motion_marks_by_speed [1; 0] // flag to scale motion marks by speed, default is on
+
         hud_ik_compensation [0; 1] // Anchor enabled arm IK shoulders to the camera and idle HUD offset. Default: 0
 
         npc_dont_drop_weapons_on_death [0; 1] // flag to disable NPCs dropping weapons on death
@@ -208,6 +209,20 @@
     }
 
     game {
+        // Hand poses: hand = 0 right, 1 left, 2 both, accrue/falloff are blend rates
+        void set_hand_pose(number hand, string section, string animation, number accrue, number falloff)
+        void force_set_hand_pose(number hand, string section, string animation)
+        void clear_hand_pose(number hand, number accrue, number falloff)
+
+        table list_hand_motions(string section)
+
+        table get_hand_motion_marks(string animation)
+        void set_hand_motion_marks(string animation, table marks)
+
+        // part = 0 item and both arms, 1 left arm/hand, 2 right arm/hand.
+        // time is normalized (0..1); a nonzero set_time overrides it with seconds.
+        void set_part_cycle_time(number part, number time, number set_time)
+
         bool model_prefetched(string name)
         table list_lanims() // light-animations
         bool top_input_receiver() // UI dialog owns input
@@ -916,6 +931,10 @@
     }
 
     class game_object {
+        table get_current_motion()
+        bool is_pending()
+        void set_pending(bool pending)
+
         xrTime game_death_time()
         Fvector get_actor_direction() // Camera yaw, pitch and roll in radians
         Fmatrix bone_transform(number bone_id, bool hud, bool previous)
