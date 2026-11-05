@@ -365,19 +365,6 @@ xr_token ui_3d_icons_msaa_token[] = {
 	{0, 0}
 };
 
-float ps_r4_atlas_resolution = 0.6666667f; // r4-only
-// Atlas allocation settings take effect on vid_restart.
-int ps_r4_atlas = 0;
-int ps_r4_atlas_width = 2048;
-int ps_r4_atlas_height = 2048;
-u32 ps_r4_atlas_msaa = 2; // Token index; sample count is 1 << index.
-xr_token ui_3d_icons_msaa_token[] = {
-	{"st_opt_off", 0},
-	{"2x", 1},
-	{"4x", 2},
-	{0, 0}
-};
-
 Fvector4 ps_pp_bloom_thresh = { .7, .8f, .9f, .0f };
 Fvector4 ps_pp_bloom_weight = { .33f, .33f, .33f, .0f };
 
@@ -1557,12 +1544,6 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer,	"r2_gi_depth",			&ps_r2_GI_depth,			1,		5		);
 	CMD4(CCC_Integer,	"r2_gi_photons",		&ps_r2_GI_photons,			8,		256		);
 	CMD4(CCC_Float,		"r2_gi_refl",			&ps_r2_GI_refl,				EPS_L,	0.99f	);
-	
-	CMD4(CCC_Integer, "r4_atlas", &ps_r4_atlas, 0, 1);
-	CMD4(CCC_Float, "r4_atlas_resolution", &ps_r4_atlas_resolution, 0.1f, 1.0f);
-	CMD4(CCC_Integer, "r4_atlas_width", &ps_r4_atlas_width, 256, 8192);
-	CMD4(CCC_Integer, "r4_atlas_height", &ps_r4_atlas_height, 256, 8192);
-	CMD3(CCC_Token, "r4_atlas_msaa", &ps_r4_atlas_msaa, ui_3d_icons_msaa_token);
 	
 	CMD4(CCC_Integer, "r4_atlas", &ps_r4_atlas, 0, 1);
 	CMD4(CCC_Float, "r4_atlas_resolution", &ps_r4_atlas_resolution, 0.1f, 1.0f);
