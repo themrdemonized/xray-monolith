@@ -1657,7 +1657,8 @@
         function set_scale(vector);
         function set_scale(number, number, number);
         function set_scale(number);
-        function get_scale();
+        function get_scale(); -- returns vector
+        function get_scale_val(); -- returns number (x if x,y,z are the same, otherwise the average of all three values)
         function get_transform();
         function get_center();
 

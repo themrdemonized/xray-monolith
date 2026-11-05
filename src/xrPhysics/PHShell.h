@@ -36,7 +36,7 @@ class CPHShell :
 	JOINT_STORAGE joints;
 	CPHShellSplitterHolder* m_spliter_holder;
 	CPHMoveStorage m_traced_geoms;
-	float m_fScale;
+	Fvector m_fScale;
 
 	CPhysicsShellAnimator* m_pPhysicsShellAnimatorC;
 
@@ -230,8 +230,9 @@ public:
 	virtual void DisableCollision();
 	virtual void EnableCollision();
 	virtual void SetDeadBody();
-	virtual void SetScale(float scale);
-	virtual float GetScale() { return m_fScale; }
+	virtual void SetScale(Fvector scale);
+    virtual void SetScale(float scale) { SetScale(Fvector().set(scale, scale, scale)); }
+	virtual Fvector GetScale() { return m_fScale; }
 	virtual bool isEnabled() const { return CPHObject::is_active(); }
 	virtual bool isActive() const { return !!m_flags.test(flActive); }
 	virtual bool isFullActive() const { return isActive() && !m_flags.test(flActivating); }

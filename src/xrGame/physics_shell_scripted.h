@@ -50,8 +50,9 @@ public:
     void set_DynamicLimits(float l, float w) { physics_impl().set_DynamicLimits(l, w); }
 	void freeze();
 	void unfreeze();
-	void SetScale(float scale);
-	float GetScale();
+	void SetScale(Fvector scale);
+    void SetScale(float scale) { SetScale(Fvector().set(scale, scale, scale)); }
+	Fvector GetScale();
 	float GetMass();
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

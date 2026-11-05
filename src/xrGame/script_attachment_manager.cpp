@@ -259,7 +259,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name): ISpatial(g
 	m_attachment_offset[0].set(0, 0, 0);
 	m_attachment_offset[1].set(0, 0, 0);
 	m_attachment_offset[2].set(0, 0, 0);
-	m_attachment_scale = 1.f;
+	m_attachment_offset[3].set(1, 1, 1);
 	m_custom_fov = 0.f;
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
@@ -297,7 +297,7 @@ void script_attachment::RemoveAttachment(script_attachment* child)
 void script_attachment::spatial_register()
 {
 	renderable.xform.transform_tiny(spatial.sphere.P, Visual()->getVisData().sphere.P);
-	spatial.sphere.R = Visual()->getVisData().sphere.R * m_attachment_scale;
+	spatial.sphere.R = Visual()->getVisData().sphere.R * GetScaleMax();
 	ISpatial::spatial_register();
 }
 
@@ -310,7 +310,7 @@ void script_attachment::spatial_move()
 {
 	if (!spatial.node_ptr) return;
 	renderable.xform.transform_tiny(spatial.sphere.P, Visual()->getVisData().sphere.P);
-	spatial.sphere.R = Visual()->getVisData().sphere.R * m_attachment_scale;
+	spatial.sphere.R = Visual()->getVisData().sphere.R * GetScaleMax();
 	ISpatial::spatial_move();
 }
 
@@ -782,14 +782,14 @@ void script_attachment::RecalcOffset()
 	{
 		m_offset.translate(-origin.x, -origin.y, -origin.z);
 		m_offset.mulA_43(Fmatrix().setHPB(rotation));
-		if (!m_parent_level) m_offset.mulA_43(Fmatrix().scale(m_attachment_scale, m_attachment_scale, m_attachment_scale));
+		if (!m_parent_level) m_offset.mulA_43(Fmatrix().scale(m_attachment_offset[3]));
 		m_offset.mulA_43(Fmatrix().translate(position));
 	}
 	else
 	{
 		m_offset.setHPB(rotation);
 		m_offset.translate_over(position);
-		if (!m_parent_level) m_offset.mulB_43(Fmatrix().scale(m_attachment_scale, m_attachment_scale, m_attachment_scale));
+		if (!m_parent_level) m_offset.mulB_43(Fmatrix().scale(m_attachment_offset[3]));
 	}
 
 	if (m_parent_level)
@@ -840,23 +840,23 @@ void script_attachment::SetRotation(float x, float y, float z)
 	RecalcOffset();
 }
 
-void script_attachment::SetScale(float scale)
+void script_attachment::SetScale(Fvector scale)
 {
-	m_attachment_scale = scale;
+    m_attachment_offset[3].set(scale);
 
-	if (m_parent_level)
-	{
-		if (m_physics_shell)
-		{
-			m_physics_shell->SetScale(m_attachment_scale);
-			m_physics_shell->Enable();
-			spatial_move();
-		}
+    if (m_parent_level)
+    {
+        if (m_physics_shell)
+        {
+            m_physics_shell->SetScale(m_attachment_offset[3]);
+            RecalcOffset();
+            m_physics_shell->Enable();
+        }
 
-		return;
-	}
+        return;
+    }
 
-	RecalcOffset();
+    RecalcOffset();
 }
 
 void script_attachment::SetOrigin(float x, float y, float z)
@@ -1005,7 +1005,7 @@ void script_attachment::CreatePhysicsShell()
 	m_physics_shell->mXFORM.set(XFORM());
 	m_physics_shell->Activate(XFORM(), 0, XFORM());
 	m_physics_shell->SetAirResistance();
-	m_physics_shell->SetScale(m_attachment_scale);
+	m_physics_shell->SetScale(m_attachment_offset[3]);
 
 	if (m_ph_frozen)
 	{
@@ -1368,16 +1368,18 @@ void script_attachment::AddToParentShell(CGameObject* obj)
 	mtx.j.normalize();
 	mtx.k.normalize();
 
-	float new_scale = 1.f;
+	Fvector new_scale;
+    new_scale.set(1, 1, 1);
+
 	script_attachment* parent = m_parent_attachment;
 
 	while (parent)
 	{
-		new_scale *= parent->m_attachment_scale;
+		new_scale.mul(parent->GetScale());
 		parent = parent->m_parent_attachment;
 	}
 
-	new_scale *= m_attachment_scale;
+	new_scale.mul(GetScale());
 
 	CPhysicsShell* attachment_shell = P_create_Shell();
 	attachment_shell->build_FromKinematics(Kinematics());
@@ -1415,19 +1417,19 @@ void script_attachment::AddToParentShell(CGameObject* obj)
             {
                 Fvector half_size;
                 box->get_size(half_size);
-                half_size.mul(new_scale);
+                half_size.mul(new_scale.x, new_scale.z, new_scale.y);
                 box->set_size(half_size);
             }
 
             if (sphere)
             {
-                sphere->set_radius(sphere->radius() * new_scale);
+                sphere->set_radius(sphere->radius() * GetScaleMax());
             }
 
             if (cylinder)
             {
-                cylinder->set_radius(cylinder->radius() * new_scale);
-                cylinder->set_height(cylinder->height() * new_scale);
+                cylinder->set_radius(cylinder->radius() * fmaxf(m_attachment_offset[3].x, m_attachment_offset[3].y));
+                cylinder->set_height(cylinder->height() * m_attachment_offset[3].z);
             }
 
             Fvector scaled_pos = geom->local_center();
@@ -2100,18 +2102,19 @@ bool script_attachment::has_shapes()
 
     Fmatrix bone_xform_global = bone_xform;
 
-    float real_scale = 1.f;
+    Fvector real_scale;
+    real_scale.set(1, 1, 1);
     script_attachment* parent = m_parent_attachment;
     script_attachment* toplevel_parent_attachment = nullptr;
 
     while (parent)
     {
         toplevel_parent_attachment = parent;
-        real_scale *= parent->m_attachment_scale;
+        real_scale.mul(parent->GetScale());
         parent = parent->m_parent_attachment;
     }
-
-    real_scale *= m_attachment_scale;
+    
+    real_scale.mul(GetScale());
 
     if (local)
     {
@@ -2154,11 +2157,13 @@ bool script_attachment::has_shapes()
         box.transform(box, bone_xform);
 
         // Scale and rotation correction if attachment scale is not 1
-        if (real_scale != 1.f)
+        if (real_scale.x != 1.f || real_scale.y != 1.f || real_scale.z != 1.f)
         {
-            float inv_scale = 1.f / real_scale;
+            Fvector inv_scale;
+            inv_scale.set(1, 1, 1);
+            inv_scale.div(real_scale);
 
-            box.m_halfsize.mul(real_scale);
+            box.m_halfsize.mul(real_scale.x, real_scale.z, real_scale.y);
             box.m_rotate.i.mul(inv_scale);
             box.m_rotate.j.mul(inv_scale);
             box.m_rotate.k.mul(inv_scale);
@@ -2176,7 +2181,7 @@ bool script_attachment::has_shapes()
     {
         Fsphere sphere = shape.sphere;
         bone_xform.transform_tiny(sphere.P);
-        sphere.R *= real_scale;
+        sphere.R *= fmaxf(real_scale.x, fmaxf(real_scale.y, real_scale.z));
 
         table["type"] = "sphere";
         table["xform"] = bone_xform;
@@ -2198,12 +2203,14 @@ bool script_attachment::has_shapes()
 
         form.mulA_43(bone_xform);
 
-        if (real_scale != 1.f)
+        if (real_scale.x != 1.f || real_scale.y != 1.f || real_scale.z != 1.f)
         {
-            float inv_scale = 1.f / real_scale;
+            Fvector inv_scale;
+            inv_scale.set(1, 1, 1);
+            inv_scale.div(real_scale);
 
-            cylinder.m_height *= real_scale;
-            cylinder.m_radius *= real_scale;
+            cylinder.m_height *= real_scale.z;
+            cylinder.m_radius *= fmaxf(real_scale.x, real_scale.y);
             form.i.mul(inv_scale);
             form.j.mul(inv_scale);
             form.k.mul(inv_scale);

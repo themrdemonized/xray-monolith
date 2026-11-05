@@ -81,8 +81,8 @@ private:
 	shared_str m_name;
 
 	Fmatrix m_offset;
-	Fvector m_attachment_offset[3]; //position, rotation, origin
-	float m_attachment_scale, m_custom_fov;
+	Fvector m_attachment_offset[4]; //position, rotation, origin, scale
+	float m_custom_fov;
 
 	shared_str m_model_name;
 	shared_str m_current_motion;
@@ -193,8 +193,16 @@ public:
 	void SetRotation(float x, float y, float z);
 	Fvector GetRotation() { return m_attachment_offset[1]; }
 
-	void SetScale(float scale);
-	float GetScale() { return m_attachment_scale; }
+	void SetScale(Fvector scale);
+    void SetScale(float scale) { SetScale(Fvector().set(scale, scale, scale)); }
+	Fvector GetScale() { return m_attachment_offset[3]; }
+	float GetScaleVal()
+    {
+        return (m_attachment_offset[3].x == m_attachment_offset[3].y && m_attachment_offset[3].y == m_attachment_offset[3].z)
+            ? m_attachment_offset[3].x
+            : (m_attachment_offset[3].x + m_attachment_offset[3].y + m_attachment_offset[3].z) / 3.f;
+    }
+    float GetScaleMax() { return fmaxf(m_attachment_offset[3].x, fmaxf(m_attachment_offset[3].y, m_attachment_offset[3].z));}
 
 	void SetOrigin(Fvector org) { SetOrigin(org.x, org.y, org.z); }
 	void SetOrigin(float x, float y, float z);
