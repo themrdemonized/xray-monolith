@@ -174,15 +174,15 @@ void CWeapon::FireBullet(const Fvector& pos,
 	bool send_hit, int iShotNum)
 {
 	CShootingObject::FireBullet(pos, shot_dir, fire_disp, cartridge, parent_id, weapon_id, send_hit, iShotNum);
-
-    temperature += sil_glow_shot_temp;
-    if (temperature > sil_glow_max_temp)
-        temperature = sil_glow_max_temp;
+	
+	temperature += sil_glow_shot_temp;
+	if (temperature > sil_glow_max_temp)
+		temperature = sil_glow_max_temp;
 }
 
 float CWeapon::GetGlowing()
 {
-    return temperature;
+	return temperature;
 }
 //--DSR-- SilencerOverheat_end
 

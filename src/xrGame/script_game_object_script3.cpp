@@ -765,6 +765,5 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("get_legs_shaders", SAFE_WRAP(&CScriptGameObject::GetLegsShaders))
 		.def("set_legs_shader", SAFE_WRAP(&CScriptGameObject::SetLegsShader))
 		.def("reset_legs_shader", SAFE_WRAP(&CScriptGameObject::ResetLegsShader))
-
 		;
 }

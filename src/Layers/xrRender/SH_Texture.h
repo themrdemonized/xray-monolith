@@ -99,8 +99,8 @@ public: //	Public class members (must be encapsulated furthur)
 	float m_material;
 	shared_str m_bumpmap;
 
-    bool m_is_hot = false;		//--DSR-- HeatVision
-    bool m_is_glowing = false;	//--DSR-- SilencerOverheat
+	bool m_is_hot = false;		//--DSR-- HeatVision
+	bool m_is_glowing = false;	//--DSR-- SilencerOverheat
 
 	union
 	{

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../xrRender/r__dsgraph_structure.h"
 #include "../xrRender/r__occlusion.h"

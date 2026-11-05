@@ -568,6 +568,7 @@ void CPHShell::SetTransform(const Fmatrix& m0, motion_history_state history_stat
 	spatial_move();
 }
 
+
 void CPHShell::Enable()
 {
 	if (!isActive())

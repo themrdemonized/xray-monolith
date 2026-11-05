@@ -1264,9 +1264,9 @@ public:
 	float GetActorLookoutCoef() const;
 	void SetActorLookoutCoef(float val);
 
-	// verdatim: adjust damage stagger time factor
-	float GetActorDamageStaggerTimeFactor() const;
-	void SetActorDamageStaggerTimeFactor(float val);
+    // verdatim: adjust damage stagger time factor
+    float GetActorDamageStaggerTimeFactor() const;
+    void SetActorDamageStaggerTimeFactor(float val);
 
     // Boeker: adjust zoom inertia factor
     void SetZoomInertionFactor(float factor);

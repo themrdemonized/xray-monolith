@@ -351,6 +351,7 @@ float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
 float ps_r2_img_saturation = 1.0f; // r2-only
 Fvector ps_r2_img_cg = {.0f, .0f, .0f}; // r2-only
+
 float ps_r4_atlas_resolution = 0.6666667f; // r4-only
 // Atlas allocation settings take effect on vid_restart.
 int ps_r4_atlas = 0;
@@ -1556,7 +1557,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer,	"r2_gi_depth",			&ps_r2_GI_depth,			1,		5		);
 	CMD4(CCC_Integer,	"r2_gi_photons",		&ps_r2_GI_photons,			8,		256		);
 	CMD4(CCC_Float,		"r2_gi_refl",			&ps_r2_GI_refl,				EPS_L,	0.99f	);
-
+	
 	CMD4(CCC_Integer, "r4_atlas", &ps_r4_atlas, 0, 1);
 	CMD4(CCC_Float, "r4_atlas_resolution", &ps_r4_atlas_resolution, 0.1f, 1.0f);
 	CMD4(CCC_Integer, "r4_atlas_width", &ps_r4_atlas_width, 256, 8192);
@@ -1581,12 +1582,12 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4Legacy, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
 	CMD4(CCC_Vector4Legacy, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
 
-    // Mark Switch
-    CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
-    CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
-    CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+	// Mark Switch
+	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
+	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
+	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 
-    // Shader 3D Scopes
+	// Shader 3D Scopes
     CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
     CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
     CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
@@ -1690,21 +1691,21 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
 	CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
 
-    //--DSR-- SilencerOverheat_start
-    CMD4(CCC_Float, "sil_glow_max_temp", &sil_glow_max_temp, 0.f, 1.f);
-    CMD4(CCC_Float, "sil_glow_shot_temp", &sil_glow_shot_temp, 0.f, 1.f);
-    CMD4(CCC_Float, "sil_glow_cool_temp_rate", &sil_glow_cool_temp_rate, 0.f, 1.f);
-    CMD4(CCC_Vector3, "sil_glow_color", &sil_glow_color, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
-    //--DRS-- SilencerOverheat_end
+	//--DSR-- SilencerOverheat_start
+	CMD4(CCC_Float, "sil_glow_max_temp", &sil_glow_max_temp, 0.f, 1.f);
+	CMD4(CCC_Float, "sil_glow_shot_temp", &sil_glow_shot_temp, 0.f, 1.f);
+	CMD4(CCC_Float, "sil_glow_cool_temp_rate", &sil_glow_cool_temp_rate, 0.f, 1.f);
+	CMD4(CCC_Vector3, "sil_glow_color", &sil_glow_color, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+	//--DRS-- SilencerOverheat_end
 
 	CMD4(CCC_Vector3, "dsr_test", &dsr_test, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
 	CMD4(CCC_Vector3, "dsr_test1", &dsr_test1, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
 	CMD4(CCC_Vector3, "dsr_test2", &dsr_test2, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
 
 	//--DSR-- HeatVision_start
-    CMD4(CCC_Integer, "heat_vision_cooldown", &heat_vision_cooldown, 0, 1);
-    CMD4(CCC_Float, "heat_vision_cooldown_time", &heat_vision_cooldown_time, 0, 300000.f);
-    CMD4(CCC_Integer, "heat_vision_zombie_cold", &heat_vision_zombie_cold, 0, 1);
+	CMD4(CCC_Integer, "heat_vision_cooldown",	&heat_vision_cooldown, 0, 1);
+	CMD4(CCC_Float, "heat_vision_cooldown_time", &heat_vision_cooldown_time, 0, 300000.f);
+	CMD4(CCC_Integer, "heat_vision_zombie_cold", &heat_vision_zombie_cold, 0, 1);
 	CMD2(CCC_Float,   "heat_vision_mode",		&heat_vision_mode);
 	CMD4(CCC_Vector4, "heat_vision_steps",		&heat_vision_steps, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "heat_vision_blurring",	&heat_vision_blurring, tw2_min, tw2_max);

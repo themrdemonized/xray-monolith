@@ -96,6 +96,7 @@ void CWeaponShotEffector::Shot2(float angle)
 	{
 		m_angle_horz += (m_angle_vert / m_cam_recoil.MaxAngleVert) * rdm * m_cam_recoil.StepAngleHorz;
 	}
+
 	clamp(m_angle_horz, -m_cam_recoil.MaxAngleHorz, m_cam_recoil.MaxAngleHorz);
 
 	m_first_shot = true;

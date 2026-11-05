@@ -1329,7 +1329,7 @@ void CCharacterPhysicsSupport::RecreateSkeleton()
 
 	if (m_pPhysicsShell)
 	{
-		VERIFY(m_eType != etStalker);
+		VERIFY(m_eType!=etStalker);
 		if (m_physics_skeleton)
 		{
 			m_EntityAlife.processing_deactivate();

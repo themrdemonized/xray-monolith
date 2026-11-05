@@ -93,10 +93,10 @@ public:
 
 	virtual vis_data& _BCL getVisData() { return vis; }
 	virtual u32 getType() { return Type; }
-
-    CTexture* GetTexture();							//--DSR--
-    virtual void MarkAsHot(bool is_hot);			//--DSR-- HeatVision
-    virtual void MarkAsGlowing(bool is_glowing);	//--DSR-- SilencerOverheat
+	
+	CTexture* GetTexture();							//--DSR--
+	virtual void MarkAsHot(bool is_hot);			//--DSR-- HeatVision
+	virtual void MarkAsGlowing(bool is_glowing);	//--DSR-- SilencerOverheat
 
 	dxRender_Visual();
 	virtual ~dxRender_Visual();

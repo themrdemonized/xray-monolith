@@ -35,13 +35,13 @@ void R_hemi::set_material(float x, float y, float z, float w)
 //--DSR-- HeatVision_start
 void R_hemi::set_hotness(float x, float y, float z, float w)
 {
-    if (c_hotness) RCache.set_c(c_hotness, x, y, z, w);
+	if (c_hotness) RCache.set_c(c_hotness, x, y, z, w);
 }
 //--DSR-- HeatVision_end
 
 //--DSR-- SilencerOverheat_start
 void R_hemi::set_glowing(float x, float y, float z, float w)
 {
-    if (c_glowing) RCache.set_c(c_glowing, x, y, z, w);
+	if (c_glowing) RCache.set_c(c_glowing, x, y, z, w);
 }
 //--DSR-- SilencerOverheat_end

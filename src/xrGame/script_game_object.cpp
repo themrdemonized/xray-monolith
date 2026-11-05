@@ -1438,25 +1438,25 @@ CGameObject& CScriptGameObject::object() const
 
     if (children)
     {
-        for (auto* child : *children)
-        {
-            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-            subtable["shader"] = child->getDebugShader();
-            subtable["texture"] = child->getDebugTexture();
-            table[child->getID()] = subtable;
-        }
+	for (auto* child : *children)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShader();
+		subtable["texture"] = child->getDebugTexture();
+		table[child->getID()] = subtable;
+	}
     }
 	
     if (children_invisible)
     {
-        for (auto* child : *children_invisible)
-        {
-            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-            subtable["shader"] = child->getDebugShader();
-            subtable["texture"] = child->getDebugTexture();
-            table[child->getID()] = subtable;
+	for (auto* child : *children_invisible)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShader();
+		subtable["texture"] = child->getDebugTexture();
+		table[child->getID()] = subtable;
         }
-    }
+	}
 
 	return table;
 }
@@ -1528,25 +1528,25 @@ CGameObject& CScriptGameObject::object() const
 
     if (children)
     {
-        for (auto* child : *children)
-        {
-            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-            subtable["shader"] = child->getDebugShaderDef();
-            subtable["texture"] = child->getDebugTextureDef();
-            table[child->getID()] = subtable;
-        }
+	for (auto* child : *children)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShaderDef();
+		subtable["texture"] = child->getDebugTextureDef();
+		table[child->getID()] = subtable;
+	}
     }
 
     if (children_invisible)
     {
-        for (auto* child : *children_invisible)
-        {
-            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-            subtable["shader"] = child->getDebugShaderDef();
-            subtable["texture"] = child->getDebugTextureDef();
-            table[child->getID()] = subtable;
+	for (auto* child : *children_invisible)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShaderDef();
+		subtable["texture"] = child->getDebugTextureDef();
+		table[child->getID()] = subtable;
         }
-    }
+	}
 
 	return table;
 }
@@ -1566,41 +1566,41 @@ void set_shader_tex(IRenderVisual* vis, int id, LPCSTR shader, LPCSTR texture)
 	{
         if (children)
         {
-            for (auto* child : *children)
-            {
-                child->SetShaderTexture(shader, texture);
-            }
+		for (auto* child : *children)
+		{
+			child->SetShaderTexture(shader, texture);
+		}
         }
 
         if (children_invisible)
         {
-            for (auto* child : *children_invisible)
-            {
-                child->SetShaderTexture(shader, texture);
-            }
+		for (auto* child : *children_invisible)
+		{
+			child->SetShaderTexture(shader, texture);
+		}
         }
 		return;
 	}
 
     if (children)
     {
-        for (auto* child : *children)
-        {
-            if (child->getID() != id) continue;
-            child->SetShaderTexture(shader, texture);
-            return;
-        }
+	for (auto* child : *children)
+	{
+		if (child->getID() != id) continue;
+		child->SetShaderTexture(shader, texture);
+		return;
+	}
     }
 
     if (children_invisible)
     {
-        for (auto* child : *children_invisible)
-        {
-            if (child->getID() != id) continue;
-            child->SetShaderTexture(shader, texture);
-            return;
+	for (auto* child : *children_invisible)
+	{
+		if (child->getID() != id) continue;
+		child->SetShaderTexture(shader, texture);
+		return;
         }
-    }
+	}
 }
 
 void reset_shader_tex(IRenderVisual* vis, int id)
@@ -1618,41 +1618,41 @@ void reset_shader_tex(IRenderVisual* vis, int id)
 	{
         if (children)
         {
-            for (auto* child : *children)
-		    {
-			    child->ResetShaderTexture();
-		    }
+		for (auto* child : *children)
+		{
+			child->ResetShaderTexture();
+		}
         }
 
         if (children_invisible)
         {
-            for (auto* child : *children_invisible)
-            {
-                child->ResetShaderTexture();
-            }
+		for (auto* child : *children_invisible)
+		{
+			child->ResetShaderTexture();
+		}
         }
 		return;
 	}
 
     if (children)
     {
-        for (auto* child : *children)
-        {
-            if (child->getID() != id) continue;
-            child->ResetShaderTexture();
-            return;
-        }
+	for (auto* child : *children)
+	{
+		if (child->getID() != id) continue;
+		child->ResetShaderTexture();
+		return;
+	}
     }
 
     if (children_invisible)
     {
-        for (auto* child : *children_invisible)
-        {
-            if (child->getID() != id) continue;
-            child->ResetShaderTexture();
-            return;
+	for (auto* child : *children_invisible)
+	{
+		if (child->getID() != id) continue;
+		child->ResetShaderTexture();
+		return;
         }
-    }
+	}
 }
 
 void CScriptGameObject::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud)

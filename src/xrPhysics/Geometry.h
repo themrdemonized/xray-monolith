@@ -231,8 +231,9 @@ public:
 	virtual dGeomID create();
 	virtual void set_build_position(const Fvector& ref_point);
 	void set_radius(float r);
-	virtual float height();
-	void set_height(float h);
+
+    virtual float height();
+    void set_height(float h);
 	float m_def_radius;
 	float m_def_height;
 private:

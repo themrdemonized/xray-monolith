@@ -57,12 +57,12 @@ BOOL CObjectSpace::_RayTest(const Fvector& start, const Fvector& dir, float rang
 			ICollidable* collidable = spatial->dcast_Collidable();
 			if (!collidable) continue;
 
-			ECollisionFormType tp = collidable->collidable.model->Type();
-			if ((tgt & (rqtObject | rqtObstacle)) && (tp == cftObject) && collidable
-				                                                            ->collidable.model->_RayQuery(Q, r_temp))
-				return TRUE;
-			if ((tgt & rqtShape) && (tp == cftShape) && collidable->collidable.model->_RayQuery(Q, r_temp)) return
-				TRUE;
+				ECollisionFormType tp = collidable->collidable.model->Type();
+				if ((tgt & (rqtObject | rqtObstacle)) && (tp == cftObject) && collidable
+				                                                              ->collidable.model->_RayQuery(Q, r_temp))
+					return TRUE;
+				if ((tgt & rqtShape) && (tp == cftShape) && collidable->collidable.model->_RayQuery(Q, r_temp)) return
+					TRUE;
 		}
 	}
 	// static test

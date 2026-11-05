@@ -754,7 +754,7 @@ void			CGameObject::dbg_DrawSkeleton	()
 
 void CGameObject::renderable_Render()
 {
-    inherited::renderable_Render();
+	inherited::renderable_Render();
 
     if (m_instance_holder && !m_instance_holder->ModelInstanceMultirender()) return;
 
@@ -766,16 +766,16 @@ void CGameObject::renderable_Render()
 
 void CGameObject::RenderAttachments()
 {
-	for (auto& pair : m_script_attachments)
-	{
-		script_attachment* att = pair.second;
+		for (auto& pair : m_script_attachments)
+		{
+			script_attachment* att = pair.second;
 		if (att->GetType() != eSA_World) continue;
 
         att->UpdateXFORM(Visual()->dcast_PKinematics(), &XFORM());
 		att->renderable_Render();
-		att->RenderUI();
-	}
-}
+					att->RenderUI();
+			}
+		}
 
 static void update_visbox(IKinematics* k)
 {
@@ -807,15 +807,15 @@ static void update_visbox(IKinematics* k)
 
 	if (psDeviceFlags2.test(rsDBGDrawVisBoxes))
 	{
-		Fmatrix box, cent;
-		cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
-		box.mul(obj->XFORM(), cent);
+	Fmatrix box, cent;
+	cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
+	box.mul(obj->XFORM(), cent);
 
-		const Fbox& kbox = k->GetBox();
-		Fvector radius;
-		kbox.getradius(radius);
-		CDebugRenderer& render = Level().debug_renderer();
-		render.draw_obb(box, radius, D3DCOLOR_XRGB(0, 255, 0), false);
+	const Fbox& kbox = k->GetBox();
+	Fvector radius;
+	kbox.getradius(radius);
+	CDebugRenderer& render = Level().debug_renderer();
+	render.draw_obb(box, radius, D3DCOLOR_XRGB(0, 255, 0), false);
 	}
 }
 
@@ -849,15 +849,15 @@ static void update_visbox_hud(IKinematics* k)
 	
 	if (psDeviceFlags2.test(rsDBGDrawVisBoxes))
 	{
-		Fmatrix box, cent;
-		cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
-		box.mul(obj->HudItemData()->m_item_transform, cent);
+	Fmatrix box, cent;
+	cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
+	box.mul(obj->HudItemData()->m_item_transform, cent);
 
-		const Fbox& kbox = k->GetBox();
-		Fvector radius;
-		kbox.getradius(radius);
-		CDebugRenderer& render = Level().debug_renderer();
-		render.draw_obb(box, radius, D3DCOLOR_XRGB(100, 100, 0), true);
+	const Fbox& kbox = k->GetBox();
+	Fvector radius;
+	kbox.getradius(radius);
+	CDebugRenderer& render = Level().debug_renderer();
+	render.draw_obb(box, radius, D3DCOLOR_XRGB(100, 100, 0), true);
 	}
 }
 
@@ -1307,10 +1307,10 @@ void CGameObject::UpdateCL()
 	inherited::UpdateCL();
 
     for (auto& pair : m_script_attachments)
-    {
+	{
         script_attachment* att = pair.second;
         att->Update();
-    }
+	}
 
 	if (H_Parent())
 		return;

@@ -51,7 +51,7 @@ static void cammera_shell_collide_callback_common(bool& do_collide, bool bo1, dC
     if (oposite_data)
     {
         if (oposite_data->ph_ref_object == my_data->ph_ref_object)
-            return;
+		return;
 
         if (oposite_data->ph_ref_attachment && !oposite_data->ph_ref_attachment->GetCamCollide())
             return;

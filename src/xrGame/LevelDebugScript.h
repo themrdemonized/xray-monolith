@@ -92,7 +92,6 @@ public:
 
 	virtual void Render();
 };
-
 class DBG_ScriptCylinder : public DBG_ScriptObject
 {
 public:

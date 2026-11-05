@@ -142,10 +142,8 @@ public:
 		xr_delete(collidable.model);
 		::Render->model_Delete(renderable.visual);
 		renderable.visual = nullptr;
-
 		delete_data(m_children);
 		delete_data(m_bone_callbacks);
-
 		xr_delete(m_userdata);
 		xr_delete(m_ph_contact_callback_func);
 	}

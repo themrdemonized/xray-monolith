@@ -358,9 +358,9 @@ void attachable_hud_item::render()
 
 	if (!m_parent_hud_item->has_object()) return;
 
-	for (auto& pair : *m_parent_hud_item->object().GetAttachments())
-	{
-		if (pair.second->GetType() == eSA_HUD)
+		for (auto& pair : *m_parent_hud_item->object().GetAttachments())
+		{
+			if (pair.second->GetType() == eSA_HUD)
 			pair.second->renderable_Render();
 	}
 }
@@ -376,10 +376,10 @@ void attachable_hud_item::render_item_ui()
 
 	if (!m_parent_hud_item->has_object()) return;
 
-	for (auto& pair : *m_parent_hud_item->object().GetAttachments())
-	{
-		if (pair.second->GetType() == eSA_HUD)
-			pair.second->RenderUI();
+		for (auto& pair : *m_parent_hud_item->object().GetAttachments())
+		{
+			if (pair.second->GetType() == eSA_HUD)
+				pair.second->RenderUI();
 	}
 }
 
@@ -1332,9 +1332,10 @@ void player_hud::render_hud()
 
 	auto& actor_hud_attachments = *g_actor->GetAttachments();
 	for (auto& pair : actor_hud_attachments)
-	{
-		script_attachment* att = pair.second;
-        if (att->GetType() == eSA_HUD)
+		{
+			script_attachment* att = pair.second;
+
+			if (att->GetType() == eSA_HUD)
             att->renderable_Render();
 	}
 }
@@ -1996,7 +1997,6 @@ void player_hud::clear_hand_pose(u8 hand, float accrue, float falloff)
 }
 
 extern BOOL print_bone_warnings;
-
 void player_hud::StopScriptAnim()
 {
 	u8 part = script_anim_part;

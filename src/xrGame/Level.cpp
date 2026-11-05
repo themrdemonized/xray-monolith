@@ -1177,9 +1177,9 @@ void CLevel::OnFrame()
 		pStatGraphR->AppendItem(float(m_dwRPS) * fRPS_Mult, 0xff00ff00, 0);
 	}
 
-    for (auto& pair : m_script_attachments)
+	for (auto& pair : m_script_attachments)
     {
-        pair.second->Update();
+		pair.second->Update();
         pair.second->UpdateXFORM(nullptr, nullptr);
     }
 
@@ -1461,7 +1461,8 @@ void CLevel::ScriptDebugRender()
         }
 
         m_debug_render_queue_immediate.clear_and_free();
-    }
+	}
+
 	// demonized: fix of showing console window when there are no visible gizmos 
 	if (hasVisibleObj)
 		DRender->OnFrameEnd();

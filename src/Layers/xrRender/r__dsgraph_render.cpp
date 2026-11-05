@@ -113,7 +113,7 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 		RCache.set_xform_project(proj);
 	}
     
-    RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_object(N->val.pObject);
 	RImplementation.apply_lmaterial();
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 
@@ -694,10 +694,10 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 			else
 				RCache.set_RT(RImplementation.Target->rt_ssfx_motion_vectors->pRT, 3);
 		}
-        mapScopeHUD.clear();
+		mapScopeHUD.clear();
         mapScopeCamAttached.clear();
 #endif
-	}
+		}
 
 	// Restore projection
 	Device.mFullTransform = FTold;

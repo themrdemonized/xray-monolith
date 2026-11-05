@@ -407,37 +407,37 @@ void CEntity::ChangeTeam(int team, int squad, int group)
 }
 
 //--DSR-- HeatVision_start
-static u32 clampU(u32 x, u32 a, u32 b)
+static u32 clampU(u32 x, u32 a, u32 b) 
 {
-    return x < a ? a : (x > b ? b : x);
+	return x < a ? a : (x > b ? b : x);
 }
 
 float CEntity::GetHotness() {
-    if (heat_vision_cooldown && (AlreadyDie() || !g_Alive()))
-        return 1.0f - (float)clampU(Device.dwTimeGlobal - m_level_death_time, 0, heat_vision_cooldown_time) / heat_vision_cooldown_time;
-    return 1.0f;
+	if (heat_vision_cooldown && (AlreadyDie() || !g_Alive())) 
+		return 1.0f - (float)clampU(Device.dwTimeGlobal - m_level_death_time, 0, heat_vision_cooldown_time) / heat_vision_cooldown_time;
+	return 1.0f;
 }
 
 void CEntity::OnChangeVisual()
 {
-    inherited::OnChangeVisual();
-    if (renderable.visual != 0)
-        renderable.visual->MarkAsHot(true);
+	inherited::OnChangeVisual();
+	if (renderable.visual != 0)
+		renderable.visual->MarkAsHot(true);
 }
 //--DSR-- HeatVision_end
 
 //--DSR-- SilencerOverheat_start
-float CEntity::GetGlowing()
+float CEntity::GetGlowing() 
 {
-    auto invOwner = smart_cast<CInventoryOwner*>(this);
-    if (invOwner)
-    {
-        auto weapon = smart_cast<CWeapon*>(invOwner->inventory().ActiveItem());
-        if (weapon)
-        {
-            return weapon->GetGlowing();
-        }
-    }
-    return 0.f;
+	auto invOwner = smart_cast<CInventoryOwner*>(this);
+	if (invOwner) 
+	{
+		auto weapon = smart_cast<CWeapon*>(invOwner->inventory().ActiveItem());
+		if (weapon)
+		{
+			return weapon->GetGlowing();
+		}
+	}
+	return 0.f;
 }
 //--DSR-- SilencerOverheat_end

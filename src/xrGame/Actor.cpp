@@ -2198,7 +2198,7 @@ void CActor::RenderCamAttached()
 			{
 				script_attachment* att = pair.second;
 
-                if (att->GetType() == eSA_CamAttached)
+				if (att->GetType() == eSA_CamAttached)
                 {
                     att->UpdateXFORM(nullptr, &cam);
                     att->renderable_Render();

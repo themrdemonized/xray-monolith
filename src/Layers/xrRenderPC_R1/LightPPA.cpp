@@ -261,8 +261,7 @@ void CLightR_Manager::render_spot(u32 _priority)
 		if (L->flags.bOrtho)
 			L_project.build_projection_ortho(L->cone, L->cone, SSM_near_plane, L->range + EPS_S);
 		else
-			L_project.build_projection(L->cone, 1.f, SSM_near_plane, L->range + EPS_S);
-		
+		L_project.build_projection(L->cone, 1.f, SSM_near_plane, L->range + EPS_S);
 		L_combine.mul(L_project, L_view);
 
 		//		2. Calculate matrix for TC-gen

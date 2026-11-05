@@ -322,13 +322,13 @@ void CModelPool::DeleteInternal(dxRender_Visual* & V, BOOL bDiscard)
 			// Registry entry found - move it to pool and reset changed shader/texture if necessary
 			xr_vector<IRenderVisual*>* children = V->get_children();
 			if (children)
-                for (auto* child : *children)
+				for (auto* child : *children)
                 {
-                    child->ResetShaderTexture();
+					child->ResetShaderTexture();
                 }
-            else
+			else
             {
-                V->ResetShaderTexture();
+				V->ResetShaderTexture();
             }
 
 			Pool.insert(mk_pair(it->second, V));

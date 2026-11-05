@@ -43,13 +43,13 @@ static void update_visbox_attachment(IKinematics* k)
 
 	if (psDeviceFlags2.test(rsDBGDrawVisBoxes))
 	{
-		Fmatrix box, cent;
-		cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
-		box.mul(att->GetTransform(), cent);
+	Fmatrix box, cent;
+	cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
+	box.mul(att->GetTransform(), cent);
 
-		const Fbox& kbox = k->GetBox();
-		Fvector radius;
-		kbox.getradius(radius);
+	const Fbox& kbox = k->GetBox();
+	Fvector radius;
+	kbox.getradius(radius);
 		Level().debug_renderer().draw_obb(box, radius, D3DCOLOR_XRGB(150, 0, 150), att->GetType() == eSA_HUD);
 	}
 }
@@ -420,15 +420,15 @@ void script_attachment::renderable_Render()
 
 	for (auto& pair : m_children)
 		pair.second->renderable_Render();
-}
+	}
 
 void script_attachment::RenderUI()
-{
-	for (auto& pair : m_children)
+	{
+		for (auto& pair : m_children)
 		pair.second->RenderUI();
 
 	if (m_script_ui)
-	{
+		{
 		if (::Render->get_generation() == ::Render->GENERATION_R1)
 		{
 			g_pGamePersistent->AttachmentUIsToRender.push_back(this);
@@ -472,7 +472,7 @@ void script_attachment::RenderInstanceAttachments()
         {
             att->UpdateXFORM(Kinematics(), &XFORM());
             att->renderable_Render();
-        }
+		}
 	}
 }
 
@@ -508,7 +508,7 @@ void script_attachment::Update()
             m_motion_end_cb = nullptr;
         }
         else
-            PlayMotion("idle");
+		PlayMotion("idle");
 	}
 
 	UpdateBoneCallbacks();
@@ -686,66 +686,66 @@ void script_attachment::RefreshVisBoxChain(u16 type)
 }
 
 void script_attachment::UpdateBoneCallbacks()
-{
-	for (auto& pair : m_bone_callbacks)
 	{
-		script_attachment_bone_cb* cb = pair.second;
-		if (!cb) continue;
-
-		if (cb->m_func)
+		for (auto& pair : m_bone_callbacks)
 		{
-			cb->m_mat.set((*(cb->m_func))(
+			script_attachment_bone_cb* cb = pair.second;
+			if (!cb) continue;
+			
+			if (cb->m_func)
+			{
+				cb->m_mat.set((*(cb->m_func))(
 				Kinematics()->LL_GetBoneInstance(cb->m_attachment_bone_id).mTransformHidden, //Transform without bone callback modifier
 				Kinematics()->LL_BoneName_dbg(pair.first)));
 
-			continue;
-		}
+				continue;
+			}
+			
+			Fmatrix& target = cb->m_mat;
+			u16 bone = cb->m_bone_id;
 
-		Fmatrix& target = cb->m_mat;
-		u16 bone = cb->m_bone_id;
-
-		if (m_parent_object)
-		{
-			if (GetType() == eSA_HUD)
+			if (m_parent_object)
 			{
-				CHudItem* itm = smart_cast<CHudItem*>(m_parent_object);
-				if (itm)
+				if (GetType() == eSA_HUD)
 				{
-					if (bone >= itm->HudItemData()->m_model->LL_BoneCount())
-						target = Fidentity;
-					else
-						target = itm->HudItemData()->m_model->LL_GetTransform(bone);
+					CHudItem* itm = smart_cast<CHudItem*>(m_parent_object);
+					if (itm)
+					{
+						if (bone >= itm->HudItemData()->m_model->LL_BoneCount())
+							target = Fidentity;
+						else
+							target = itm->HudItemData()->m_model->LL_GetTransform(bone);
 
-					continue;
+						continue;
+					}
+
+					CActor* act = smart_cast<CActor*>(m_parent_object);
+					if (act)
+					{
+						if (bone >= g_player_hud->m_model->dcast_PKinematics()->LL_BoneCount())
+							target = Fidentity;
+						else
+							target = (bone < 21) ?
+							g_player_hud->m_model_2->dcast_PKinematics()->LL_GetTransform(bone) :
+							g_player_hud->m_model->dcast_PKinematics()->LL_GetTransform(bone);
+
+						continue;
+					}
 				}
 
-				CActor* act = smart_cast<CActor*>(m_parent_object);
-				if (act)
-				{
-					if (bone >= g_player_hud->m_model->dcast_PKinematics()->LL_BoneCount())
-						target = Fidentity;
-					else
-						target = (bone < 21) ?
-						g_player_hud->m_model_2->dcast_PKinematics()->LL_GetTransform(bone) :
-						g_player_hud->m_model->dcast_PKinematics()->LL_GetTransform(bone);
+				if (bone >= m_parent_object->Visual()->dcast_PKinematics()->LL_BoneCount())
+					target = Fidentity;
+				else
+					target = m_parent_object->Visual()->dcast_PKinematics()->LL_GetTransform(bone);
 
-					continue;
-				}
+				continue;
 			}
 
-			if (bone >= m_parent_object->Visual()->dcast_PKinematics()->LL_BoneCount())
-				target = Fidentity;
-			else
-				target = m_parent_object->Visual()->dcast_PKinematics()->LL_GetTransform(bone);
-
-			continue;
-		}
-
-		if (m_parent_attachment)
-		{
+			if (m_parent_attachment)
+			{
 			if (bone >= m_parent_attachment->Kinematics()->LL_BoneCount())
-				target = Fidentity;
-			else
+					target = Fidentity;
+				else
 				target = m_parent_attachment->Kinematics()->LL_GetTransform(bone);
 		}
 	}
@@ -887,7 +887,8 @@ void script_attachment::SetParent(script_attachment* att)
 	if (m_parent_level)
 	{
 		Level().remove_child(GetName());
-		spatial_unregister();
+
+	spatial_unregister();
 	}
 	
 	m_parent_level = false;
@@ -919,7 +920,8 @@ void script_attachment::SetParent(CGameObject* obj)
 	if (m_parent_level)
 	{
 		Level().remove_child(GetName());
-		spatial_unregister();
+
+	spatial_unregister();
 	}
 
 	m_parent_level = false;
@@ -1214,9 +1216,9 @@ script_attachment* script_attachment::AddChild(LPCSTR name, script_attachment* a
 
 script_attachment* script_attachment::GetChild(LPCSTR name)
 {
-	auto& pair = m_children.find(name);
-	if (pair != m_children.end())
-		return pair->second;
+		auto& pair = m_children.find(name);
+		if (pair != m_children.end())
+			return pair->second;
 
 	return nullptr;
 }
@@ -1543,7 +1545,7 @@ void script_attachment::SetParentBone(LPCSTR bone)
 }
 
 void script_attachment::SetParentBone(u16 bone_id)
-{
+	{
 	if (m_parent_bone == bone_id) return;
 
 	// Recreate physics shapes if they were previously attached to the parent object
@@ -2269,24 +2271,24 @@ float script_attachment::Radius() const
 
 	if (children)
 	{
-		for (auto* child : *children)
-		{
-			::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-			subtable["shader"] = child->getDebugShader();
-			subtable["texture"] = child->getDebugTexture();
-			table[child->getID()] = subtable;
-		}
+	for (auto* child : *children)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShader();
+		subtable["texture"] = child->getDebugTexture();
+		table[child->getID()] = subtable;
+	}
 	}
 	
 	if (children_invisible)
 	{
-		for (auto* child : *children_invisible)
-		{
-			::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-			subtable["shader"] = child->getDebugShader();
-			subtable["texture"] = child->getDebugTexture();
-			table[child->getID()] = subtable;
-		}
+	for (auto* child : *children_invisible)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShader();
+		subtable["texture"] = child->getDebugTexture();
+		table[child->getID()] = subtable;
+	}
 	}
 
 	return table;
@@ -2316,24 +2318,24 @@ float script_attachment::Radius() const
 
 	if (children)
 	{
-		for (auto* child : *children)
-		{
-			::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-			subtable["shader"] = child->getDebugShaderDef();
-			subtable["texture"] = child->getDebugTextureDef();
-			table[child->getID()] = subtable;
-		}
+	for (auto* child : *children)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShaderDef();
+		subtable["texture"] = child->getDebugTextureDef();
+		table[child->getID()] = subtable;
+	}
 	}
 	
 	if (children_invisible)
 	{
-		for (auto* child : *children_invisible)
-		{
-			::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-			subtable["shader"] = child->getDebugShaderDef();
-			subtable["texture"] = child->getDebugTextureDef();
-			table[child->getID()] = subtable;
-		}
+	for (auto* child : *children_invisible)
+	{
+		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShaderDef();
+		subtable["texture"] = child->getDebugTextureDef();
+		table[child->getID()] = subtable;
+	}
 	}
 
 	return table;
@@ -2345,51 +2347,51 @@ void script_attachment::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture)
     xr_vector<IRenderVisual*>* children = Visual()->get_children();
     xr_vector<IRenderVisual*>* children_invisible = Visual()->get_children_invisible();
 
-    if (!children && !children_invisible)
-    {
+	if (!children && !children_invisible)
+	{
         Visual()->SetShaderTexture(shader, texture);
-        return;
-    }
+		return;
+	}
 
-    if (id < 1)
+	if (id < 1)
     {
         if (children)
-        {
-            for (auto* child : *children)
-            {
-                child->SetShaderTexture(shader, texture);
-            }
+	{
+		for (auto* child : *children)
+		{
+			child->SetShaderTexture(shader, texture);
+		}
         }
 
         if (children_invisible)
         {
-            for (auto* child : *children_invisible)
-            {
-                child->SetShaderTexture(shader, texture);
-            }
+		for (auto* child : *children_invisible)
+		{
+			child->SetShaderTexture(shader, texture);
+		}
         }
-        return;
-    }
+		return;
+	}
 
     if (children)
     {
-        for (auto* child : *children)
-        {
-            if (child->getID() != id) continue;
-            child->SetShaderTexture(shader, texture);
-            return;
-        }
+	for (auto* child : *children)
+	{
+		if (child->getID() != id) continue;
+		child->SetShaderTexture(shader, texture);
+		return;
+	}
     }
 
     if (children_invisible)
     {
-        for (auto* child : *children_invisible)
-        {
-            if (child->getID() != id) continue;
-            child->SetShaderTexture(shader, texture);
-            return;
-        }
-    }
+	for (auto* child : *children_invisible)
+	{
+		if (child->getID() != id) continue;
+		child->SetShaderTexture(shader, texture);
+		return;
+	}
+}
 }
 
 void script_attachment::ResetShaderTexture(int id)
@@ -2398,49 +2400,49 @@ void script_attachment::ResetShaderTexture(int id)
     xr_vector<IRenderVisual*>* children = Visual()->get_children();
     xr_vector<IRenderVisual*>* children_invisible = Visual()->get_children_invisible();
 
-    if (!children && !children_invisible)
-    {
+	if (!children && !children_invisible)
+	{
         Visual()->ResetShaderTexture();
-        return;
-    }
+		return;
+	}
 
-    if (id < 1)
+	if (id < 1)
     {
         if (children)
-        {
-            for (auto* child : *children)
-            {
-                child->ResetShaderTexture();
-            }
+	{
+		for (auto* child : *children)
+		{
+			child->ResetShaderTexture();
+		}
         }
 
         if (children_invisible)
         {
-            for (auto* child : *children_invisible)
-            {
-                child->ResetShaderTexture();
-            }
+		for (auto* child : *children_invisible)
+		{
+			child->ResetShaderTexture();
+		}
         }
-        return;
-    }
+		return;
+	}
 
     if (children)
     {
-        for (auto* child : *children)
-        {
-            if (child->getID() != id) continue;
-            child->ResetShaderTexture();
-            return;
-        }
+	for (auto* child : *children)
+	{
+		if (child->getID() != id) continue;
+		child->ResetShaderTexture();
+		return;
+	}
     }
 
     if (children_invisible)
     {
-        for (auto* child : *children_invisible)
-        {
-            if (child->getID() != id) continue;
-            child->ResetShaderTexture();
-            return;
-        }
-    }
+	for (auto* child : *children_invisible)
+	{
+		if (child->getID() != id) continue;
+		child->ResetShaderTexture();
+		return;
+	}
+}
 }
