@@ -1,4 +1,3 @@
-#pragma once
 #include "stdafx.h"
 #include "script_attachment_manager.h"
 #include "player_hud.h"
@@ -871,13 +870,12 @@ void script_attachment::SetParent(script_attachment* att)
 	if (!att)
 		return;
 
-	if (m_toplevel_parent) OnParentDestroyPhysicsShell();
-
 	if (m_parent_attachment)
 	{
 		if (m_parent_attachment == att)
 			return;
 
+        if (m_toplevel_parent) OnParentDestroyPhysicsShell();
 		m_parent_attachment->RemoveChild(GetName());
 	}
 
@@ -1995,7 +1993,7 @@ void script_attachment::SetBoneCallback(LPCSTR bone, LPCSTR parent_bone, bool ov
 		return;
 	}
 
-	Msg("![SetBoneCallback]: Parent has no bone with name %i", parent_bone);
+	Msg("![SetBoneCallback]: Parent has no bone with name %s", parent_bone);
 }
 
 void script_attachment::SetBoneCallback(u16 bone_id, u16 parent_bone, bool overwrite)
@@ -2082,7 +2080,7 @@ bool script_attachment::has_shapes()
 {
     ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
 
-    if (Kinematics()->LL_BoneCount() + 1 < id)
+    if (id >= Kinematics()->LL_BoneCount())
     {
         table["error"] = "no bone";
         return table;
