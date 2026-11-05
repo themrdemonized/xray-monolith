@@ -1037,7 +1037,7 @@ void CUIMiniMapWidget::place_global()
 		m_global->SetHeading(m_map->GetHeading());
 		Fvector2 pivot = m_map->GetStaticItem()->GetHeadingPivot();
 		pivot.add(Fvector2().set(map_pos.x - global_pos.x, map_pos.y - global_pos.y));
-		m_global->SetHeadingPivotOffset(pivot, Fvector2().set(0.0f, 0.0f), false);
+		m_global->SetHeadingPivot(pivot, Fvector2().set(0.0f, 0.0f), false);
 	}
 	else
 		m_global->SetHeading(0.0f);

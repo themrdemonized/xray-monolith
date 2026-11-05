@@ -766,18 +766,5 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("set_legs_shader", SAFE_WRAP(&CScriptGameObject::SetLegsShader))
 		.def("reset_legs_shader", SAFE_WRAP(&CScriptGameObject::ResetLegsShader))
 
-        // Lucy: Shader Params
-        .def("get_shader_params", SAFE_WRAP(&CScriptGameObject::GetShaderParams_Script))
-        .def("get_shader_param", SAFE_WRAP(&CScriptGameObject::GetShaderParam_Script))
-        .def("set_shader_param", SAFE_WRAP((void (CScriptGameObject::*)(int, Fvector4))& CScriptGameObject::SetShaderParam))
-        .def("set_shader_param", SAFE_WRAP((void (CScriptGameObject::*)(int, float, float, float, float))& CScriptGameObject::SetShaderParam))
-        .def("reset_shader_params", SAFE_WRAP(&CScriptGameObject::ClearShaderParams))
-
-        // Model Shader Params
-        .def("get_model_shader_params", SAFE_WRAP(&CScriptGameObject::GetModelShaderParams_Script))
-        .def("get_model_shader_param", SAFE_WRAP((void (CScriptGameObject::*)(int, int, bool))& CScriptGameObject::GetModelShaderParam_Script))
-        .def("set_model_shader_param", SAFE_WRAP((void (CScriptGameObject::*)(int, int, Fvector4, bool))& CScriptGameObject::SetModelShaderParam))
-        .def("set_model_shader_param", SAFE_WRAP((void (CScriptGameObject::*)(int, int, float, float, float, float, bool))& CScriptGameObject::SetModelShaderParam))
-        .def("reset_model_shader_params", SAFE_WRAP(&CScriptGameObject::ClearModelShaderParams))
 		;
 }
