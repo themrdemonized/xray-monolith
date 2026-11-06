@@ -184,8 +184,6 @@ public:
 		return *this;
 	}
 
-	IC SelfRef set(const _matrix<T>& m);
-
 	// multiplies q1 * q2, and places the result in *this.
 	// no failure.  renormalization not automatic
 
@@ -478,7 +476,7 @@ public:
 		return *this;
 	}
 
-	IC SelfRef set2(const _matrix<T>& M)
+	IC SelfRef set(const _matrix<T>& M)
 	{
 		float trace, s, invS = 0.f;
 
