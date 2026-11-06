@@ -842,28 +842,28 @@ void script_attachment::SetRotation(float x, float y, float z)
 
 void script_attachment::SetScale(Fvector scale)
 {
-    m_attachment_offset[3].set(scale);
+	m_attachment_offset[3].set(scale);
 
-    if (m_parent_level)
-    {
-        if (m_physics_shell)
-        {
-            m_physics_shell->SetScale(m_attachment_offset[3]);
-            if (m_ph_frozen)
-            {
-                RecalcOffset();
-            }
-            else
-            {
-                m_physics_shell->Enable();
-                spatial_move();
-            }
-        }
+	if (m_parent_level)
+	{
+		if (m_physics_shell)
+		{
+			m_physics_shell->SetScale(m_attachment_offset[3]);
+			if (m_ph_frozen)
+			{
+				RecalcOffset();
+			}
+			else
+			{
+				m_physics_shell->Enable();
+				spatial_move();
+			}
+		}
 
-        return;
-    }
+		return;
+	}
 
-    RecalcOffset();
+	RecalcOffset();
 }
 
 void script_attachment::SetOrigin(float x, float y, float z)
@@ -882,7 +882,7 @@ void script_attachment::SetParent(script_attachment* att)
 		if (m_parent_attachment == att)
 			return;
 
-        if (m_toplevel_parent) OnParentDestroyPhysicsShell();
+		if (m_toplevel_parent) OnParentDestroyPhysicsShell();
 		m_parent_attachment->RemoveChild(GetName());
 	}
 
@@ -1376,7 +1376,7 @@ void script_attachment::AddToParentShell(CGameObject* obj)
 	mtx.k.normalize();
 
 	Fvector new_scale;
-    new_scale.set(1, 1, 1);
+	new_scale.set(1, 1, 1);
 
 	script_attachment* parent = m_parent_attachment;
 
@@ -2120,7 +2120,7 @@ bool script_attachment::has_shapes()
         real_scale.mul(parent->GetScale());
         parent = parent->m_parent_attachment;
     }
-    
+
     real_scale.mul(GetScale());
 
     if (local)
