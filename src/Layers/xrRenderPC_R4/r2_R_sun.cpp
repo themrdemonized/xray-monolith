@@ -1379,6 +1379,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 		bool bSpecial = mapNormalPasses[1][0].size() || mapMatrixPasses[1][0].size() || mapSorted.size();
 		if (bNormal || bSpecial)
 		{
+			PIX_EVENT(SE_SUN_SMAP);
 			Target->phase_smap_direct(fuckingsun, SE_SUN_FAR);
 			RCache.set_xform_world(Fidentity);
 			RCache.set_xform_view(Fidentity);
@@ -1386,6 +1387,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 			r_dsgraph_render_graph(0);
 			if (psDeviceFlags2.test(rsGrassShadow) && cascade_ind <= ps_ssfx_grass_shadows.x)
 			{
+				PIX_EVENT(SE_SUN_SMAP_GRASS);
 				Details->fade_distance = dm_fade * dm_fade * ps_ssfx_grass_shadows.y;
 				Details->Render();
 			}

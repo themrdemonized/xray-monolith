@@ -795,6 +795,9 @@
     <ClInclude Include="..\xrRenderDX10\dx10EventWrapper.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="..\xrRenderDX10\dx10GpuTimeline.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="..\xrRender\gifPlayer.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -1476,6 +1479,9 @@
       <Filter>Interfase implementations\ImGuiRender</Filter>
     </ClCompile>
     <ClCompile Include="..\xrRenderDX10\dx10EventWrapper.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xrRenderDX10\dx10GpuTimeline.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="..\xrRender\gifPlayer.cpp">

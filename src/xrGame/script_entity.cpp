@@ -753,12 +753,12 @@ int CScriptEntity::get_enemy_strength()
 
 void CScriptEntity::process_sound_callbacks()
 {
-	PROF_EVENT("CScriptEntity::process_sound_callbacks");
+	PROF_EVENT("CScriptEntity::process_sound_callbacks", PROF_CAT(Script));
 	xr_vector<CSavedSound>::const_iterator I = m_saved_sounds.begin();
 	xr_vector<CSavedSound>::const_iterator E = m_saved_sounds.end();
 	for (; I != E; ++I)
 	{
-		PROF_EVENT("Sound: deferred Lua hearing callback");
+		PROF_EVENT("Sound: deferred Lua hearing callback", PROF_CAT(Script));
 		object().callback(GameObject::eSound)(
 			object().lua_game_object(),
 			(*I).m_game_object_id,

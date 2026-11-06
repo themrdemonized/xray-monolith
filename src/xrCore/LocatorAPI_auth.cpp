@@ -11,7 +11,7 @@ struct auth_options
 
 void auth_entry(void* p)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	FS.auth_runtime(p);
 }
@@ -38,7 +38,7 @@ u64 CLocatorAPI::auth_get()
 
 void CLocatorAPI::auth_runtime(void* params)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	m_auth_lock.Enter();
 	auth_options* _o = (auth_options*)params;

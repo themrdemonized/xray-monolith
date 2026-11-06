@@ -128,7 +128,7 @@ IC bool is_sound_type(int s, const ESoundTypes& t)
 void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound_UserDataPtr user_data,
                                          const Fvector& position, float sound_power)
 {
-	PROF_EVENT("CSoundMemoryManager::feel_sound_new");
+	PROF_EVENT("CSoundMemoryManager::feel_sound_new", PROF_CAT(AI));
 #ifndef MASTER_GOLD
 	if (object && smart_cast<CActor*>(object) && psAI_Flags.test(aiIgnoreActor))
 		return;
@@ -149,7 +149,7 @@ void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound
 
 	VERIFY(_valid(m_sound_threshold));
 	{
-		PROF_EVENT("Sound: NPC hearing callback");
+		PROF_EVENT("Sound: NPC hearing callback", PROF_CAT(AI));
 		m_object->sound_callback(object, sound_type, position, sound_power);
 	}
 	VERIFY(_valid(m_sound_threshold));
@@ -322,7 +322,7 @@ struct CRemoveOfflinePredicate
 
 void CSoundMemoryManager::update()
 {
-	START_PROFILE("Memory Manager/sounds::update")
+	START_PROFILE("Memory Manager/sounds::update", PROF_CAT(AI))
 		clear_delayed_objects();
 
 		VERIFY(m_sounds);

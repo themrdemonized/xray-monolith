@@ -521,6 +521,7 @@ void CScriptEngine::process_file(LPCSTR file_name)
 
 void CScriptEngine::process_file(LPCSTR file_name, bool reload_modules)
 {
+	PROF_EVENT("CScriptEngine::process_file", PROF_CAT(Script));
 	m_reload_modules = reload_modules;
 	process_file_if_exists(file_name, true);
 	m_reload_modules = false;

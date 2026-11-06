@@ -32,6 +32,8 @@
 #include "../../xrEngine/render.h"
 #include "../../xrEngine/_d3d_extensions.h"
 
+#include "../../xrCore/profiler.h"
+
 #ifndef _EDITOR
 #include "../../xrEngine/igame_level.h"
 

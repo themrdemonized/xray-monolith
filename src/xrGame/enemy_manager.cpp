@@ -470,7 +470,7 @@ void CEnemyManager::try_change_enemy()
 
 void CEnemyManager::update()
 {
-	START_PROFILE("Memory Manager/enemies::update")
+	START_PROFILE("Memory Manager/enemies::update", PROF_CAT(AI))
 		if (!m_ready_to_save)
 		{
 			//		Msg						("%6d %s DEcreased enemy counter for player (%d -> %d)",Device.dwTimeGlobal,*m_object->cName(),Level().autosave_manager().not_ready_count(),Level().autosave_manager().not_ready_count()-1);
