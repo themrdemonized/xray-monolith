@@ -402,6 +402,12 @@ void CUI3dStatic::SetObject(CScriptGameObject* obj)
     m_pCurrentItem = &obj->object();
     m_currentItemId = m_pCurrentItem->ID();
     m_bFirstUpdate = true;
+
+    IRenderVisual* vis = m_pCurrentItem->Visual();
+
+    vis->getVisData().skip_marker = true;
+    for (auto* child : *vis->get_children())
+        child->getVisData().skip_marker = true;
 }
 
 void CUI3dStatic::SetVisual(LPCSTR name)

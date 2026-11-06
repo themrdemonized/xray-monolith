@@ -849,8 +849,15 @@ void script_attachment::SetScale(Fvector scale)
         if (m_physics_shell)
         {
             m_physics_shell->SetScale(m_attachment_offset[3]);
-            RecalcOffset();
-            m_physics_shell->Enable();
+            if (m_ph_frozen)
+            {
+                RecalcOffset();
+            }
+            else
+            {
+                m_physics_shell->Enable();
+                spatial_move();
+            }
         }
 
         return;
