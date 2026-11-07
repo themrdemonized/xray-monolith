@@ -303,8 +303,18 @@ void CSE_ALifeOnlineOfflineGroup::switch_offline()
 	if (!m_members.empty())
 	{
 		MEMBER* member = (*m_members.begin()).second;
+		// fold the squad onto a member that is still online, not a stale teleported one
+		for (const auto& it : m_members)
+		{
+			if (it.second->m_bOnline)
+			{
+				member = it.second;
+				break;
+			}
+		}
 
-		member->synchronize_location();
+		if (member->m_bOnline)
+			member->synchronize_location();
 
 		o_Position = member->o_Position;
 		m_tNodeID = member->m_tNodeID;
