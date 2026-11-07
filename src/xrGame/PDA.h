@@ -137,7 +137,7 @@ public:
     void SetPdaBrightness(float value)
     {
         m_fPdaBrightness = value;
-        clamp(m_fPdaBrightness, 0.f, 1.f);
+        clamp(m_fPdaBrightness, 0.f, 1.5);
         m_bPdaBrightnessOverride = true;
     }
 
