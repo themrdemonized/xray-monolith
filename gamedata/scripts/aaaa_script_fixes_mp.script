@@ -1579,6 +1579,26 @@ level_weathers.WeatherManager.reset = function(self, ...)
 	end
 end
 
+-- Warfare escort target functors crash on a nil squad when the escort dies after leaving the level of
+-- its target anomaly: task_target_anomaly stays set but is no longer in db.anomaly_by_name.
+do
+	local function guard_escort_target(functor_name, escort_task_id, squad_story_id)
+		local base = task_functor[functor_name]
+		task_functor[functor_name] = function(task_id, field, p, tsk)
+			if task_id == escort_task_id and not get_story_squad(squad_story_id) then
+				local n = db.actor and load_var(db.actor, "task_target_anomaly")
+				local anomaly = n and db.anomaly_by_name[n]
+				if n and not (anomaly and anomaly.object) then
+					return nil
+				end
+			end
+			return base(task_id, field, p, tsk)
+		end
+	end
+	guard_escort_target("mar_base_owl_stalker_trader_task_target", "sim_default_csky_trader_task_3", "ecolog_companion_task_1")
+	guard_escort_target("jup_b6_scientist_tech_task_target", "sim_default_ecolog_trader_task_1", "ecolog_companion_task_2")
+end
+
 -- Perform luagc cleanup
 function luagc_cleanup()
 	printf("~[luagc_cleanup] collectgarbage before=%sKb",collectgarbage("count")*1024)
