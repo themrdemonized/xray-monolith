@@ -109,7 +109,7 @@ void CScriptFmatrix::script_register(lua_State* L)
 			.def("set", (Fquaternion & (Fquaternion::*)(const Fquaternion&))(&Fquaternion::set), return_reference_to<1>())
                         // Can't use "set" because of luabind overloading bug: src/3rd party/luabind/detail/policy.hpp:1090
                         // TODO: cover the case when implicit_cast returns -1 and !const is true (the result is, wrongly, 0)
-			.def("set_from_matrix", (Fquaternion & (Fquaternion::*)(const Fmatrix&))(&Fquaternion::set), return_reference_to<1>())
+			.def("set_from_mat", (Fquaternion & (Fquaternion::*)(const Fmatrix&))(&Fquaternion::set), return_reference_to<1>())
 			.def("add", (Fquaternion & (Fquaternion::*)(const Fquaternion&))(&Fquaternion::add), return_reference_to<1>())
 			.def("add", (Fquaternion & (Fquaternion::*)(const Fquaternion&, const Fquaternion&))(&Fquaternion::add), return_reference_to<1>())
 			.def("sub", (Fquaternion & (Fquaternion::*)(const Fquaternion&))(&Fquaternion::sub), return_reference_to<1>())
