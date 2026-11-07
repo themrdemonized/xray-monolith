@@ -117,6 +117,9 @@ struct dxGeomUserData
 {
 	dVector3 last_pos;
 	bool pushing_neg, pushing_b_neg, b_static_colide;
+	// set by a contact callback (the handling overhaul's tyres) for the contact being made: being pushed back out of
+	// a triangle it passed does not take unlimited friction, so a tyre that went under the ground still rolls out
+	bool push_keeps_mu;
 	CDB::TRI *neg_tri, *b_neg_tri;
 	CPHObject* ph_object;
 	IPhysicsShellHolder* ph_ref_object;
@@ -185,6 +188,7 @@ IC void dGeomCreateUserData(dxGeom* geom)
 	dGeomSetData(geom, xr_new<dxGeomUserData>());
 	(dGeomGetUserData(geom))->pushing_neg = false;
 	(dGeomGetUserData(geom))->pushing_b_neg = false;
+	(dGeomGetUserData(geom))->push_keeps_mu = false;
 	(dGeomGetUserData(geom))->b_static_colide = true;
 
 	(dGeomGetUserData(geom))->last_pos[0] = -dInfinity;

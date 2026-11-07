@@ -30,6 +30,7 @@
 #include "../xrEngine/gamemtllib.h"
 //#include "PHActivationShape.h"
 #include "CharacterPhysicsSupport.h"
+#include "CustomZone.h"
 #include "car_memory.h"
 #include "../xrphysics/IPHWorld.h"
 BONE_P_MAP CCar::bone_map = BONE_P_MAP();
@@ -54,11 +55,11 @@ CCar::CCar()
 	camera[ectFirst]->tag = ectFirst;
 	camera[ectFirst]->Load("car_firsteye_cam");
 
-	camera[ectChase] = xr_new<CCameraLook>(this, CCameraBase::flRelativeLink);
+	camera[ectChase] = xr_new<CCameraCarLook>(this, CCameraBase::flRelativeLink);
 	camera[ectChase]->tag = ectChase;
 	camera[ectChase]->Load("car_look_cam");
 
-	camera[ectFree] = xr_new<CCameraLook>(this);
+	camera[ectFree] = xr_new<CCameraCarLook>(this);
 	camera[ectFree]->tag = ectFree;
 	camera[ectFree]->Load("car_free_cam");
 	OnCameraChange(ectFirst);
@@ -104,6 +105,10 @@ CCar::CCar()
 	m_speed_governed = false;
 	m_target_speed = 0.f;
 	m_throttle = 1.f;
+	m_vho.enabled = false;
+	ZeroMemory(&m_vho.s, sizeof(m_vho.s));
+	SetHandlingHeavyPushers("giant=0.2,chimera=8,burer=0.015");
+	SetHandlingDriveThrough("");
 #ifdef DEBUG
 	InitDebug();
 #endif
@@ -188,6 +193,10 @@ void CCar::Load(LPCSTR section)
 	ISpatial* self = smart_cast<ISpatial*>(this);
 	if (self) self->spatial.type |= STYPE_VISIBLEFORAI;
 
+	// Vehicle Handling Overhaul: per-vehicle section, else the global default; absent = stock handling
+	m_vho.section = READ_IF_EXISTS(pSettings, r_string, section, "vho_handling",
+	                               READ_IF_EXISTS(pSettings, r_string, "vehicle_handling_overhaul", "default_handling", ""));
+
 #ifdef CAR_NEW
 	m_on_before_hit_callback = READ_IF_EXISTS(pSettings, r_string, section, "on_before_hit", nullptr);
 	m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, section, "on_before_use", nullptr);
@@ -213,6 +222,7 @@ BOOL CCar::net_Spawn(CSE_Abstract* DC)
 	CSE_ALifeCar *car = smart_cast<CSE_ALifeCar*>(e);
 
 	CPHSkeleton::Spawn(e);
+	m_vho.s.fresh_spawn = !car->_flags.test(CSE_PHSkeleton::flSavedData);
 	
 	IKinematics* K = smart_cast<IKinematics*>(Visual());
 	IKinematicsAnimated	*A = smart_cast<IKinematicsAnimated*>(Visual());
@@ -316,7 +326,15 @@ BOOL CCar::net_Spawn(CSE_Abstract* DC)
     m_visual_camera.net_Spawn(DC);
 #endif
 
-	return (CScriptEntity::net_Spawn(DC));
+	if (!CScriptEntity::net_Spawn(DC))
+		return (FALSE);
+
+	// lets scripts (Vehicle Handling Overhaul) configure the car once it exists
+	::luabind::functor<void> spawn_funct;
+	if (ai().script_engine().functor("_G.CCar__OnSpawn", spawn_funct))
+		spawn_funct(lua_game_object());
+
+	return (TRUE);
 }
 
 void CCar::ActorObstacleCallback(bool& do_colide, bool bo1, dContact& c, SGameMtl* material_1, SGameMtl* material_2)
@@ -521,7 +539,8 @@ void CCar::shedule_Update(u32 dt)
 	if (CPHDestroyable::Destroyed())CPHDestroyable::SheduleUpdate(dt);
 	else CPHSkeleton::Update(dt);
 
-	if (CDelayedActionFuse::isActive() && CDelayedActionFuse::Update(GetfHealth()))
+	// the handling overhaul pauses the burn-out fuse unless an explosion caused it
+	if (CDelayedActionFuse::isActive() && HandlingAllowFuse() && CDelayedActionFuse::Update(GetfHealth()))
 	{
 		//CarExplode();
 	}
@@ -576,6 +595,8 @@ void CCar::UpdateCL()
 			                     m_car_weapon->ViewCameraNorm());
 	}
 	ASCUpdate();
+	if (m_vho.enabled)
+		HandlingUpdateCL();
 	if (Owner()) return;
 	//	UpdateEx			(g_fov);
 	VisualUpdate(90);
@@ -680,11 +701,15 @@ void CCar::Hit(SHit* pHDS)
 	//{
 	//	CExplosive::SetInitiator(HDS.who->ID());
 	//}
+	// handling overhaul: psy is mental damage, nothing a car takes (a psy anomaly's shove still moves it)
+	if (m_vho.enabled && HDS.hit_type == ALife::eHitTypeTelepatic) HDS.power = 0.f;
 	WheelHit(HDS.damage(), HDS.bone(), HDS.hit_type);
 	DoorHit(HDS.damage(), HDS.bone(), HDS.hit_type);
 	float hitScale = 1.f, woundScale = 1.f;
 	if (HDS.hit_type != ALife::eHitTypeStrike) CDamageManager::HitScale(HDS.bone(), hitScale, woundScale);
 	HDS.power *= GetHitImmunity(HDS.hit_type) * hitScale;
+	if (m_vho.enabled)
+		HandlingHit(HDS);
 
 #ifdef CAR_NEW
 	if (m_on_before_hit_callback && strlen(m_on_before_hit_callback))
@@ -711,7 +736,7 @@ void CCar::Hit(SHit* pHDS)
 		hitFunct(lua_game_object(), whoGO ? whoGO->lua_game_object() : (CScriptGameObject*)0, &tLuaHit, HDS.boneID);
 	}
 
-	if (!CDelayedActionFuse::isActive())
+	if (!CDelayedActionFuse::isActive() && HandlingAllowFuse())
 	{
 		CDelayedActionFuse::CheckCondition(GetfHealth());
 	}
@@ -734,11 +759,17 @@ void CCar::PHHit(SHit& H)
 {
 	if (!m_pPhysicsShell) return;
 	if (m_bone_steer == H.bone()) return;
+	// handling overhaul: anomalies and ordinary creatures cannot shove the car
+	float push = HandlingPushScale(H.who, H.type() == ALife::eHitTypeExplosion);
+	if (push <= 0.f) return;
+	// an anomaly's shove moves a light car further and a heavy one less (the zone sizes it to the mass)
+	if (push < 1.f && smart_cast<CCustomZone*>(H.who)) push *= HandlingMassScale();
+	float phys_impulse = H.phys_impulse() * push;
 	if (CPHUpdateObject::IsActive())
 	{
 		Fvector vimpulse;
 		vimpulse.set(H.direction());
-		vimpulse.mul(H.phys_impulse());
+		vimpulse.mul(phys_impulse);
 		vimpulse.y *= GravityFactorImpulse();
 		float mag = vimpulse.magnitude();
 		if (!fis_zero(mag))
@@ -749,7 +780,7 @@ void CCar::PHHit(SHit& H)
 	}
 	else
 	{
-		m_pPhysicsShell->applyHit(H.bone_space_position(), H.direction(), H.phys_impulse(), H.bone(), H.type());
+		m_pPhysicsShell->applyHit(H.bone_space_position(), H.direction(), phys_impulse, H.bone(), H.type());
 	}
 }
 
@@ -763,7 +794,7 @@ void CCar::ApplyDamage(u16 level)
 		break;
 	case 2:
 		{
-			if (!CDelayedActionFuse::isActive())
+			if (!CDelayedActionFuse::isActive() && HandlingAllowFuse())
 			{
 				CDelayedActionFuse::CheckCondition(GetfHealth());
 			}
@@ -788,6 +819,13 @@ void CCar::detach_Actor()
 	///Break();
 	//H_SetParent(NULL);
 	HandBreak();
+	if (m_vho.enabled)
+	{
+		// left parked: out of gear, hand brake latched (so its lamp shows when the driver is back)
+		m_vho.s.neutral = true;
+		m_vho.s.clutch_held = m_vho.s.sprint = false;
+		if (m_vho.p.handbrake_double_tap > 0.f) m_vho.s.hand_latched = true;
+	}
 	processing_deactivate();
 #ifdef DEBUG
 	DBgClearPlots();
@@ -825,6 +863,13 @@ bool CCar::attach_Actor(CGameObject* actor)
 	//	VisualUpdate();
 	processing_activate();
 	ReleaseHandBreak();
+	// handling overhaul: left parked out of gear, the car is found in 1st, ready to pull away; with the clutch pedal
+	// the gear is the driver's to choose
+	if (m_vho.enabled && m_vho.s.neutral && !HandlingClutchMode() && m_gear_ratious.size() > 1)
+	{
+		m_vho.s.neutral = false;
+		HandlingShift(1);
+	}
 	//	CurrentGameUI()->UIMainIngameWnd->CarPanel().Show(true);
 	//	CurrentGameUI()->UIMainIngameWnd->CarPanel().SetCarHealth(fEntityHealth/100.f);
 	//CurrentGameUI()->UIMainIngameWnd.ShowBattery(true);
@@ -1046,7 +1091,10 @@ void CCar::CreateSkeleton(CSE_Abstract* po)
 	m_pPhysicsShell->Activate(true);
 	m_pPhysicsShell->SetAirResistance(0.f,0.f);
 	*/
+	Fvector cog_saved;
+	u16 cog_bone = HandlingCogFix(cog_saved); // handling overhaul: a model's misplaced centre of mass
 	m_pPhysicsShell = P_build_Shell(this, false, &bone_map);
+	HandlingCogRestore(cog_bone, cog_saved);
 	//-Alundaio
 	m_pPhysicsShell->SetPrefereExactIntegration();
 
@@ -1175,6 +1223,7 @@ void CCar::Init()
 
 	HandBreak();
 	Transmission(1);
+	HandlingInit();
 }
 
 void CCar::Revert()
@@ -1194,6 +1243,7 @@ void CCar::NeutralDrive()
 
 void CCar::ReleaseHandBreak()
 {
+	m_vho.s.hold_brake = false;
 	xr_vector<SWheelBreak>::iterator i, e;
 	i = m_breaking_wheels.begin();
 	e = m_breaking_wheels.end();
@@ -1220,6 +1270,8 @@ void CCar::Drive()
 void CCar::StartEngine()
 {
 	if (m_fuel < EPS || b_engine_on) return;
+	if (m_vho.enabled && GetfHealth() <= m_vho.p.disable_health) return;
+	if (HandlingActive() && HandlingCrankStart()) return;
 	PlayExhausts();
 	m_car_sound->Start();
 	b_engine_on = true;
@@ -1236,7 +1288,7 @@ void CCar::StopEngine()
 	AscCall(ascExhoustStop);
 	NeutralDrive(); //set zero speed
 	b_engine_on = false;
-	UpdatePower(); //set engine friction;
+	if (!HandlingActive()) UpdatePower(); //set engine friction;
 	m_current_rpm = 0.f;
 }
 
@@ -1248,7 +1300,7 @@ void CCar::Stall()
 	AscCall(ascExhoustStop);
 	NeutralDrive(); //set zero speed
 	b_engine_on = false;
-	UpdatePower(); //set engine friction;
+	if (!HandlingActive()) UpdatePower(); //set engine friction;
 	m_current_rpm = 0.f;
 }
 
@@ -1339,6 +1391,12 @@ void CCar::SetSteer(float k)
 {
 	if (k < -1.f) k = -1.f;
 	else if (k > 1.f) k = 1.f;
+	if (HandlingActive())
+	{
+		m_vho.s.script_steer = k;
+		m_vho.s.script_steer_on = _abs(k) >= 0.01f;
+		return;
+	}
 	if (_abs(k) < 0.01f)
 	{
 		SteerIdle();
@@ -1367,6 +1425,8 @@ void CCar::LimitWheels()
 
 void CCar::HandBreak()
 {
+	// with the handling overhaul the motors are rebuilt every step, so remember the request instead
+	m_vho.s.hold_brake = true;
 	xr_vector<SWheelBreak>::iterator i, e;
 	i = m_breaking_wheels.begin();
 	e = m_breaking_wheels.end();
@@ -1596,6 +1656,8 @@ void CCar::PhTune(float step)
 			e->applyForce(0, e->getMass() * AntiGravityAccel(), 0);
 		//dBodyAddForce(e->get_body(),0,e->getMass()*AntiGravityAccel(),0);
 	}
+	if (HandlingActive())
+		HandlingPhTune(step);
 }
 
 float CCar::EffectiveGravity()
@@ -1716,6 +1778,19 @@ bool CCar::Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos)
 	if (!Owner())
 	{
 		if (Enter(pos, dir, foot_pos)) return true;
+		// handling overhaul easy_enter: within that many metres of the driver's seat, for models whose door
+		// needs a very exact spot to be used (the buggy)
+		if (m_vho.enabled && m_vho.p.easy_enter > 0.f)
+		{
+			IKinematics* K = smart_cast<IKinematics*>(Visual());
+			CInifile* ini = K->LL_UserData();
+			u16 id = ini && ini->line_exist("car_definition", "driver_place") ?
+				K->LL_BoneID(ini->r_string("car_definition", "driver_place")) : BI_NONE;
+			if (id == BI_NONE) id = K->LL_GetBoneRoot();
+			Fvector seat;
+			XFORM().transform_tiny(seat, K->LL_GetTransform(id).c);
+			if (seat.distance_to(foot_pos) < m_vho.p.easy_enter) return true;
+		}
 	}
 
 	RQR.r_clear();
@@ -1992,23 +2067,27 @@ void CCar::PhDataUpdate(float step)
 #endif
 
 	if (m_repairing)Revert();
-	LimitWheels();
-	UpdateFuel(step);
-
-
-	//if(fwp)
+	if (HandlingActive())
 	{
+		HandlingFuel(step);
+		HandlingPhUpdate(step);
+	}
+	else
+	{
+		LimitWheels();
+		UpdateFuel(step);
+
 		UpdatePower();
 		if (b_engine_on && !b_starting && m_current_rpm < m_min_rpm && !m_speed_governed)Stall();
-	}
 
-	if (bkp)
-	{
-		UpdateBack();
-	}
+		if (bkp)
+		{
+			UpdateBack();
+		}
 
-	if (brp)
-		HandBreak();
+		if (brp)
+			HandBreak();
+	}
 	//////////////////////////////////////////////////////////
 	for (int k = 0; k < (int)m_doors_update.size(); ++k)
 	{

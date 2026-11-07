@@ -10,6 +10,7 @@
 #include "PhSoundPlayer.h"
 #include "PhysicsShellHolder.h"
 #include "PHCommander.h"
+#include "CarPush.h"
 #include "../xrphysics/MathUtils.h"
 #include "../xrphysics/iPHWorld.h"
 //#include "../xrphysics/physicsshell.h"
@@ -294,7 +295,7 @@ void TContactShotMark(CDB::TRI* T, dContactGeom* c)
 				{
 					if (vel_cret > Pars::vel_cret_sound)
 					{
-						if (!mtl_pair->CollideSounds.empty())
+						if (!mtl_pair->CollideSounds.empty() && (!data->ph_ref_object || vehicle_collide_sound(data->ph_ref_object)))
 						{
 							float volume = collide_volume_min + vel_cret * (collide_volume_max - collide_volume_min) / (
 								_sqrt(mass_limit) * default_l_limit - Pars::vel_cret_sound);

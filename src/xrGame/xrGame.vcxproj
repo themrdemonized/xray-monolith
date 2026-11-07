@@ -982,6 +982,7 @@
     <ClInclude Include="CameraRecoil.h" />
     <ClInclude Include="CaptureBoneCallback.h" />
     <ClInclude Include="Car.h" />
+    <ClInclude Include="CarPush.h" />
     <ClInclude Include="CarDamageParticles.h" />
     <ClInclude Include="CarLights.h" />
     <ClInclude Include="CarDrone.h" />
@@ -2676,6 +2677,7 @@
     <ClCompile Include="CarSound.cpp" />
     <ClCompile Include="CarDrone.cpp" />
     <ClCompile Include="CarWeapon.cpp" />
+    <ClCompile Include="CarHandling.cpp" />
     <ClCompile Include="CarWheels.cpp" />
     <ClCompile Include="car_memory.cpp" />
     <ClCompile Include="cdkey_ban_list.cpp" />

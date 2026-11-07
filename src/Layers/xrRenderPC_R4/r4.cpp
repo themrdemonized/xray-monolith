@@ -579,6 +579,7 @@ void CRender::destroy()
 
 void CRender::reset_begin()
 {
+	rain_cover.clear(); // shader elements borrowed for the rain map are recreated with the device
 	// Update incremental shadowmap-visibility solver
 	// BUG-ID: 10646
 	{
