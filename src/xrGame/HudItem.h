@@ -150,7 +150,6 @@ public:
 	BOOL GetHUDmode();
 	void PlayBlendAnm(LPCSTR name, float speed = 1.f, float power = 1.f, bool stop_old = true);
 	IC bool IsPending() const { return !!m_huditem_flags.test(fl_pending); }
-	IC u32 MotionEndTime() const { return m_dwMotionEndTm; }
 	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 
 	virtual void DeleteHudItemData();
