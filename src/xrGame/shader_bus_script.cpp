@@ -5,6 +5,8 @@
 #include "../xrEngine/xr_ioc_cmd.h"
 #include "script_game_object.h"
 #include "GameObject.h"
+#include "script_attachment_manager.h"
+#include "script_particles.h"
 
 using namespace luabind;
 
@@ -138,25 +140,35 @@ static bool bus_set_array_uint(u32 token, double first, const ::luabind::object&
 	return ShaderBus::set_rows_uint(token, row, &raw.front(), u32(raw.size() / 4));
 }
 
-static IRenderable* bus_renderable(CScriptGameObject* obj)
+// the object behind a game_object, ScriptAttachment or particles_object argument, null for nil or any other value
+static IRenderable* bus_target(const ::luabind::object& o)
 {
-	return obj ? &obj->object() : nullptr;
+	const std::optional<CScriptGameObject*> obj = ::luabind::object_cast_nothrow<CScriptGameObject*>(o);
+	if (obj && *obj)
+		return &(*obj)->object();
+
+	const std::optional<script_attachment*> att = ::luabind::object_cast_nothrow<script_attachment*>(o);
+	if (att && *att)
+		return *att;
+
+	const std::optional<CScriptParticles*> particles = ::luabind::object_cast_nothrow<CScriptParticles*>(o);
+	return particles && *particles ? (*particles)->m_particles : nullptr;
 }
 
-static bool bus_set_object(u32 token, CScriptGameObject* obj, float x, float y, float z, float w)
+static bool bus_set_object(u32 token, const ::luabind::object& target, float x, float y, float z, float w)
 {
-	return ShaderBus::set_object(token, bus_renderable(obj), x, y, z, w);
+	return ShaderBus::set_object(token, bus_target(target), x, y, z, w);
 }
 
-static bool bus_clear_object(u32 token, CScriptGameObject* obj)
+static bool bus_clear_object(u32 token, const ::luabind::object& target)
 {
-	return ShaderBus::clear_object(token, bus_renderable(obj));
+	return ShaderBus::clear_object(token, bus_target(target));
 }
 
-static bool bus_get_object(LPCSTR id, CScriptGameObject* obj, float& x, float& y, float& z, float& w)
+static bool bus_get_object(LPCSTR id, const ::luabind::object& target, float& x, float& y, float& z, float& w)
 {
 	Fvector4 v;
-	const bool found = ShaderBus::get_object(id, bus_renderable(obj), v);
+	const bool found = ShaderBus::get_object(id, bus_target(target), v);
 	if (!found)
 		v.set(0.f, 0.f, 0.f, 0.f);
 
@@ -191,11 +203,12 @@ static ::luabind::object bus_writers(lua_State* L, LPCSTR id)
 	return bus_writer_rows(L, id, nullptr);
 }
 
-static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, CScriptGameObject* obj)
+static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, const ::luabind::object& target)
 {
-	if (!obj)
+	const IRenderable* object = bus_target(target);
+	if (!object)
 		return ::luabind::newtable(L);
-	return bus_writer_rows(L, id, bus_renderable(obj));
+	return bus_writer_rows(L, id, object);
 }
 
 static bool bus_set_texture(u32 token, LPCSTR name)
@@ -207,6 +220,90 @@ static LPCSTR bus_get_texture(LPCSTR id)
 {
 	const ShaderBus::lane* l = ShaderBus::find(id);
 	return l && l->texture_bound.size() ? l->texture_bound.c_str() : nullptr;
+}
+
+static bool bus_set_readback(u32 token, LPCSTR source, float x, float y, double w, double h, LPCSTR reduce)
+{
+	u32 width, height;
+	if (!bus_uint_value(w, width) || !bus_uint_value(h, height))
+		return ShaderBus::refuse_write(token, "a readback block size that is not a whole number");
+	return ShaderBus::set_readback(token, source, x, y, width, height, reduce);
+}
+
+static bool bus_set_readback_rows(u32 token, LPCSTR source, double first, double count, LPCSTR reduce)
+{
+	u32 row, rows;
+	if (!bus_uint_value(first, row) || !bus_uint_value(count, rows))
+		return ShaderBus::refuse_write(token, "a readback row that is not a whole number");
+	return ShaderBus::set_readback_rows(token, source, row, rows, reduce);
+}
+
+static bool bus_readback_texel(LPCSTR id, u32 i, float& x, float& y, float& z, float& w, u32& frame)
+{
+	Fvector4 v;
+	frame = 0;
+	const bool found = ShaderBus::get_readback(id, i, v, frame);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	x = v.x;
+	y = v.y;
+	z = v.z;
+	w = v.w;
+	return found;
+}
+
+static bool bus_get_readback(LPCSTR id, float& x, float& y, float& z, float& w, u32& frame)
+{
+	return bus_readback_texel(id, 0, x, y, z, w, frame);
+}
+
+static bool bus_get_readback_row(LPCSTR id, double i, float& x, float& y, float& z, float& w, u32& frame)
+{
+	u32 texel;
+	return bus_readback_texel(id, bus_uint_value(i, texel) ? texel : u32(-1), x, y, z, w, frame);
+}
+
+// raw unsigned values of a result read from uint rows
+static bool bus_readback_texel_uint(LPCSTR id, u32 i, u32& x, u32& y, u32& z, u32& w, u32& frame)
+{
+	Fvector4 v;
+	frame = 0;
+	const bool found = ShaderBus::get_readback(id, i, v, frame);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	u32 raw[4];
+	CopyMemory(raw, &v, sizeof(raw));
+	x = raw[0];
+	y = raw[1];
+	z = raw[2];
+	w = raw[3];
+	return found;
+}
+
+static bool bus_get_readback_uint(LPCSTR id, u32& x, u32& y, u32& z, u32& w, u32& frame)
+{
+	return bus_readback_texel_uint(id, 0, x, y, z, w, frame);
+}
+
+static bool bus_get_readback_uint_row(LPCSTR id, double i, u32& x, u32& y, u32& z, u32& w, u32& frame)
+{
+	u32 texel;
+	return bus_readback_texel_uint(id, bus_uint_value(i, texel) ? texel : u32(-1), x, y, z, w, frame);
+}
+
+static bool bus_set_buffer(u32 token, double rows)
+{
+	u32 count;
+	if (!bus_uint_value(rows, count))
+		return ShaderBus::refuse_write(token, "a buffer size that is not a whole number");
+	return ShaderBus::set_buffer(token, count);
+}
+
+static bool bus_set_late(u32 token, bool on)
+{
+	return ShaderBus::set_late(token, on);
 }
 
 static bool bus_get(LPCSTR id, float& x, float& y, float& z, float& w)
@@ -283,6 +380,11 @@ static LPCSTR bus_owner_of(LPCSTR id)
 	return ShaderBus::owner_of(id);
 }
 
+static LPCSTR bus_last_refusal(LPCSTR id)
+{
+	return ShaderBus::last_refusal(id);
+}
+
 static bool bus_stats(LPCSTR id, u32& changes, u32& last_change, u32& bound_frame, u32& writes)
 {
 	changes = 0;
@@ -320,13 +422,485 @@ static bool bus_get_pending(LPCSTR id, double& x, double& y, double& z, double& 
 	return found;
 }
 
+// a whole number from 1 to most
+static bool bus_read_side(const ::luabind::object& value, u32 most, u32& out)
+{
+	return value.type() == LUA_TNUMBER && bus_uint_value(::luabind::object_cast<double>(value), out) && out >= 1 && out <= most;
+}
+
+// the index of a string field among names, count for a missing field, -1 for anything else
+static int bus_read_name(const ::luabind::object& value, LPCSTR const* names, int count)
+{
+	if (value.type() == LUA_TNIL)
+		return count;
+	if (value.type() != LUA_TSTRING)
+		return -1;
+
+	LPCSTR name = ::luabind::object_cast<LPCSTR>(value);
+	for (int i = 0; i < count; ++i)
+		if (0 == xr_strcmp(name, names[i]))
+			return i;
+	return -1;
+}
+
+static LPCSTR bus_sizes[] = { "screen", "half", "quarter" };
+
+// a target size of a Lua value, a size name or { w, h }, false for anything else
+static bool bus_read_size(const ::luabind::object& size, u8& kind, u16& w, u16& h)
+{
+	if (size.type() == LUA_TTABLE)
+	{
+		u32 x, y;
+		if (!bus_read_side(size[1], 4096, x) || !bus_read_side(size[2], 4096, y))
+			return false;
+		kind = ShaderBus::size_fixed;
+		w = u16(x);
+		h = u16(y);
+		return true;
+	}
+	const int i = bus_read_name(size, bus_sizes, 3);
+	if (i < 0)
+		return false;
+	kind = u8(i < 3 ? i : ShaderBus::size_screen);
+	return true;
+}
+
+// the target spec of a Lua table, the name of the first bad field or null
+static LPCSTR bus_read_target(const ::luabind::object& spec, ShaderBus::target_spec& t)
+{
+	t.size = ShaderBus::size_screen;
+	t.width = 0;
+	t.height = 0;
+	t.format = 0;
+	t.history = false;
+	t.mips = false;
+	t.clear.set(0.f, 0.f, 0.f, 0.f);
+	if (spec.type() != LUA_TTABLE)
+		return "spec";
+
+	if (!bus_read_size(spec["size"], t.size, t.width, t.height))
+		return "size";
+
+	LPCSTR formats[ShaderBus::target_format_count];
+	for (u32 i = 0; i < ShaderBus::target_format_count; ++i)
+		formats[i] = ShaderBus::target_format_name(u8(i));
+	const int format = bus_read_name(spec["format"], formats, ShaderBus::target_format_count);
+	if (format < 0)
+		return "format";
+	t.format = u8(format < int(ShaderBus::target_format_count) ? format : 0);
+
+	::luabind::object history = spec["history"];
+	if (history.type() == LUA_TBOOLEAN)
+		t.history = ::luabind::object_cast<bool>(history);
+	else if (history.type() != LUA_TNIL)
+		return "history";
+
+	::luabind::object mips = spec["mips"];
+	if (mips.type() == LUA_TBOOLEAN)
+		t.mips = ::luabind::object_cast<bool>(mips);
+	else if (mips.type() != LUA_TNIL)
+		return "mips";
+
+	::luabind::object clear = spec["clear"];
+	if (clear.type() == LUA_TNUMBER)
+	{
+		const float c = ::luabind::object_cast<float>(clear);
+		t.clear.set(c, c, c, c);
+	}
+	else if (clear.type() == LUA_TTABLE)
+	{
+		float c[4] = { 0.f, 0.f, 0.f, 0.f };
+		for (int i = 0; i < 4; ++i)
+		{
+			::luabind::object e = clear[i + 1];
+			if (e.type() == LUA_TNUMBER)
+				c[i] = ::luabind::object_cast<float>(e);
+			else if (e.type() != LUA_TNIL)
+				return "clear";
+		}
+		::luabind::object fifth = clear[5];
+		if (fifth.type() != LUA_TNIL)
+			return "clear";
+		t.clear.set(c[0], c[1], c[2], c[3]);
+	}
+	else if (clear.type() != LUA_TNIL)
+		return "clear";
+	return nullptr;
+}
+
+static LPCSTR bus_stages[] = { "frame", "gbuffer", "lighting", "scene", "post" };
+static LPCSTR bus_gpu_states[] = { "pending", "ready", "failed", "released", "off" };
+static LPCSTR bus_blends[] = { "none", "add", "alpha" };
+
+// the pass spec of a Lua table, the name of the first bad field or null
+static LPCSTR bus_read_pass(const ::luabind::object& spec, ShaderBus::pass_spec& p)
+{
+	p.order = 0;
+	p.output_count = 0;
+	p.group_x = 0;
+	p.group_y = 0;
+	p.grid = false;
+	p.grid_size = ShaderBus::size_screen;
+	p.grid_w = 0;
+	p.grid_h = 0;
+	p.indirect_row = 0;
+	p.svp = false;
+	p.runs = 1;
+	p.rect.set(0.f, 0.f, 1.f, 1.f);
+	p.enabled = true;
+	p.released = false;
+	p.enables = 0;
+	if (spec.type() != LUA_TTABLE)
+		return "spec";
+
+	const int stage = bus_read_name(spec["stage"], bus_stages, ShaderBus::stage_count);
+	if (stage < 0 || stage == ShaderBus::stage_count)
+		return "stage";
+	p.stage = u8(stage);
+
+	::luabind::object order = spec["order"];
+	if (order.type() == LUA_TNUMBER)
+	{
+		const double v = ::luabind::object_cast<double>(order);
+		if (!(v >= -2147483648.0 && v <= 2147483647.0) || v != floor(v))
+			return "order";
+		p.order = int(v);
+	}
+	else if (order.type() != LUA_TNIL)
+		return "order";
+
+	::luabind::object ps = spec["ps"];
+	::luabind::object cs = spec["cs"];
+	if (ps.type() == LUA_TSTRING)
+		p.ps = ::luabind::object_cast<LPCSTR>(ps);
+	else if (ps.type() != LUA_TNIL)
+		return "ps";
+	if (cs.type() == LUA_TSTRING)
+		p.cs = ::luabind::object_cast<LPCSTR>(cs);
+	else if (cs.type() != LUA_TNIL)
+		return "cs";
+
+	::luabind::object outputs = spec["outputs"];
+	if (outputs.type() != LUA_TTABLE)
+		return "outputs";
+	for (u32 i = 1; ; ++i)
+	{
+		::luabind::object e = outputs[i];
+		if (e.type() == LUA_TNIL)
+			break;
+		if (e.type() != LUA_TSTRING || p.output_count >= ShaderBus::max_pass_outputs)
+			return "outputs";
+		p.outputs[p.output_count++] = ::luabind::object_cast<LPCSTR>(e);
+	}
+
+	::luabind::object inputs = spec["inputs"];
+	if (inputs.type() == LUA_TTABLE)
+		for (::luabind::object::iterator it = inputs.begin(); it != inputs.end(); ++it)
+		{
+			::luabind::object texture = *it;
+			if (it.key().type() != LUA_TSTRING || texture.type() != LUA_TSTRING)
+				return "inputs";
+			ShaderBus::pass_input input;
+			input.hlsl = ::luabind::object_cast<LPCSTR>(it.key());
+			input.texture = ::luabind::object_cast<LPCSTR>(texture);
+			p.inputs.push_back(input);
+		}
+	else if (inputs.type() != LUA_TNIL)
+		return "inputs";
+
+	const int blend = bus_read_name(spec["blend"], bus_blends, 3);
+	if (blend < 0)
+		return "blend";
+	p.blend = u8(blend < 3 ? blend : ShaderBus::blend_none);
+
+	::luabind::object rect = spec["rect"];
+	if (rect.type() == LUA_TTABLE)
+	{
+		float r[4];
+		for (int i = 0; i < 4; ++i)
+		{
+			::luabind::object e = rect[i + 1];
+			if (e.type() != LUA_TNUMBER)
+				return "rect";
+			r[i] = ::luabind::object_cast<float>(e);
+		}
+		::luabind::object fifth = rect[5];
+		if (fifth.type() != LUA_TNIL)
+			return "rect";
+		p.rect.set(r[0], r[1], r[2], r[3]);
+	}
+	else if (rect.type() != LUA_TNIL)
+		return "rect";
+
+	if (p.cs.size())
+	{
+		::luabind::object group = spec["group"];
+		u32 x, y;
+		if (group.type() != LUA_TTABLE || !bus_read_side(group[1], 1024, x) || !bus_read_side(group[2], 1024, y))
+			return "group";
+		p.group_x = u16(x);
+		p.group_y = u16(y);
+	}
+
+	::luabind::object grid = spec["grid"];
+	if (grid.type() != LUA_TNIL)
+	{
+		if (!bus_read_size(grid, p.grid_size, p.grid_w, p.grid_h))
+			return "grid";
+		p.grid = true;
+	}
+
+	::luabind::object indirect = spec["indirect"];
+	if (indirect.type() == LUA_TTABLE)
+	{
+		::luabind::object lane = indirect[1];
+		::luabind::object at = indirect[2];
+		if (lane.type() != LUA_TSTRING || at.type() != LUA_TNUMBER || !bus_uint_value(::luabind::object_cast<double>(at), p.indirect_row))
+			return "indirect";
+		p.indirect = ::luabind::object_cast<LPCSTR>(lane);
+		if (!p.indirect.size())
+			return "indirect";
+	}
+	else if (indirect.type() != LUA_TNIL)
+		return "indirect";
+
+	::luabind::object svp = spec["svp"];
+	if (svp.type() == LUA_TBOOLEAN)
+		p.svp = ::luabind::object_cast<bool>(svp);
+	else if (svp.type() != LUA_TNIL)
+		return "svp";
+
+	::luabind::object runs = spec["runs"];
+	if (runs.type() != LUA_TNIL)
+	{
+		u32 n;
+		if (!bus_read_side(runs, 16, n))
+			return "runs";
+		p.runs = u8(n);
+	}
+
+	::luabind::object pingpong = spec["pingpong"];
+	if (pingpong.type() == LUA_TSTRING)
+		p.pingpong = ::luabind::object_cast<LPCSTR>(pingpong);
+	else if (pingpong.type() != LUA_TNIL)
+		return "pingpong";
+	return nullptr;
+}
+
+static ::luabind::object bus_register_target(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description, const ::luabind::object& spec)
+{
+	ShaderBus::target_spec t;
+	if (LPCSTR field = bus_read_target(spec, t))
+	{
+		ShaderBus::note_refusal(id, "a spec field that is not valid");
+		Msg("! [SHADER-BUS] target '%s' refused, its spec field '%s' is not valid", id ? id : "", field);
+		return bus_token_object(L, 0);
+	}
+
+	string_path source;
+	bus_caller_source(L, source);
+	return bus_token_object(L, ShaderBus::register_target(id, owner, description, source, t));
+}
+
+static ::luabind::object bus_register_pass(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description, const ::luabind::object& spec)
+{
+	ShaderBus::pass_spec p;
+	if (LPCSTR field = bus_read_pass(spec, p))
+	{
+		ShaderBus::note_refusal(id, "a spec field that is not valid");
+		Msg("! [SHADER-BUS] pass '%s' refused, its spec field '%s' is not valid", id ? id : "", field);
+		return bus_token_object(L, 0);
+	}
+
+	string_path source;
+	bus_caller_source(L, source);
+	return bus_token_object(L, ShaderBus::register_pass(id, owner, description, source, p));
+}
+
+static bool bus_enable_pass(u32 token, bool on)
+{
+	return ShaderBus::enable_pass(token, on);
+}
+
+static bool bus_release_pass(u32 token)
+{
+	return ShaderBus::release_pass(token);
+}
+
+static bool bus_release_target(u32 token)
+{
+	return ShaderBus::release_target(token);
+}
+
+static ::luabind::object bus_register_mask(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description)
+{
+	string_path source;
+	bus_caller_source(L, source);
+	return bus_token_object(L, ShaderBus::register_mask(id, owner, description, source));
+}
+
+static bool bus_set_mask(u32 token, const ::luabind::object& target, bool on)
+{
+	return ShaderBus::set_mask(token, bus_target(target), on);
+}
+
+static u32 bus_get_mask(const ::luabind::object& target)
+{
+	const IRenderable* object = bus_target(target);
+	return object ? ShaderBus::get_mask(object) : 0;
+}
+
+static bool bus_release_mask(u32 token)
+{
+	return ShaderBus::release_mask(token);
+}
+
+static bool bus_set_mask_layer(u32 token, bool on)
+{
+	return ShaderBus::set_mask_layer(token, on);
+}
+
+static bool bus_set_mask_hidden(u32 token, bool on)
+{
+	return ShaderBus::set_mask_hidden(token, on);
+}
+
+static bool bus_set_mask_forward(u32 token, bool on)
+{
+	return ShaderBus::set_mask_forward(token, on);
+}
+
+// the list() keys of a target or history row, a history row shows its target's spec
+static void bus_list_target(::luabind::object& row, const ShaderBus::lane* l)
+{
+	shared_str id = l->id;
+	if (l->role == ShaderBus::role_history)
+	{
+		string64 base;
+		xr_strcpy(base, l->id.c_str());
+		base[xr_strlen(base) - xr_strlen(ShaderBus::history_suffix)] = 0;
+		id = base;
+	}
+
+	ShaderBus::target_spec t;
+	ShaderBus::gpu_status s;
+	if (!ShaderBus::target_get(id, t))
+		return;
+	const bool found = ShaderBus::get_gpu_status(id, s);
+	const bool released = t.released || (l->role == ShaderBus::role_history && !t.history);
+	const bool live = found && !released;
+	row["width"] = live ? s.width : 0u;
+	row["height"] = live ? s.height : 0u;
+	row["format"] = ShaderBus::target_format_name(t.format);
+	row["bytes"] = live ? s.bytes : 0u;
+	row["history"] = t.history;
+	row["mips"] = t.mips;
+	row["target_state"] = released ? "released" : found ? bus_gpu_states[s.state] : "pending";
+}
+
+static void bus_list_pass(lua_State* L, ::luabind::object& row, const ShaderBus::lane* l)
+{
+	ShaderBus::pass_spec p;
+	ShaderBus::gpu_status s;
+	if (!ShaderBus::pass_get(l->id, p))
+		return;
+	const bool found = ShaderBus::get_gpu_status(l->id, s);
+	row["stage"] = bus_stages[p.stage];
+	row["order"] = p.order;
+	row["pass_state"] = p.released ? "released" : !p.enabled ? "off" : found ? bus_gpu_states[s.state] : "pending";
+	row["reason"] = found && s.reason.size() ? s.reason.c_str() : "";
+	row["fails"] = found ? s.fails : 0u;
+	row["blend"] = bus_blends[p.blend];
+	row["svp"] = p.svp;
+	if (p.runs > 1)
+		row["runs"] = u32(p.runs);
+	if (p.pingpong.size())
+		row["pingpong"] = p.pingpong.c_str();
+	if (p.rect.x != 0.f || p.rect.y != 0.f || p.rect.z != 1.f || p.rect.w != 1.f)
+	{
+		::luabind::object rect = ::luabind::newtable(L);
+		rect[1] = p.rect.x;
+		rect[2] = p.rect.y;
+		rect[3] = p.rect.z;
+		rect[4] = p.rect.w;
+		row["rect"] = rect;
+	}
+
+	// the shader, outputs, inputs and compute group as the spec gave them
+	if (p.cs.size())
+		row["cs"] = p.cs.c_str();
+	else
+		row["ps"] = p.ps.c_str();
+	::luabind::object outputs = ::luabind::newtable(L);
+	for (u32 i = 0; i < p.output_count; ++i)
+		outputs[i + 1] = p.outputs[i].c_str();
+	row["outputs"] = outputs;
+	::luabind::object inputs = ::luabind::newtable(L);
+	for (u32 i = 0; i < p.inputs.size(); ++i)
+		inputs[p.inputs[i].hlsl.c_str()] = p.inputs[i].texture.c_str();
+	row["inputs"] = inputs;
+	if (p.cs.size())
+	{
+		::luabind::object group = ::luabind::newtable(L);
+		group[1] = u32(p.group_x);
+		group[2] = u32(p.group_y);
+		row["group"] = group;
+	}
+	if (p.grid && p.grid_size == ShaderBus::size_fixed)
+	{
+		::luabind::object grid = ::luabind::newtable(L);
+		grid[1] = u32(p.grid_w);
+		grid[2] = u32(p.grid_h);
+		row["grid"] = grid;
+	}
+	else if (p.grid)
+		row["grid"] = bus_sizes[p.grid_size];
+	if (p.indirect.size())
+	{
+		::luabind::object indirect = ::luabind::newtable(L);
+		indirect[1] = p.indirect.c_str();
+		indirect[2] = p.indirect_row;
+		row["indirect"] = indirect;
+	}
+}
+
+static bool bus_get_pass_time(LPCSTR id, float& x, float& y, float& z, float& w, u32& frames)
+{
+	Fvector4 t;
+	t.set(0.f, 0.f, 0.f, 0.f);
+	frames = 0;
+	const bool found = ShaderBus::get_pass_time(id, t, frames);
+	x = t.x;
+	y = t.y;
+	z = t.z;
+	w = t.w;
+	return found;
+}
+
 static int bus_version()
 {
 	return ShaderBus::version();
 }
 
+static bool bus_gpu_lanes()
+{
+	return ShaderBus::gpu_lanes_enabled();
+}
+
+static bool bus_targets()
+{
+	return ShaderBus::enable_targets();
+}
+
+static bool bus_masks()
+{
+	return ShaderBus::mask_drawable();
+}
+
 static ::luabind::object bus_list(lua_State* L, bool include_declared)
 {
+	static LPCSTR readback_states[] = { "none", "ok", "refused", "lost" };
+	static LPCSTR roles[] = { "", "target", "history", "pass", "mask" };
 	::luabind::object rows = ::luabind::newtable(L);
 
 	int row_index = 1;
@@ -353,6 +927,23 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["shared"] = l->shared != nullptr;
 		row["writers"] = ShaderBus::writer_count(l);
 		row["texture"] = l->texture_bound.size() ? l->texture_bound.c_str() : "";
+		row["readback"] = l->readback ? readback_states[l->readback->state] : "none";
+		row["readback_inflight"] = l->readback ? u32(l->readback->inflight) : 0u;
+		row["buffer_rows"] = l->buffer_bound;
+		row["late"] = l->late;
+		row["refusals"] = l->refusals;
+		row["refusal"] = l->refusal ? l->refusal : "";
+		row["role"] = roles[l->role];
+		if (l->role == ShaderBus::role_target || l->role == ShaderBus::role_history)
+			bus_list_target(row, l);
+		else if (l->role == ShaderBus::role_pass)
+			bus_list_pass(L, row, l);
+		else if (l->role == ShaderBus::role_mask)
+		{
+			const int bit = ShaderBus::mask_bit((u32(l->nonce) << 16) | u32(l->index));
+			if (bit >= 0)
+				row["mask_bit"] = bit;
+		}
 
 		// every kind a shader declared, more than one or one unlike kind shows a mismatch
 		::luabind::object kinds = ::luabind::newtable(L);
@@ -397,6 +988,35 @@ static ::luabind::object bus_list_registered(lua_State* L)
 	return bus_list(L, false);
 }
 
+// a table from lane id to { x, y, z, w }, uint lanes as raw unsigned integers
+static ::luabind::object bus_values(lua_State* L)
+{
+	xr_vector<ShaderBus::lane_value> values;
+	ShaderBus::values_copy(values);
+
+	::luabind::object result = ::luabind::newtable(L);
+	for (u32 i = 0; i < values.size(); ++i)
+	{
+		::luabind::object v = ::luabind::newtable(L);
+		if (values[i].kind == ShaderBus::kind_uint)
+		{
+			u32 raw[4];
+			CopyMemory(raw, &values[i].value, sizeof(raw));
+			for (int c = 0; c < 4; ++c)
+				v[c + 1] = raw[c];
+		}
+		else
+		{
+			v[1] = values[i].value.x;
+			v[2] = values[i].value.y;
+			v[3] = values[i].value.z;
+			v[4] = values[i].value.w;
+		}
+		result[(LPCSTR)values[i].id.c_str()] = v;
+	}
+	return result;
+}
+
 #pragma optimize("s",on)
 void shader_bus_registrator::script_register(lua_State* L)
 {
@@ -423,15 +1043,46 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("writers", &bus_writers_object, raw<1>()),
 		def("set_texture", &bus_set_texture),
 		def("get_texture", &bus_get_texture),
+		def("set_readback", &bus_set_readback),
+		def("get_readback", &bus_get_readback,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("get_readback", &bus_get_readback_row,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>() + pure_out_value<7>()),
+		def("set_readback_rows", &bus_set_readback_rows),
+		def("get_readback_uint", &bus_get_readback_uint,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("get_readback_uint", &bus_get_readback_uint_row,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>() + pure_out_value<7>()),
+		def("set_buffer", &bus_set_buffer),
+		def("set_late", &bus_set_late),
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),
+		def("last_refusal", &bus_last_refusal),
 		def("stats", &bus_stats,
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("get_pending", &bus_get_pending,
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("list", &bus_list_registered, raw<1>()),
 		def("list", &bus_list, raw<1>()),
+		def("values", &bus_values, raw<1>()),
+		def("register_target", &bus_register_target, raw<1>()),
+		def("register_pass", &bus_register_pass, raw<1>()),
+		def("enable_pass", &bus_enable_pass),
+		def("release_pass", &bus_release_pass),
+		def("release_target", &bus_release_target),
+		def("get_pass_time", &bus_get_pass_time,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("register_mask", &bus_register_mask, raw<1>()),
+		def("set_mask", &bus_set_mask),
+		def("get_mask", &bus_get_mask),
+		def("release_mask", &bus_release_mask),
+		def("set_mask_layer", &bus_set_mask_layer),
+		def("set_mask_hidden", &bus_set_mask_hidden),
+		def("set_mask_forward", &bus_set_mask_forward),
+		def("gpu_lanes", &bus_gpu_lanes),
+		def("targets", &bus_targets),
+		def("masks", &bus_masks),
 		def("version", &bus_version)
 	];
 }

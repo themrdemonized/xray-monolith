@@ -108,6 +108,7 @@ public:
 	IC const CObject* H_Parent() const { return Parent; }
 	CObject* H_Root() { return Parent ? Parent->H_Root() : this; }
 	const CObject* H_Root() const { return Parent ? Parent->H_Root() : this; }
+	virtual IRenderable* renderable_Root() { return Parent ? H_Root() : nullptr; }
 	CObject* H_SetParent(CObject* O, bool just_before_destroy = false);
 
 	// Geometry xform

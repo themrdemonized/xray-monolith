@@ -11,6 +11,7 @@
 #include "weapon.h"
 #include "script_attachment_manager.h"
 #include "../xrEngine/CameraBase.h"
+#include "../xrEngine/shader_bus.h"
 
 extern int g_nearwall;
 
@@ -1294,22 +1295,28 @@ void player_hud::render_hud()
 
 	if (!b_r0 && !b_r1) return;
 
+	::Render->set_BusTag(ShaderBus::hud_arms);
 	::Render->set_Transform(&m_transform);
 	::Render->add_Visual(m_model->dcast_RenderVisual());
+	::Render->set_BusTag(ShaderBus::hud_arms2);
 	::Render->set_Transform(&m_transform_2);
 	::Render->add_Visual(m_model_2->dcast_RenderVisual());
 
+	::Render->set_BusTag(ShaderBus::hud_item0);
 	if (m_attached_items[0])
 		m_attached_items[0]->render();
 
+	::Render->set_BusTag(ShaderBus::hud_item1);
 	if (m_attached_items[1])
 		m_attached_items[1]->render();
 
+	::Render->set_BusTag(ShaderBus::hud_scope);
 	if (m_attached_items[SCOPE_ATTACH_IDX])
 		m_attached_items[SCOPE_ATTACH_IDX]->render();
 
 	if (script_anim_item_model)
 	{
+		::Render->set_BusTag(ShaderBus::hud_prop);
 		::Render->set_Transform(&m_item_pos);
 		::Render->add_Visual(script_anim_item_model->dcast_RenderVisual());
 	}
@@ -1322,6 +1329,8 @@ void player_hud::render_hud()
 
 			if (att->GetType() == eSA_HUD)
 			{
+				::Render->set_BusTag(att->GetParentBone() < 21 ? ShaderBus::hud_arms2 : ShaderBus::hud_arms);
+
 				// Left arm
 				if (att->GetParentBone() < 21)
 					att->Render(m_model_2->dcast_PKinematics(), &m_transform_2);

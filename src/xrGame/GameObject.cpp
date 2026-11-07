@@ -34,6 +34,7 @@
 #include "../xrengine/xr_collide_form.h"
 #include "script_attachment_manager.h"
 #include "player_hud.h"
+#include "../xrEngine/shader_bus.h"
 extern MagicBox3 MagicMinBox(int iQuantity, const Fvector* akPoint);
 
 #pragma warning(push)
@@ -749,9 +750,14 @@ void CGameObject::renderable_Render()
 {
 	inherited::renderable_Render();
 	::Render->set_Transform(&XFORM());
+	// an object drawn by its parent adds its own mask bits to the parent's
+	const u32 bus_tag = ::Render->get_BusTag();
+	if (H_Parent() && renderable.bus_mask)
+		::Render->set_BusTag(bus_tag | (renderable.bus_mask & ShaderBus::mask_live_bits()));
 	::Render->add_Visual(Visual());
 	Visual()->getVisData().hom_frame = Device.dwFrame;
 	RenderAttachments();
+	::Render->set_BusTag(bus_tag);
 }
 
 void CGameObject::RenderAttachments()

@@ -81,6 +81,7 @@ namespace R_dsgraph
 		dxRender_Visual* pVisual;
 		Fmatrix Matrix; // matrix (copy)
 		Fmatrix PrevMatrix;
+		u32 bus_tag;
 	};
 
 	struct _MatrixItemS : public _MatrixItem

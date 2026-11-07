@@ -89,6 +89,7 @@
 #include "xrEngine\x_ray.h"
 #include "ui/UIHudStatesWnd.h"
 #include "script_attachment_manager.h"
+#include "../xrEngine/shader_bus.h"
 
 #ifdef STATIONARYMGUN_NEW
 #include "WeaponStatMgun.h"
@@ -2190,6 +2191,7 @@ void CActor::RenderCamAttached()
 			::Render->set_HUD(TRUE);
 			::Render->set_CamAttached(TRUE);
 			::Render->set_Object(this);
+			::Render->set_BusTag(ShaderBus::hud_cam);
 
 			Fmatrix cam = Fidentity;
 			Cameras().camera_Matrix(cam);
