@@ -1,4 +1,4 @@
-﻿#include "pch_script.h"
+#include "pch_script.h"
 #include "pda.h"
 #include "../xrphysics/PhysicsShell.h"
 #include "Entity.h"
@@ -33,6 +33,8 @@ CPda::CPda(void)
 	m_fUD_InertiaFactor = 0.f;
 	m_bNoticedEmptyBattery = false;
 	m_PdaEnabled = true;
+    m_fPdaBrightness = 1.f;
+    m_bPdaBrightnessOverride = false;
 }
 
 CPda::~CPda() {}
@@ -367,15 +369,22 @@ void CPda::UpdateCL()
 		float& display = g_pGamePersistent->pda_shader_data.pda_display_factor;
 
 		// Adjust screen brightness (smooth)
-		if (m_bPowerSaving)
-		{
-			if (brightness > m_fDisplayBrightnessPowerSaving)
-				brightness -= Device.fTimeDelta / .25f;
-		}
-		else
-			brightness = 1.f;
+		if (m_bPdaBrightnessOverride)
+        {
+            brightness = m_fPdaBrightness;
+        }
+        else
+        {
+            if (m_bPowerSaving)
+            {
+                if (brightness > m_fDisplayBrightnessPowerSaving)
+                    brightness -= Device.fTimeDelta / .25f;
+            }
+            else
+                brightness = 1.f;
 
-		clamp(brightness, m_fDisplayBrightnessPowerSaving, 1.f);
+            clamp(brightness, m_fDisplayBrightnessPowerSaving, 1.f);
+        }
 
 		// Screen "Glitch" factor
 		g_pGamePersistent->pda_shader_data.pda_psy_influence = m_psy_factor;
