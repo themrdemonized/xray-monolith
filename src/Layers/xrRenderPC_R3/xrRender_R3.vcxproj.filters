@@ -1241,6 +1241,9 @@
     <ClCompile Include="..\xrRender\dxRenderDeviceRender.cpp">
       <Filter>Interfase implementations\RenderDeviceRender</Filter>
     </ClCompile>
+    <ClCompile Include="..\xrRender\dxRenderDeviceRender_bus.cpp">
+      <Filter>Interfase implementations\RenderDeviceRender</Filter>
+    </ClCompile>
     <ClCompile Include="..\xrRender\dxConsoleRender.cpp">
       <Filter>Interfase implementations\ConsoleRender</Filter>
     </ClCompile>
@@ -1377,6 +1380,9 @@
       <Filter>Core_Target</Filter>
     </ClCompile>
     <ClCompile Include="..\xrRender\rendertarget_phase_smaa.cpp">
+      <Filter>Core_Target</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xrRender\rendertarget_phase_bus.cpp">
       <Filter>Core_Target</Filter>
     </ClCompile>
     <ClCompile Include="blender_smaa.cpp">

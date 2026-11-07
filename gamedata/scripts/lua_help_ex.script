@@ -551,7 +551,7 @@
     }
 
     shader_bus { -- float4 lanes bound to hlsl constants called bus_<id>, see docs/shader_bus.md
-        number version() -- 7
+        number version() -- 8
         number register(string id, string owner, string description) -- the write token, fatal when the id is registered with a different owner, nil for an id starting engine_ or cvar_
         number try_register(string id, string owner, string description) -- nil instead of the fatal
         number register_shared(string id, string owner, string description) -- a token of a shared lane, every writer gets its own and the lane binds the largest value, obj_hotness is shared and register and try_register give its token too
@@ -564,10 +564,26 @@
         bool set_object(number token, game_object obj, number x, number y, number z, number w) -- the object's own value on a lane whose id starts obj_, HUD draws read the actor's
         bool clear_object(number token, game_object obj) -- the object reads the lane's value again
         bool set_texture(number token, string name) -- the texture or render target $user$bus_<id> shows from the next frame, "" empties it
+        bool set_buffer(number token, number rows) -- size the lane as a buffer of rows, grow only
+        bool set_readback(number token, string source, number x, number y, number w, number h, string reduce) -- light, scene, backbuffer or a render target id, "" disarms
+        bool set_late(number token, bool on) -- latch again after the frame callbacks
+        bool set_readback_rows(number token, string source, number first, number count, string reduce) -- the same for count rows, 1 to 1024, from row first of a buffer lane, "" disarms
+        function register_target(string id, string owner, string description, table spec) -> number token -- a render target or a history target of a spec, DX10 and DX11, nil with a log line for a bad spec or a refused id
+        function register_pass(string id, string owner, string description, table spec) -> number token -- a pixel or compute pass of a spec, nil with a log line for a bad spec or a refused id
+        function enable_pass(number token, bool on) -> bool ok -- stops or runs the pass again from a fresh start
+        function release_pass(number token) -> bool ok -- stops the pass and frees its slot and id
+        function release_target(number token) -> bool ok -- frees the target, its history and its id
+        function set_mask_layer(number token, bool on) -> bool ok -- puts the token's bit on the mask layer or takes it off from the next frame
+        function set_mask_hidden(number token, bool on) -> bool ok -- lets the token's bit reach tagged objects the game does not draw, or stops it, from the next frame
+        function set_mask_forward(number token, bool on) -> bool ok -- opens the token's bit to forward and sorted meshes or closes it from the next frame
         function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
         function get_uint(string id) -> bool ok, number a, number b, number c, number d -- the bound value as unsigned integers
         function get_row(string id, number i) -> bool ok, number x, number y, number z, number w -- bound row i, false past the rows a shader declared, unsigned on a uint lane
         function get_object(string id, game_object obj) -> bool ok, number x, number y, number z, number w -- what draws of obj read, its own value or the lane's
+        function register_mask(string id, string owner, string description) -> number token -- claims one object mask bit 10 to 23 and writes 1 << bit as a uint to the lane, nil where the renderer has no object masks or every bit is taken
+        function set_mask(number token, game_object obj, bool on) -> bool ok -- sets or clears the token's bit on obj from the next frame
+        function get_mask(game_object obj) -> number bits -- the live object mask bits obj carries, 0 for none
+        function release_mask(number token) -> bool ok -- drops the bit from the next frame, register_mask can hand it out again at the next update
         string get_texture(string id) -- what $user$bus_<id> shows, nil for none or an unknown id
         function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value last written through the token, the largest of the tokens on a shared lane, unsigned on a uint lane
         table writers(string id) -- rows {owner, x, y, z, w}, one per token of a shared lane that called set, empty for any other lane
@@ -575,8 +591,16 @@
         bool has(string id)
         string describe(string id) -- nil for an unknown or unregistered id
         string owner_of(string id) -- nil for an unknown or unregistered id
-        table list(bool include_declared = false) -- rows {id, owner, description, state, source, forced, rows, declared_rows, kind, declared_kinds, objects, shared, writers, texture, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
+        table list(bool include_declared = false) -- rows {id, owner, description, state, source, forced, rows, declared_rows, kind, declared_kinds, objects, shared, writers, texture, writer, buffer_rows, readback, readback_inflight, late, refusals, refusal, role, mask_bit}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy, role is target, history, pass or mask, a target, history or pass row adds its spec keys
         function stats(string id) -> bool ok, number changes, number last_change_frame, number bound_frame, number writes
+        function get_readback(string id, number i = 0) -> bool ok, number x, number y, number z, number w, number frame
+        function get_readback_uint(string id, number i = 0) -> bool ok, number x, number y, number z, number w, number frame -- the same as unsigned integers, for uint rows
+        function get_pass_time(string id) -> bool ok, number x, number y, number z, number w, number frames -- the pass_time of the pass's last run and the frames since it ran, false for a pass that has not run
+        function last_refusal(string id) -> string reason -- the reason of the last refused call on id, nil when id is not among the last 64 refused
+        table values() -- lane id to {x, y, z, w} for every registered or declared lane, uint lanes as unsigned integers, the legacy lanes are not in it
+        bool gpu_lanes() -- readbacks and compute passes are available, DX11 only
+        bool targets() -- render targets and passes are available, DX10 and DX11
+        bool masks() -- mask tags can reach the mask target, DX10 and DX11 with MSAA off
     }
 
     level {
@@ -1468,6 +1492,12 @@
         CamAttached = 2,
     }
 
+    enum script_attachment_hud {
+        Parent = 0,
+        Actor  = 1,
+        Item   = 2,
+    }
+
     class ScriptAttachment {
         -- Parent
         function set_parent(ScriptAttachment*);
@@ -1532,6 +1562,8 @@
         -- Other
         function set_type(number); -- ex. script_attachment_type.Hud
         function get_type();
+        function set_hud_category(number); -- ex. script_attachment_hud.Item, picks the HUD mask bit of the attachment's HUD draws
+        function get_hud_category();
         function set_model(string, boolean);
         function get_model();
         function set_name();

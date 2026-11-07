@@ -30,9 +30,9 @@ CRT::~CRT()
 }
 
 #ifdef USE_DX11
-void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool useUAV)
+void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool useUAV, bool mips)
 #else
-void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
+void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool mips)
 #endif
 {
 	PROF_EVENT("CRT::create");
@@ -114,7 +114,7 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
 	ZeroMemory(&desc, sizeof(desc));
 	desc.Width = dwWidth;
 	desc.Height = dwHeight;
-	desc.MipLevels = 1;
+	desc.MipLevels = mips && !bUseAsDepth && SampleCount == 1 ? 0 : 1;
 	desc.ArraySize = 1;
 	desc.Format = dx10FMT;
 	desc.SampleDesc.Count = SampleCount;
@@ -129,6 +129,9 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
 			desc.SampleDesc.Quality = UINT(D3D_STANDARD_MULTISAMPLE_PATTERN);
 		}
 	}
+	// level 0 fills the chain through GenerateMips
+	if (desc.MipLevels == 0)
+		desc.MiscFlags = D3D_RESOURCE_MISC_GENERATE_MIPS;
 
 #ifdef USE_DX11
 	if (HW.FeatureLevel >= D3D_FEATURE_LEVEL_11_0 && !bUseAsDepth && SampleCount == 1 && useUAV)
@@ -221,14 +224,14 @@ void CRT::reset_end()
 }
 
 #ifdef USE_DX11
-void resptrcode_crt::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool useUAV)
+void resptrcode_crt::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool useUAV, bool mips)
 {
-	_set(DEV->_CreateRT(Name, w, h, f, SampleCount, useUAV));
+	_set(DEV->_CreateRT(Name, w, h, f, SampleCount, useUAV, mips));
 }
 #else
-void resptrcode_crt::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
+void resptrcode_crt::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool mips)
 {
-	_set(DEV->_CreateRT(Name, w, h, f, SampleCount));
+	_set(DEV->_CreateRT(Name, w, h, f, SampleCount, mips));
 }
 #endif
 

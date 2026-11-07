@@ -4,6 +4,7 @@
 #include "player_hud.h"
 #include "actor.h"
 #include "ui\UIScriptWnd.h"
+#include "../xrEngine/shader_bus.h"
 
 //#define DEBUG_VISBOX
 
@@ -81,6 +82,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name)
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
 	m_type = eSA_World;
+	m_hud_category = eSAH_Parent;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
 	m_model_name = "";
@@ -195,6 +197,14 @@ void script_attachment::Render(IKinematics* model, Fmatrix* mat, IDSGraphManager
 		m_kinematics->CalculateBones(TRUE);
 	}
 
+	// one read of the category, a script may change it on another thread
+	const u8 hud_category = m_hud_category;
+	const u32 bus_tag = DM->get_BusTag();
+	if (hud_category != eSAH_Parent && DM->get_HUD())
+		DM->set_BusTag((bus_tag & ~ShaderBus::hud_mask_bits) |
+			(hud_category == eSAH_Actor ? ShaderBus::hud_att_actor : ShaderBus::hud_att_item));
+	if (renderable.bus_mask)
+		DM->set_BusTag(DM->get_BusTag() | (renderable.bus_mask & ShaderBus::mask_live_bits()));
 	DM->add_Dynamic(renderable.visual, &renderable.xform);
 
 	if (m_children.size())
@@ -204,6 +214,7 @@ void script_attachment::Render(IKinematics* model, Fmatrix* mat, IDSGraphManager
 			pair.second->Render(m_kinematics, &renderable.xform, DM);
 		}
 	}
+	DM->set_BusTag(bus_tag);
 }
 
 void script_attachment::Update()
@@ -499,6 +510,26 @@ void script_attachment::SetParentLevel()
 	Level().add_attachment(GetName(), this);
 	spatial_register();
 	spatial_move();
+}
+
+// a world attachment draws inside its top attachment, and that one inside its object's root
+IRenderable* script_attachment::renderable_Root()
+{
+	script_attachment* top = this;
+	script_attachment* ahead = this;
+	while (top->m_parent_attachment)
+	{
+		top = top->m_parent_attachment;
+		ahead = ahead && ahead->m_parent_attachment ? ahead->m_parent_attachment->m_parent_attachment : nullptr;
+		// a looped chain has no top and nothing draws it
+		if (ahead == top)
+			return nullptr;
+	}
+	if (top->GetType() != eSA_World)
+		return nullptr;
+	if (top->m_parent_object)
+		return top->m_parent_object->H_Root();
+	return top != this ? top : nullptr;
 }
 
 ::luabind::object script_attachment::GetParent()

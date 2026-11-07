@@ -2,6 +2,7 @@
 
 #include "../xrRender/ColorMapManager.h"
 #include "../xrRender/light_db.h"
+#include "../../xrEngine/shader_bus.h"
 class light;
 
 //#define DU_SPHERE_NUMVERTEX 92
@@ -226,6 +227,23 @@ public:
 	//bool RVelocity;
 
 	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
+	ref_rt rt_bus_mask; // shader bus mask, R32F, tag times 2^-24
+	ref_rt rt_bus_object_id; // shader bus object ids, R32F, id + 1 times 2^-24
+	ref_rt rt_bus_mask_layer; // shader bus mask layer, R32F, layer bits times 2^-24
+	ref_rt rt_bus_particle_mask; // shader bus particle tags, R32F, tag times 2^-24
+	ref_rt rt_bus_cover_mask; // shader bus forward and hidden coverage tags, R32F, tag times 2^-24
+	ref_rt rt_bus_cover_object_id; // shader bus forward and hidden coverage ids, R32F, id + 1 times 2^-24
+	ref_rt rt_bus_cover_layer; // shader bus forward and hidden coverage layer, R32F, layer bits times 2^-24
+	ref_rt rt_bus_hidden_depth; // shader bus hidden coverage depth, D24S8, the scene depth and hidden tagged objects
+	ref_shader s_bus_hidden_resolve; // the scene depth into the hidden coverage depth inside a rectangle
+	ref_geom& bus_quad() { return g_combine; } // the screen quad geometry, for the bus passes drawn outside the target
+	ref_ps s_bus_mask;
+	ref_ps s_bus_mask_particle;
+	ref_ps s_bus_mask_particle_add;
+	ref_ps s_bus_mask_particle_alpha_add;
+	ref_ps s_bus_mask_cutout;
+	ref_ps s_bus_mask_blend;
+	ID3DBlendState* bs_bus_mask = nullptr;
 
 	ref_shader s_ssfx_dumb;
 
@@ -435,6 +453,7 @@ public:
 	void phase_occq();
 	void phase_ssao();
 	void phase_hdao();
+	void phase_bus(u32 stage);
 	void phase_downsamp();
 	void phase_wallmarks();
 	void phase_smap_direct(light* L, u32 sub_phase);

@@ -51,6 +51,7 @@ void dx10StateManager::Reset()
 	m_bOverrideScissoring = false;
 	m_bOverrideScissoringValue = FALSE;
 	m_uiSampleMask = 0xffffffff;
+	m_BlendFactor[0] = m_BlendFactor[1] = m_BlendFactor[2] = m_BlendFactor[3] = 0.f;
 }
 
 void dx10StateManager::UnmapConstants()
@@ -198,9 +199,7 @@ void dx10StateManager::Apply()
 			m_bBSChanged = false;
 		}
 
-		static const FLOAT BlendFactor[4] = {0.000f, 0.000f, 0.000f, 0.000f};
-
-		HW.pContext->OMSetBlendState(m_pBlendState, BlendFactor, m_uiSampleMask);
+		HW.pContext->OMSetBlendState(m_pBlendState, m_BlendFactor, m_uiSampleMask);
 		m_bBSNeedApply = false;
 	}
 }
@@ -322,6 +321,18 @@ void dx10StateManager::SetDepthEnable(u32 Enable)
 	}
 }
 
+void dx10StateManager::SetDepthWriteEnable(u32 Enable)
+{
+	ValidateDSDesc();
+
+	const bool write = m_DSDesc.DepthWriteMask != D3D_DEPTH_WRITE_MASK_ZERO;
+	if (write != !!Enable)
+	{
+		m_bDSSChanged = true;
+		m_DSDesc.DepthWriteMask = Enable ? D3D_DEPTH_WRITE_MASK_ALL : D3D_DEPTH_WRITE_MASK_ZERO;
+	}
+}
+
 void dx10StateManager::SetColorWriteEnable(u32 WriteMask)
 {
 	ValidateBDesc();
@@ -364,6 +375,15 @@ void dx10StateManager::SetSampleMask(u32 SampleMask)
 	if (m_uiSampleMask != SampleMask)
 	{
 		m_uiSampleMask = SampleMask;
+		m_bBSNeedApply = true;
+	}
+}
+
+void dx10StateManager::SetBlendFactor(float Factor)
+{
+	if (m_BlendFactor[0] != Factor)
+	{
+		m_BlendFactor[0] = m_BlendFactor[1] = m_BlendFactor[2] = m_BlendFactor[3] = Factor;
 		m_bBSNeedApply = true;
 	}
 }

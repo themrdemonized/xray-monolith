@@ -65,6 +65,16 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
+	CDSGraphManager::bus_live_bits = ShaderBus::mask_live_bits(&CDSGraphManager::bus_layer_bits, &CDSGraphManager::bus_hidden_bits, &CDSGraphManager::bus_forward_bits);
+	// tagged world items keep their queue 0 packets for the mask pass after the scene
+	GMBase.bus_mask_on = CDSGraphManager::bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
+	if (!GMBase.bus_mask_on || !Target->rt_bus_mask_layer)
+		CDSGraphManager::bus_layer_bits = 0;
+	if (!GMBase.bus_mask_on || !Target->rt_bus_cover_mask)
+	{
+		CDSGraphManager::bus_hidden_bits = 0;
+		CDSGraphManager::bus_forward_bits = 0;
+	}
 
 	rmNormal();
 
@@ -95,6 +105,8 @@ void CRender::Render()
 	}
 
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
+
+	Target->phase_bus(ShaderBus::stage_frame);
 
 	// Configure
 	RImplementation.o.distortion = FALSE; // disable distorion
@@ -127,7 +139,9 @@ void CRender::Render()
 		GMBase.r_dsgraph_capture_static();
 		GMBase.r_dsgraph_render_static(0);
 		GMBase.r_dsgraph_capture_dynamic();
-		GMBase.r_dsgraph_render_dynamic(0);
+		if (GMBase.bus_mask_runs())
+			GMBase.r_dsgraph_bus_keep_xforms();
+		GMBase.r_dsgraph_render_dynamic(0, !GMBase.bus_mask_runs());
 		Target->disable_aniso();
 	}
 
@@ -153,6 +167,7 @@ void CRender::Render()
 		GMBase.r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
 		Target->phase_scene_end();
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_render_bus_mask();
 	}
 
 	// Wall marks
@@ -177,6 +192,8 @@ void CRender::Render()
 		PIX_EVENT(DEFER_RAIN);
 		render_rain();
 	}
+
+	Target->phase_bus(ShaderBus::stage_gbuffer);
 
 	// Directional light - fucking sun
 	if (bSUN)
@@ -226,6 +243,8 @@ void CRender::Render()
 
 	// Postprocess
 	{
+		Target->phase_bus(ShaderBus::stage_lighting);
+
 		PIX_EVENT(DEFER_LIGHT_COMBINE);
 		Target->phase_combine();
 	}
@@ -256,9 +275,11 @@ void CRender::render_forward()
 		//	Igor: we don't want to render old lods on next frame.
 		GMBase.r_dsgraph_render_static(1); // normal level, secondary priority
 		CParticlesAsync::Wait();
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_bus_keep_forward();
 		GMBase.r_dsgraph_render_dynamic(1);
 		GMBase.fade_render(); // faded-portals
 		GMBase.r_dsgraph_render_sorted(false); // strict-sorted geoms
+		if (GMBase.bus_mask_runs()) GMBase.r_dsgraph_render_bus_forward();
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 		GMBase.r_dsgraph_render_sorted_hud();
 	}

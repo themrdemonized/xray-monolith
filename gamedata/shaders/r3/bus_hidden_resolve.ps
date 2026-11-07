@@ -1,0 +1,8 @@
+// hidden depth resolve, the depth the scene's view position projects to, far where nothing drew
+#include "common.h"
+
+float main(p_screen I) : SV_Depth
+{
+	const float4 p = mul(m_P, float4(0, 0, s_position.Load(int3(I.hpos.xy, 0)).z, 1));
+	return p.w == 0 ? 1 : p.z / p.w;
+}

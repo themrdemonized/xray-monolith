@@ -20,6 +20,7 @@
 #include "../xrRenderDX10/dx10ConstantBuffer.h"
 
 #include "../xrRender/ShaderResourceTraits.h"
+#include "../../xrEngine/shader_bus.h"
 
 #ifdef USE_DX11
 SHS* CResourceManager::_CreateHS(LPCSTR Name)
@@ -91,6 +92,18 @@ SState* CResourceManager::_CreateState(SimulatorStates& state_code)
 	v_states.back()->state			= state_code.record();
 #endif	//	USE_DX10
 	v_states.back()->state_code = state_code;
+	const bool blend = state_code.get_RS(D3DRS_ALPHABLENDENABLE, FALSE) != FALSE;
+	const u32 dst = state_code.get_RS(D3DRS_DESTBLEND, D3DBLEND_ZERO);
+	v_states.back()->bus_additive = blend && dst == D3DBLEND_ONE;
+	const u32 src = state_code.get_RS(D3DRS_SRCBLEND, D3DBLEND_ONE);
+	if (v_states.back()->bus_additive && src == D3DBLEND_ONE)
+		v_states.back()->bus_add_source = SState::bus_add_one;
+	else if (v_states.back()->bus_additive && src == D3DBLEND_SRCALPHA)
+		v_states.back()->bus_add_source = SState::bus_add_alpha;
+	v_states.back()->bus_alpha_blend = blend && dst == D3DBLEND_INVSRCALPHA;
+	v_states.back()->bus_zwrite = state_code.get_RS(D3DRS_ZENABLE, TRUE) != FALSE
+		&& state_code.get_RS(D3DRS_ZFUNC, D3DCMP_LESSEQUAL) != D3DCMP_ALWAYS
+		&& state_code.get_RS(D3DRS_ZWRITEENABLE, TRUE) != FALSE;
 	return v_states.back();
 }
 
@@ -100,6 +113,18 @@ void CResourceManager::_DeleteState(const SState* state)
 	xrCriticalSectionGuard guard(creationGuard);
 	if (reclaim(v_states, state)) return;
 	Msg("! ERROR: Failed to find compiled stateblock");
+}
+
+bool bus_slot_fits(u32 slot);
+
+// counts the engine bus textures a pass samples, so their targets live while the pass does
+static void bus_count_pass_textures(const SPass* P, bool live)
+{
+	if (!P->constants._get())
+		return;
+	for (const ref_constant& C : P->constants->table)
+		if (C->type == RC_dx10texture && 0 == strncmp(C->name.c_str(), "bus_engine_", 11) && bus_slot_fits(C->samp.index))
+			ShaderBus::count_pass_texture(C->name.c_str(), live);
 }
 
 //--------------------------------------------------------------------------------------------------------------
@@ -114,6 +139,8 @@ SPass* CResourceManager::_CreatePass(const SPass& proto)
 	P->dwFlags |= xr_resource_flagged::RF_REGISTERED;
 	P->state = proto.state;
 	P->ps = proto.ps;
+	// _aref in the pixel shader title marks a pass that clips at def_aref
+	P->bus_aref = proto.ps._get() && strstr(proto.ps->cName.c_str(), "_aref");
 	P->vs = proto.vs;
 	P->gs = proto.gs;
 #ifdef USE_DX11
@@ -127,6 +154,7 @@ SPass* CResourceManager::_CreatePass(const SPass& proto)
 	P->M						=	proto.M;
 #endif
 	P->C = proto.C;
+	bus_count_pass_textures(P, true);
 
 	v_passes.push_back(P);
 	return v_passes.back();
@@ -136,7 +164,11 @@ void CResourceManager::_DeletePass(const SPass* P)
 {
 	if (0 == (P->dwFlags & xr_resource_flagged::RF_REGISTERED)) return;
 	xrCriticalSectionGuard guard(creationGuard);
-	if (reclaim(v_passes, P)) return;
+	if (reclaim(v_passes, P))
+	{
+		bus_count_pass_textures(P, false);
+		return;
+	}
 	Msg("! ERROR: Failed to find compiled pass");
 }
 
@@ -519,9 +551,9 @@ void CResourceManager::_DeleteConstantTable(const R_constant_table* C)
 
 //--------------------------------------------------------------------------------------------------------------
 #ifdef USE_DX11
-CRT* CResourceManager::_CreateRT(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool useUAV)
+CRT* CResourceManager::_CreateRT(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool useUAV, bool mips)
 #else
-CRT* CResourceManager::_CreateRT(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
+CRT* CResourceManager::_CreateRT(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount, bool mips)
 #endif
 {
 	R_ASSERT(Name && Name[0] && w && h);
@@ -537,9 +569,9 @@ CRT* CResourceManager::_CreateRT(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 Sam
 		RT->dwFlags |= xr_resource_flagged::RF_REGISTERED;
 		m_rtargets.insert(mk_pair(RT->set_name(Name), RT));
 #ifdef USE_DX11
-		if (Device.b_is_Ready) RT->create(Name, w, h, f, SampleCount, useUAV);
+		if (Device.b_is_Ready) RT->create(Name, w, h, f, SampleCount, useUAV, mips);
 #else
-		if (Device.b_is_Ready) RT->create(Name, w, h, f, SampleCount);
+		if (Device.b_is_Ready) RT->create(Name, w, h, f, SampleCount, mips);
 #endif
 		return RT;
 	}

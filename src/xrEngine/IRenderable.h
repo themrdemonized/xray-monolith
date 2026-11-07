@@ -20,9 +20,12 @@ public:
 		IRenderVisual* visual;
 		IRender_ObjectSpecific* pROS;
 		BOOL pROS_Allowed;
+		// shader bus object mask bits a mod set on this object
+		u32 bus_mask = 0;
 		// own values on shader bus obj_ lanes, null while it has none
 		ShaderBus::object_values* bus_values = nullptr;
 	} renderable;
+	static_assert(sizeof(renderable) == 96, "renderable grew");
 
 public:
 	IRenderable();
@@ -32,6 +35,8 @@ public:
 	virtual void renderable_Render(IDSGraphManager* DM) = 0;
 	virtual BOOL renderable_ShadowGenerate() { return FALSE; };
 	virtual BOOL renderable_ShadowReceive() { return FALSE; };
+	// the renderable whose draw carries this one, null when it draws alone
+	virtual IRenderable* renderable_Root() { return nullptr; }
 
 	virtual float GetHotness() { return 0.0; }			//--DSR-- HeatVision
 	virtual float GetTransparency() { return 0.0; }		//--DSR-- HeatVision
