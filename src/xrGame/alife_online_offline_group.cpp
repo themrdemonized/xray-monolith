@@ -62,6 +62,9 @@ void CSE_ALifeOnlineOfflineGroup::update()
             MEMBER* commander = (*m_members.begin()).second;
             if (commander)
             {
+                // Members are not in the level registry, so the switch manager never syncs them.
+                if (commander->m_bOnline)
+                    commander->synchronize_location();
                 o_Position = commander->o_Position;
                 m_tNodeID = commander->m_tNodeID;
                 m_tGraphID = commander->m_tGraphID;
@@ -185,6 +188,14 @@ bool CSE_ALifeOnlineOfflineGroup::synchronize_location()
     m_members.begin(); // force actualize
 	if (m_bOnline && !m_members.empty())
 	{
+		MEMBERS::iterator I = m_members.begin();
+		MEMBERS::iterator E = m_members.end();
+		for (; I != E; ++I)
+		{
+			if ((*I).second && (*I).second->m_bOnline)
+				(*I).second->synchronize_location();
+		}
+
 		MEMBER* member = (*m_members.begin()).second;
         if (member)
         {
