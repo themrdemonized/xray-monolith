@@ -40,7 +40,7 @@ class PROTECT_API CDialogHolder : public pureFrame
 	void StopMenu(CUIDialogWnd* pDialog);
 	void SetMainInputReceiver(CUIDialogWnd* ir, bool _find_remove);
 protected:
-	void DoRenderDialogs();
+	void DoRenderDialogs(CUIWindow* skip = NULL);
 	void CleanInternals();
 public:
 	CDialogHolder();

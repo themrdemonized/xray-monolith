@@ -184,8 +184,6 @@ public:
 		return *this;
 	}
 
-	IC SelfRef set(const _matrix<T>& m);
-
 	// multiplies q1 * q2, and places the result in *this.
 	// no failure.  renormalization not automatic
 
@@ -475,6 +473,48 @@ public:
 		y = s * Q.y;
 		z = s * Q.z;
 		w = et * _cos(r);
+		return *this;
+	}
+
+	IC SelfRef set(const _matrix<T>& M)
+	{
+		float trace, s, invS = 0.f;
+
+		trace = M._11 + M._22 + M._33;
+		if (trace > 0.0f)
+		{
+			s = sqrt(trace + 1.0f);
+			invS = 0.5f / s;
+			w = 0.5f * s;
+			x = (M._32 - M._23) * invS;
+			y = (M._13 - M._31) * invS;
+			z = (M._21 - M._12) * invS;
+		}
+		else if (M._11 > M._22 && M._11 > M._33)
+		{
+			s = sqrt(1.0f + M._11 - M._22 - M._33) * 2.0f;
+			w = (M._32 - M._23) / s;
+			x = 0.25f * s;
+			y = (M._12 + M._21) / s;
+			z = (M._13 + M._31) / s;
+		}
+		else if (M._22 > M._33)
+		{
+			s = sqrt(1.0f + M._22 - M._11 - M._33) * 2.0f;
+			w = (M._13 - M._31) / s;
+			x = (M._12 + M._21) / s;
+			y = 0.25f * s;
+			z = (M._23 + M._32) / s;
+		}
+		else
+		{
+			s = sqrt(1.0f + M._33 - M._11 - M._22) * 2.0f;
+			w = (M._21 - M._12) / s;
+			x = (M._13 + M._31) / s;
+			y = (M._23 + M._32) / s;
+			z = 0.25f * s;
+		}
+
 		return *this;
 	}
 };

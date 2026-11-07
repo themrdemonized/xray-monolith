@@ -103,6 +103,8 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("set_monster_aura_params", SAFE_WRAP(&CScriptGameObject::set_monster_aura_params))
 		.def("set_bloodsucker_vis_timing", SAFE_WRAP(&CScriptGameObject::set_bloodsucker_vis_timing))
 		.def("set_monster_turn_factor", SAFE_WRAP(&CScriptGameObject::set_monster_turn_factor))
+		.def("set_monster_dest", SAFE_WRAP(&CScriptGameObject::set_monster_dest))
+		.def("clear_monster_dest", SAFE_WRAP(&CScriptGameObject::clear_monster_dest))
 		.def("try_monster_jump", SAFE_WRAP(&CScriptGameObject::try_monster_jump))
 		.def("try_monster_rotation_jump", SAFE_WRAP(&CScriptGameObject::try_monster_rotation_jump))
 		.def("try_monster_run_attack", SAFE_WRAP(&CScriptGameObject::try_monster_run_attack))
@@ -189,8 +191,10 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 
 		.def("bone_transform", SAFE_WRAP((Fmatrix(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_transform)))
 		.def("bone_transform", SAFE_WRAP((Fmatrix(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_transform)))
+		.def("bone_transform", SAFE_WRAP((Fmatrix(CScriptGameObject::*)(u16, bool, bool))(&CScriptGameObject::bone_transform)))
 		.def("bone_transform", SAFE_WRAP((Fmatrix(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_transform)))
 		.def("bone_transform", SAFE_WRAP((Fmatrix(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_transform)))
+		.def("bone_transform", SAFE_WRAP((Fmatrix(CScriptGameObject::*)(LPCSTR, bool, bool))(&CScriptGameObject::bone_transform)))
 
 		.def("bone_parent", SAFE_WRAP((u16(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_parent)))
 		.def("bone_parent", SAFE_WRAP((u16(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_parent)))
@@ -559,6 +563,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		// For CHudItem
 		.def("play_hud_motion", SAFE_WRAP(&CScriptGameObject::PlayHudMotion))
 		.def("switch_state", SAFE_WRAP(&CScriptGameObject::SwitchState))
+		.def("get_current_motion", SAFE_WRAP(&CScriptGameObject::GetCurrentMotion))
 		.def("get_state", SAFE_WRAP(&CScriptGameObject::GetState))
 		.def("hud_fire_point", SAFE_WRAP(&CScriptGameObject::hud_fire_point))
 		.def("hud_fire_point2", SAFE_WRAP(&CScriptGameObject::hud_fire_point2))
@@ -736,6 +741,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		// demonized: get current scope texture
 		.def("get_scope_ui", &CScriptGameObject::get_scope_ui)
 		.def("set_scope_ui", &CScriptGameObject::set_scope_ui)
+		.def("reset_scope_ui", &CScriptGameObject::reset_scope_ui)
 #endif
 
 		.def("set_can_be_harmed", SAFE_WRAP(&CScriptGameObject::SetCanBeHarmed))

@@ -23,7 +23,7 @@ struct player_hud_motion
 	shared_str m_alias_name;
 	shared_str m_base_name;
 	shared_str m_additional_name;
-	float m_anim_speed, m_anim_end = 0.f;
+	float m_anim_speed = 1.f;
 	xr_vector<motion_descr> m_animations;
 };
 
@@ -245,7 +245,7 @@ struct hud_item_measures
 	Flags8 m_prop_flags;
 
 	Fvector m_item_attach[2]; // pos,rot
-	Fvector m_hands_offset[2][8]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount --#SM+#--
+	Fvector m_hands_offset[2][9]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base (MAS), attach_mount (MAS) --#SM+#--
 	Fvector m_strafe_offset[4][2]; // pos,rot,data1,data2/ normal,aim-GL	 --#SM+#--
 
 	u16 m_fire_bone;
@@ -310,7 +310,7 @@ struct attachable_hud_item
 
 	//runtime positioning
 	Fmatrix m_attach_offset;
-	Fmatrix m_item_transform;
+	Fmatrix m_item_transform, m_item_transform_prev;
 
     // ver; final anim speed holder for use in motion mark timing scaling
     float final_anim_speed;
@@ -318,7 +318,7 @@ struct attachable_hud_item
 	player_hud_motion_container* m_hand_motions;
 
 	attachable_hud_item(player_hud* pparent) : m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
-		m_model(nullptr), m_attach_place_idx(0) {
+		m_model(nullptr), m_attach_place_idx(0), m_attach_offset(Fidentity), m_item_transform(Fidentity), m_item_transform_prev(Fidentity), m_measures(), m_hand_motions(nullptr) {
 	}
 	~attachable_hud_item();
 	void load(const shared_str& sect_name);
@@ -354,7 +354,7 @@ struct attachable_hud_item
 	//props
 	u32 m_upd_firedeps_frame;
 	void tune(Ivector values);
-	u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float speed = 0, bool bMixIn2 = true);
+	u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float& speed, bool bMixIn2 = true);
 };
 
 class player_hud
@@ -375,6 +375,9 @@ public:
 	void StopBlendAnm(LPCSTR name, bool bForce = false);
 	void StopAllBlendAnms(bool bForce);
 	float SetBlendAnmTime(LPCSTR name, float time);
+	void set_current_blend_falloff(u8 part, float falloff);
+	void set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm, float accrue = 0.f, float falloff = 0.f, bool mixin = true);
+	void clear_hand_pose(u8 hand, float accrue = 0.f, float falloff = 0.f);
 	void render_hud();
 	void render_item_ui();
 	bool render_item_ui_query();
@@ -396,6 +399,7 @@ public:
 	Fvector item_pos[2];
 	Fmatrix m_item_pos;
 	u8 m_attach_idx;
+	bool override_hand_pose[2];
 
 	//Movement animation layers: 0 = aim_walk, 1 = aim_crouch, 2 = crouch, 3 = walk, 4 = run, 5 = sprint
 	xr_vector<movement_layer*> m_movement_layers;
@@ -408,7 +412,8 @@ public:
 
 	void attach_item(CHudItem* item);
 	void re_sync_anim(u8 part);
-	void set_part_cycle_time(u8 part, float time);
+	void re_sync_hand(bool left, float accrue = 0.f, float falloff = 0.f);
+	void set_part_cycle_time(u8 part, float time, float set_time = 0.f);
 	void set_part_cycle_speed(u8 part, float speed);
 	bool allow_activation(CHudItem* item);
 	attachable_hud_item* attached_item(u16 item_idx) { return m_attached_items[item_idx]; };
@@ -424,17 +429,18 @@ public:
 		m_attached_items[SCOPE_ATTACH_IDX] = NULL;
 	};
 
-	Fmatrix m_transform;
-	Fmatrix m_transform_2;
+	Fmatrix m_transform, m_transform_prev;
+	Fmatrix m_transform_2, m_transform_2_prev;
 
 	Fmatrix m_attach_offset;
 	Fmatrix m_attach_offset_2;
 
 	void calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result, bool leadGun = false);
 	void tune(Ivector values);
-	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed);
+	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed, bool ignore_stop_at_end = false);
 	u32 motion_length_script(LPCSTR section, LPCSTR anm_name, float speed);
-	u32 motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md);
+	u32 motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md, u8 anim_idx = 0, bool ignore_stop_at_end = false);
+	bool motion_is_stop_at_end(const shared_str& anim_name, const shared_str& hud_name);
 	void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
 	bool inertion_allowed();
 
@@ -460,6 +466,29 @@ public:
 	float m_adjust_scale;
 	bool m_adjust_mode;
 	u16 m_edit_bone;
+	xr_pair<Fmatrix, bool> m_ik_transforms[8];
+
+	// Lua supplies the left-hand target; both arms are finalized after HUD layers.
+	void finalize_hands_ik();
+	void solve_hand_ik(int arm);
+	// Script hand numbering: 0 right, 1 left, 2 both (setter only).
+	void set_arm_ik_enabled(u8 hand, bool enabled);
+	u32 m_ik_frame = u32(-1);
+	struct ArmIK
+	{
+		bool enabled = false;
+		bool initialized = false;
+		Fmatrix wrist_from_forearm;
+		Fmatrix hand_from_forearm;
+		Fvector animation_pole_direction;
+		bool animation_pole_direction_valid = false;
+		u16 bones[4];
+		float lengths[3];
+		Fvector pole;
+	};
+	ArmIK m_arm_ik[2]; // Left, right.
+	Fmatrix m_ik_shoulder_reference[2]; // Camera + idle HUD offset + model attachment, left/right.
+	void update_ik_shoulder_reference(const Fmatrix& camera);
 
 	void reset_thumb(bool bForce)
 	{

@@ -99,8 +99,6 @@ void CRenderDevice::Clear()
 	m_pRender->Clear();
 }
 
-extern void CheckPrivilegySlowdown();
-
 
 void CRenderDevice::End(void)
 {
@@ -142,16 +140,6 @@ void CRenderDevice::End(void)
 #ifdef FIND_CHUNK_BENCHMARK_ENABLE
             g_find_chunk_counter.flush();
 #endif // FIND_CHUNK_BENCHMARK_ENABLE
-
-			CheckPrivilegySlowdown();
-
-			if (g_pGamePersistent->GameType() == 1) //haCk
-			{
-				WINDOWINFO wi;
-				GetWindowInfo(m_hWnd, &wi);
-				if (wi.dwWindowStatus != WS_ACTIVECAPTION)
-					Pause(TRUE, TRUE, TRUE, "application start");
-			}
 		}
 	}
 
@@ -456,6 +444,7 @@ void CRenderDevice::on_idle()
 	START_PROFILE("Matrices");
 	mFullTransform.mul(mProject, mView);
 	mFullTransformHud.mul(mProjectHud, mView);
+	mFullTransform3DIcons.mul(mProject3DIcons, mView);
 	m_pRender->SetCacheXform(mView, mProject);
 
 	// Previous frame data -- 

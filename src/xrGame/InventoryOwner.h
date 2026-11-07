@@ -17,6 +17,7 @@ extern xr_string TranslateName(LPCSTR nameStr);
 class CSE_Abstract;
 class CInventory;
 class CInventoryItem;
+class CMissile;
 class CTrade;
 class CPda;
 class CGameObject;
@@ -269,6 +270,7 @@ public:
 
 	virtual bool can_use_dynamic_lights() { return true; }
 	virtual bool use_default_throw_force();
+	virtual float default_missile_throw_force(CMissile* missile);
 	virtual float missile_throw_force();
 	virtual bool use_throw_randomness();
 	virtual bool NeedOsoznanieMode() { return m_need_osoznanie_mode != FALSE; }

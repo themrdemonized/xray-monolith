@@ -786,6 +786,11 @@ if pda.coc_ranking_list then
 		-- force actor into last visible slot + 1 on ranking list
 		coc_ranking_list[coc_ranking_array_size+1] = 0
 	end
+
+	local old_pda_coc_rankings_can_show = pda.coc_rankings_can_show
+	function pda.coc_rankings_can_show(index)
+		return old_pda_coc_rankings_can_show(index) and IsStalker(alife_object(pda.coc_ranking_list[index]))
+	end
 end
 
 -- Saloeater: Fix/trade manager resupply sync

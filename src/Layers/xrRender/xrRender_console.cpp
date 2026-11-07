@@ -352,6 +352,19 @@ float ps_r2_img_gamma = 1.0f; // r2-only
 float ps_r2_img_saturation = 1.0f; // r2-only
 Fvector ps_r2_img_cg = {.0f, .0f, .0f}; // r2-only
 
+float ps_r4_atlas_resolution = 0.6666667f; // r4-only
+// Atlas allocation settings take effect on vid_restart.
+int ps_r4_atlas = 0;
+int ps_r4_atlas_width = 2048;
+int ps_r4_atlas_height = 2048;
+u32 ps_r4_atlas_msaa = 2; // Token index; sample count is 1 << index.
+xr_token ui_3d_icons_msaa_token[] = {
+	{"st_opt_off", 0},
+	{"2x", 1},
+	{"4x", 2},
+	{0, 0}
+};
+
 Fvector4 ps_pp_bloom_thresh = { .7, .8f, .9f, .0f };
 Fvector4 ps_pp_bloom_weight = { .33f, .33f, .33f, .0f };
 
@@ -383,6 +396,8 @@ Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 
 float hud_fov_aim_factor = 0;
+
+int interpolation_based_scope_zoom = 0;
 
 // Screen Space Shaders Stuff
 Fvector4 ps_ssfx_floravariation = { 0.025, 0.1, 0.025, 0.05 }; // Grass Int, Grass Freq, Foliage Int, Foliage Freq ( 0.025, 0.1, 0.03, 0.05 )
@@ -1531,6 +1546,12 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer,	"r2_gi_photons",		&ps_r2_GI_photons,			8,		256		);
 	CMD4(CCC_Float,		"r2_gi_refl",			&ps_r2_GI_refl,				EPS_L,	0.99f	);
 	
+	CMD4(CCC_Integer, "r4_atlas", &ps_r4_atlas, 0, 1);
+	CMD4(CCC_Float, "r4_atlas_resolution", &ps_r4_atlas_resolution, 0.1f, 1.0f);
+	CMD4(CCC_Integer, "r4_atlas_width", &ps_r4_atlas_width, 256, 8192);
+	CMD4(CCC_Integer, "r4_atlas_height", &ps_r4_atlas_height, 256, 8192);
+	CMD3(CCC_Token, "r4_atlas_msaa", &ps_r4_atlas_msaa, ui_3d_icons_msaa_token);
+
 	//Shader param stuff
 	Fvector4 tw2_min = { -100.f, -100.f, -100.f, -100.f };
 	Fvector4 tw2_max = { 100.f, 100.f, 100.f, 100.f };
@@ -1560,6 +1581,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4Legacy, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
+
+	CMD4(CCC_Integer, "interpolation_based_scope_zoom", &interpolation_based_scope_zoom, 0, 1);
 	
 	// Screen Space Shaders
 	CMD4(CCC_Vector4, "ssfx_floravariation", &ps_ssfx_floravariation, Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 1, 10, 1));

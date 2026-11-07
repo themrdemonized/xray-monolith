@@ -1778,6 +1778,7 @@
     <ClInclude Include="trade_parameters_inline.h" />
     <ClInclude Include="traffic_optimization.h" />
     <ClInclude Include="trajectories.h" />
+    <ClInclude Include="UI3dStatic.h" />
     <ClInclude Include="UIAchivementsIndicator.h" />
     <ClInclude Include="UICursor.h" />
     <ClInclude Include="UIDialogHolder.h" />
@@ -3872,6 +3873,7 @@
     <ClCompile Include="trade_parameters.cpp" />
     <ClCompile Include="traffic_optimization.cpp" />
     <ClCompile Include="trajectories.cpp" />
+    <ClCompile Include="UI3dStatic.cpp" />
     <ClCompile Include="UIAchivementsIndicator.cpp" />
     <ClCompile Include="UICursor.cpp" />
     <ClCompile Include="UIDialogHolder.cpp" />

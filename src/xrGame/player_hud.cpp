@@ -14,6 +14,8 @@
 
 extern int g_nearwall;
 
+int ps_hud_ik_compensation = 0;
+
 player_hud* g_player_hud = NULL;
 Fvector _ancor_pos;
 Fvector _wpn_root_pos;
@@ -51,15 +53,27 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 			//base and alias name
 			pm->m_alias_name = _b->first;
 
-			if (_GetItemCount(anm.c_str()) == 1)
+			string512 str_item;
+			int item_count = _GetItemCount(anm.c_str());
+
+			switch (item_count)
 			{
+			case 1:
 				pm->m_base_name = anm;
 				pm->m_additional_name = anm;
-			}
-			else
-			{
-				R_ASSERT2(_GetItemCount(anm.c_str()) <= 4, anm.c_str());
-				string512 str_item;
+				pm->m_anim_speed = 1.f;
+				break;
+			case 2:
+				_GetItem(anm.c_str(), 0, str_item);
+				pm->m_base_name = str_item;
+
+				_GetItem(anm.c_str(), 1, str_item);
+				pm->m_additional_name = str_item;
+
+				pm->m_anim_speed = 1.f;
+				break;
+			case 3:
+			default:
 				_GetItem(anm.c_str(), 0, str_item);
 				pm->m_base_name = str_item;
 
@@ -68,9 +82,7 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 
 				_GetItem(anm.c_str(), 2, str_item);
 				pm->m_anim_speed = atof(str_item);
-
-				_GetItem(anm.c_str(), 3, str_item);
-				pm->m_anim_end = atof(str_item);
+				break;
 			}
 
 			//and load all motions for it
@@ -83,11 +95,6 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 					xr_sprintf(buff, "%s%d", pm->m_base_name.c_str(), i);
 
 				motion_ID = model->ID_Cycle_Safe(buff);
-                //code to find hand anim names with speeds of not 1
-                //CMotionDef* def = model->LL_GetMotionDef(motion_ID);
-                //if (def->Speed() != 1) {
-                //    Msg("omf speed is %f, anim_name is %s", def->Speed(), buff);
-                //}
 				if (!motion_ID.valid() && i == 0)
 				{
 					motion_ID = model->ID_Cycle_Safe("hand_idle_doun");
@@ -258,6 +265,7 @@ void attachable_hud_item::update(bool bForce)
 		m_item_transform.mulB_43(hud_rotation);
 	}
 	else {
+        m_item_transform_prev = m_item_transform;
 		m_parent->calc_transform(m_attach_place_idx, m_attach_offset, m_item_transform, m_measures.m_bLeadGunLeftHand);
 		m_upd_firedeps_frame = Device.dwFrame;
 	}
@@ -571,6 +579,10 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	strconcat(sizeof(val_name), val_name, "attach_mount_hud_offset_rot", _prefix);
 	m_hands_offset[1][7] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 
+    //custom HUD offset
+    m_hands_offset[0][8] = Fvector().set(0, 0, 0);
+    m_hands_offset[1][8] = Fvector().set(0, 0, 0);
+
 	m_fFreelookZOffset = READ_IF_EXISTS(pSettings, r_float, sect_name, "freelook_z_offset_mul", 0.f);
 	m_bLeadGunLeftHand = READ_IF_EXISTS(pSettings, r_bool, sect_name, "lh_lead_gun", false);
 
@@ -628,15 +640,12 @@ player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
 }
 
 u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, const CMotionDef*& md, u8& rnd_idx,
-	float speed, bool bMixIn2)
+                                   float& speed, bool bMixIn2)
 {
 	player_hud_motion* anm = find_motion(anm_name_b);
 	rnd_idx = (u8)Random.randI(anm->m_animations.size());
 	const motion_descr& M = anm->m_animations[rnd_idx];
-	if (speed == 1.f)
-		speed = anm->m_anim_speed != 0 ? anm->m_anim_speed : 1.f;
-        // Verdatim: store the final anim speed for use in motion mark timing scaling
-        final_anim_speed = speed;
+	speed *= anm->m_anim_speed;
 
 	u32 ret = 0;
 	if (m_attach_place_idx != SCOPE_ATTACH_IDX) {
@@ -721,13 +730,19 @@ player_hud::player_hud()
 	m_attach_offset.identity();
 	m_attach_offset_2.identity();
 	m_transform.identity();
+	m_transform_prev.identity();
 	m_transform_2.identity();
+	m_ik_shoulder_reference[0].identity();
+	m_ik_shoulder_reference[1].identity();
+	m_transform_2_prev.identity();
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
 	script_anim_offset_factor = 0.f;
 	m_item_pos.identity();
 	script_override_arms = false;
 	script_anim_item_model = nullptr;
+	override_hand_pose[0] = false;
+	override_hand_pose[1] = false;
 
 	//Bone Callback Params
 	m_bone_callback_params.insert(mk_pair(r_finger0, xr_new<BoneCallbackParams>()));
@@ -736,6 +751,12 @@ player_hud::player_hud()
 	//m_bone_callback_params.insert(mk_pair(bip01_r_finger1, xr_new<BoneCallbackParams>()));
 	//m_bone_callback_params.insert(mk_pair(bip01_r_finger11, xr_new<BoneCallbackParams>()));
 	//m_bone_callback_params.insert(mk_pair(bip01_r_finger12, xr_new<BoneCallbackParams>()));
+
+	for (int i = 0; i < 8; ++i)
+	{
+		m_ik_transforms[i].first.identity();
+		m_ik_transforms[i].second = false;
+	}
 
 	//Movement Layers
 	m_movement_layers.reserve(move_anms_end);
@@ -817,6 +838,19 @@ void player_hud::FingerCallback(CBoneInstance* B)
 	B->mTransform.mulB_43(rotation);
 }
 
+void IKHandCallback(CBoneInstance* B)
+{
+	xr_pair<Fmatrix, bool>* pair = static_cast<xr_pair<Fmatrix, bool>*>(B->callback_param());
+	if (g_player_hud->attached_item(1) && pair < &g_player_hud->m_ik_transforms[4]) return;
+	const int arm = int(pair - g_player_hud->m_ik_transforms) / 4;
+	if (!g_player_hud->m_arm_ik[arm].enabled) return;
+	if (!pair->second) return;
+
+	B->mTransform = pair->first;
+}
+
+bool force_hands_bone_parts = false;
+
 void player_hud::load(const shared_str& player_hud_sect, bool force)
 {
 	if (!force && player_hud_sect == m_sect_name) return;
@@ -838,13 +872,38 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 
 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
 	::Render->hud_loading = true;
+	force_hands_bone_parts = true;
 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
 	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
-
+	force_hands_bone_parts = false;
 	::Render->hud_loading = false;
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
+
+	u16 l_upperarm = m_model_2->dcast_PKinematics()->LL_BoneID("l_upperarm");
+	u16 r_upperarm = m_model->dcast_PKinematics()->LL_BoneID("r_upperarm");
+
+	u16 l_forearm = m_model_2->dcast_PKinematics()->LL_BoneID("l_forearm");
+	u16 r_forearm = m_model->dcast_PKinematics()->LL_BoneID("r_forearm");
+
+	u16 l_forearm_twist = m_model_2->dcast_PKinematics()->LL_BoneID("l_forearm_twist");
+	u16 r_forearm_twist = m_model->dcast_PKinematics()->LL_BoneID("r_forearm_twist");
+
+	u16 l_hand = m_model_2->dcast_PKinematics()->LL_BoneID("l_hand");
+	u16 r_hand = m_model->dcast_PKinematics()->LL_BoneID("r_hand");
+
+	m_arm_ik[0].initialized = false;
+	m_arm_ik[1].initialized = false;
+	m_ik_frame = u32(-1);
+	m_arm_ik[0].bones[0] = l_upperarm;
+	m_arm_ik[0].bones[1] = l_forearm;
+	m_arm_ik[0].bones[2] = l_forearm_twist;
+	m_arm_ik[0].bones[3] = l_hand;
+	m_arm_ik[1].bones[0] = r_upperarm;
+	m_arm_ik[1].bones[1] = r_forearm;
+	m_arm_ik[1].bones[2] = r_forearm_twist;
+	m_arm_ik[1].bones[3] = r_hand;
 
 	u16 bone_r_finger0 = m_model->dcast_PKinematics()->LL_BoneID("r_finger0");
 	u16 bone_r_finger01 = m_model->dcast_PKinematics()->LL_BoneID("r_finger01");
@@ -861,6 +920,16 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger0).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger1]);
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger01).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger11]);
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger02).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger12]);
+
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_upperarm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[0]);
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_forearm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[1]);
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_forearm_twist).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[2]);
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_hand).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[3]);
+
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_upperarm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[4]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_forearm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[5]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_forearm_twist).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[6]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_hand).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[7]);
 
 	// hides the unused arm meshes
 	m_model->dcast_PKinematics()->LL_SetBoneVisible(l_arm, FALSE, TRUE);
@@ -951,6 +1020,273 @@ void player_hud::render_item_ui()
 	}
 }
 
+// IK helper: takes an animated bone and direction/position resolved by IK, returns transform that matches
+// the IK direction/position and having the closest possible rotation to the animated bone, to avoid twists
+static Fmatrix apply_ik_pos_dir(const Fmatrix& animated, const Fvector& from, const Fvector& to, const Fvector& position)
+{
+	Fvector axis;
+	axis.crossproduct(from, to);
+	const float cosine = clampr(from.dotproduct(to), -1.f, 1.f);
+	float sine = axis.magnitude();
+	if (sine > EPS_S)
+		axis.div(sine);
+	else if (cosine < 0.f)
+	{
+		Fvector fallback;
+		fallback.set(_abs(from.y) < .9f ? 0.f : 1.f, _abs(from.y) < .9f ? 1.f : 0.f, 0.f);
+		axis.crossproduct(from, fallback).normalize_safe();
+		sine = 0.f;
+	}
+	else
+	{
+		Fmatrix result = animated;
+		result.c = position;
+		return result;
+	}
+
+	auto rotate = [&](const Fvector& v)
+	{
+		Fvector cross, result;
+		cross.crossproduct(axis, v);
+		result.mul(v, cosine);
+		result.mad(cross, sine);
+		result.mad(axis, axis.dotproduct(v) * (1.f - cosine));
+		return result;
+	};
+	Fmatrix result = animated;
+	result.i = rotate(animated.i);
+	result.j = rotate(animated.j);
+	result.k = rotate(animated.k);
+	result.c = position;
+	return result;
+}
+
+// IK helper: build pole target from the current animated shoulder, elbow and hand.
+static bool animation_ik_pole(const Fmatrix* animated, Fvector& cached_direction,
+	bool& direction_valid, Fvector& pole)
+{
+	Fvector axis, upper;
+	axis.sub(animated[3].c, animated[0].c);
+	const float distance = axis.magnitude();
+	if (distance < EPS_S) return false;
+	axis.div(distance);
+	upper.sub(animated[1].c, animated[0].c);
+	Fvector origin, bend;
+	origin.mad(animated[0].c, axis, upper.dotproduct(axis));
+	bend.sub(animated[1].c, origin);
+	// Near extension the measured bend is unreliable; retain the last valid direction.
+	if (bend.magnitude() > _max(EPS_S, upper.magnitude() * .001f))
+	{
+		cached_direction = bend.normalize_safe();
+		direction_valid = true;
+	}
+	else
+	{
+		if (!direction_valid) return false;
+		bend = cached_direction;
+		bend.mad(axis, -bend.dotproduct(axis));
+		if (bend.square_magnitude() < EPS_S * EPS_S) return false;
+		bend.normalize_safe();
+	}
+	pole.mad(origin, bend, 1.5f);
+	return true;
+}
+
+void player_hud::set_arm_ik_enabled(u8 hand, bool enabled)
+{
+	if (hand > 2) return;
+	for (int arm = 0; arm < 2; ++arm)
+	{
+		if (hand != 2 && arm != 1 - hand) continue;
+		ArmIK& state = m_arm_ik[arm];
+		if (state.enabled == enabled) continue;
+		state.enabled = enabled;
+		state.initialized = false;
+		for (int bone = 0; bone < 4; ++bone)
+			m_ik_transforms[arm * 4 + bone].second = false;
+		IKinematicsAnimated* model = arm == 0 ? m_model_2 : m_model;
+		if (model) model->dcast_PKinematics()->CalculateBones_Invalidate();
+	}
+}
+
+// IK helper: solve one arm and apply its bone transforms to the skeleton.
+void player_hud::solve_hand_ik(int arm)
+{
+	ArmIK& state = m_arm_ik[arm];
+	const int first = arm * 4;
+	IKinematics* K = (arm == 0 ? m_model_2 : m_model)->dcast_PKinematics();
+	for (int i = 0; i < 3; ++i)
+		m_ik_transforms[first + i].second = false;
+
+	if (state.enabled && m_attached_items[0] && (arm == 1 || !m_attached_items[1]))
+	{
+		for (int i = 0; i < 4; ++i)
+			if (state.bones[i] == BI_NONE)
+				return;
+
+		Fmatrix animated[4];
+		for (int i = 0; i < 4; ++i)
+			K->Bone_GetAnimPos(animated[i], state.bones[i], u8(-1), true);
+
+		const Fmatrix animated_hand = animated[3];
+
+		if (!state.initialized)
+		{
+			// Fixed bone-frame relationships must not follow the animation under an IK target.
+			xr_vector<Fmatrix> bind_pose;
+			K->LL_GetBindTransform(bind_pose);
+			Fmatrix inverse_bind_forearm;
+			inverse_bind_forearm.invert(bind_pose[state.bones[1]]);
+			state.wrist_from_forearm.mul_43(inverse_bind_forearm, bind_pose[state.bones[2]]);
+			state.hand_from_forearm.mul_43(inverse_bind_forearm, bind_pose[state.bones[3]]);
+			state.animation_pole_direction_valid = false;
+			state.lengths[0] = animated[0].c.distance_to(animated[1].c);
+			state.lengths[1] = animated[1].c.distance_to(animated[3].c);
+			state.lengths[2] = animated[1].c.distance_to(animated[2].c);
+			if (state.lengths[0] < EPS_S || state.lengths[1] < EPS_S)
+				return;
+
+			state.pole.set(0.f, -1.f, 0.f);
+			state.initialized = true;
+		}
+
+		Fvector animation_pole;
+		const bool animation_pole_valid = animation_ik_pole(animated, state.animation_pole_direction,
+			state.animation_pole_direction_valid, animation_pole);
+
+		if (ps_hud_ik_compensation)
+		{
+			// Hand targets follow the final HUD transform; shoulders follow the camera and idle offset.
+			const Fmatrix& hud_transform = arm == 0 ? m_transform_2 : m_transform;
+			Fmatrix inverse_hud, reference;
+			inverse_hud.invert(hud_transform);
+			reference.mul_43(inverse_hud, m_ik_shoulder_reference[arm]);
+			for (auto& bone : animated) bone.mulA_43(reference);
+			if (animation_pole_valid) reference.transform_tiny(animation_pole);
+		}
+
+		const Fmatrix target = m_ik_transforms[first + 3].second ? m_ik_transforms[first + 3].first : animated_hand;
+		Fvector shoulder = animated[0].c;
+		const float upper = state.lengths[0], lower = state.lengths[1];
+
+		Fvector direction, pole, normal;
+		direction.sub(target.c, shoulder);
+		const float distance = direction.magnitude();
+		if (distance < EPS_S)
+			return;
+		direction.div(distance);
+		// Use the animated pole directly. Degenerate poses retain the previous bend plane.
+		pole = state.pole;
+		if (animation_pole_valid)
+			pole.sub(animation_pole, shoulder);
+		normal.crossproduct(direction, pole);
+		if (normal.square_magnitude() < EPS_S * EPS_S)
+		{
+			normal.crossproduct(direction, state.pole);
+			if (normal.square_magnitude() < EPS_S * EPS_S)
+			{
+				pole.set(_abs(direction.y) < .9f ? 0.f : 1.f, _abs(direction.y) < .9f ? 1.f : 0.f, 0.f);
+				normal.crossproduct(direction, pole);
+			}
+		}
+		normal.normalize_safe();
+		state.pole.crossproduct(normal, direction).normalize_safe();
+
+		Fvector elbow, hand;
+		if (distance > upper + lower - 1e-5f)
+		{
+			elbow.mad(shoulder, direction, upper);
+			hand.mad(elbow, direction, lower);
+		}
+		else
+		{
+			const float cosine = clampr((distance * distance + upper * upper - lower * lower) / (2.f * upper * distance), -1.f, 1.f);
+			const float angle = acosf(cosine);
+			Fvector cross, rotated;
+			cross.crossproduct(normal, direction);
+			rotated.mul(direction, cosf(angle));
+			rotated.mad(cross, sinf(angle));
+			rotated.mad(normal, normal.dotproduct(direction) * (1.f - cosf(angle)));
+			rotated.normalize_safe();
+			elbow.mad(shoulder, rotated, upper);
+			hand = target.c;
+		}
+
+		Fmatrix pose[4];
+		Fvector directions[2];
+		directions[0].sub(elbow, shoulder).normalize_safe();
+		directions[1].sub(hand, elbow).normalize_safe();
+		Fvector original_upper, original_forearm;
+		original_upper.sub(animated[1].c, animated[0].c).normalize_safe();
+		original_forearm.sub(animated[3].c, animated[1].c).normalize_safe();
+		pose[0] = apply_ik_pos_dir(animated[0], original_upper, directions[0], shoulder);
+		pose[1] = apply_ik_pos_dir(animated[1], original_forearm, directions[1], elbow);
+		pose[3] = target;
+		pose[3].c = hand;
+
+		Fvector wrist;
+		wrist.mad(elbow, directions[1], state.lengths[2]);
+		// Use the skeleton's fixed wrist/hand frames, not the underlying animation's
+		// magazine-grab or reload pose, as the reference for target-driven roll.
+		Fmatrix reference_hand;
+		pose[2].mul_43(pose[1], state.wrist_from_forearm);
+		pose[2].c = wrist;
+		reference_hand.mul_43(pose[1], state.hand_from_forearm);
+		reference_hand.c = hand;
+		const Fvector reference_axes[3] = {reference_hand.i, reference_hand.j, reference_hand.k};
+		const Fvector target_axes[3] = {target.i, target.j, target.k};
+		float sine = 0.f, cosine = 0.f;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			Fvector cross;
+			cross.crossproduct(reference_axes[axis], target_axes[axis]);
+			sine += directions[1].dotproduct(cross);
+			cosine += reference_axes[axis].dotproduct(target_axes[axis])
+				- directions[1].dotproduct(reference_axes[axis]) * directions[1].dotproduct(target_axes[axis]);
+		}
+		// atan2 wraps the hand's extra roll to [-PI, PI]; the twist bone receives half.
+		const float roll = sine * sine + cosine * cosine > EPS_S * EPS_S
+			? atan2f(sine, cosine) * .5f : 0.f;
+		auto roll_axis = [&](Fvector& axis)
+		{
+			Fvector cross, rotated;
+			cross.crossproduct(directions[1], axis);
+			rotated.mul(axis, cosf(roll));
+			rotated.mad(cross, sinf(roll));
+			rotated.mad(directions[1], directions[1].dotproduct(axis) * (1.f - cosf(roll)));
+			axis = rotated;
+		};
+		roll_axis(pose[2].i);
+		roll_axis(pose[2].j);
+		roll_axis(pose[2].k);
+
+		for (int i = 0; i < 4; ++i)
+		{
+			m_ik_transforms[first + i].first = pose[i];
+			m_ik_transforms[first + i].second = true;
+		}
+	}
+
+	// Re-evaluate without advancing tracks: callbacks update descendants and render matrices.
+	K->CalculateBones_Invalidate();
+	K->CalculateBones(TRUE);
+}
+
+void player_hud::finalize_hands_ik()
+{
+	if (m_ik_frame == Device.dwFrame)
+		return;
+	m_ik_frame = Device.dwFrame;
+
+	// Lua registers this after game start; lookup must not auto-load IK scripts during loading.
+	::luabind::functor<void> update_target;
+	if (ai().script_engine().functor("_G.COnHudIKTarget", update_target))
+		update_target();
+
+	solve_hand_ik(0);
+	solve_hand_ik(1);
+}
+
 void player_hud::render_hud()
 {
 	bool b_r0 = ((m_attached_items[0] && m_attached_items[0]->need_renderable()) || script_anim_part == 0 || script_anim_part == 2);
@@ -1023,25 +1359,34 @@ u32 player_hud::motion_length_script(LPCSTR section, LPCSTR anm_name, float spee
 	return motion_length(phm->m_animations[0].mid, temp, speed);
 }
 
-u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md)
+bool player_hud::motion_is_stop_at_end(const shared_str& anim_name, const shared_str& hud_name)
+{
+	player_hud_motion_container* pc = get_hand_motions(*hud_name);
+	if (!pc) return true;
+	player_hud_motion* pm = pc->find_motion(anim_name);
+	if (!pm || !pm->m_animations.size())
+		return true;
+
+	CMotionDef* md = m_model->LL_GetMotionDef(pm->m_animations[0].mid);
+	return md->flags & esmStopAtEnd;
+}
+
+u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md, u8 anim_idx, bool ignore_stop_at_end)
 {
 	player_hud_motion_container* pc = get_hand_motions(*hud_name);
 	if (!pc) return 0;
 	player_hud_motion* pm = pc->find_motion(anim_name);
 	if (!pm || !pm->m_animations.size())
-		return 100; // ms TEMPORARY
-	R_ASSERT2(pm,
-		make_string("hudItem model [%s] has no motion with alias [%s]", hud_name.c_str(), anim_name.c_str()).
-		c_str()
-	);
-	return motion_length(pm->m_animations[0].mid, md, 1.f);
+		return 100; // ms UNTEMPORARY
+
+	return motion_length(pm->m_animations[anim_idx].mid, md, 1.f, ignore_stop_at_end);
 }
 
-u32 player_hud::motion_length(const MotionID& M, const CMotionDef*& md, float speed)
+u32 player_hud::motion_length(const MotionID& M, const CMotionDef*& md, float speed, bool ignore_stop_at_end)
 {
 	md = m_model->LL_GetMotionDef(M);
 	VERIFY(md);
-	if (md->flags & esmStopAtEnd)
+	if (ignore_stop_at_end || md->flags & esmStopAtEnd)
 	{
 		CMotion* motion = m_model->LL_GetRootMotion(M);
 		return iFloor(0.5f + 1000.f * motion->GetLength() / (md->Dequantize(md->speed) * speed));
@@ -1073,8 +1418,41 @@ const Fvector player_hud::attach_pos(u8 part) const
 extern float g_freelook_z_offset;
 extern float psHUD_FOV;
 
+// Build an independent reference before inertia, recoil, script layers and near-wall offsets.
+void player_hud::update_ik_shoulder_reference(const Fmatrix& camera)
+{
+	for (int slot = 0; slot < 2; ++slot)
+	{
+		const attachable_hud_item* item = m_attached_items[slot] ? m_attached_items[slot] : m_attached_items[!slot];
+		Fmatrix reference = camera;
+		if (item && smart_cast<CWeapon*>(item->m_parent_hud_item))
+		{
+			const Fvector& rotation = m_adjust_mode ? m_adjust_offset[1][5] : item->m_measures.m_hands_offset[1][5];
+			const Fvector& position = m_adjust_mode ? m_adjust_offset[0][5] : item->m_measures.m_hands_offset[0][5];
+			Fmatrix offset, axis;
+			offset.rotateX(rotation.x);
+			axis.rotateY(rotation.y);
+			offset.mulA_43(axis);
+			axis.rotateZ(rotation.z);
+			offset.mulA_43(axis);
+			offset.translate_over(position);
+			reference.mulB_43(offset);
+		}
+
+		Fvector rotation = attach_rot(slot);
+		rotation.mul(PI / 180.f);
+		Fmatrix attachment;
+		attachment.setHPB(rotation.x, rotation.y, rotation.z);
+		attachment.translate_over(attach_pos(slot));
+		// HUD slots are right/left; the IK array is left/right.
+		m_ik_shoulder_reference[1 - slot].mul_43(reference, attachment);
+	}
+}
+
 void player_hud::update(const Fmatrix& cam_trans)
 {
+	if (ps_hud_ik_compensation)
+		update_ik_shoulder_reference(cam_trans);
 	Fmatrix trans = cam_trans;
 	Fmatrix trans_b = cam_trans;
 	CWeapon* wep = smart_cast<CWeapon*>(Actor()->inventory().ActiveItem());
@@ -1200,9 +1578,13 @@ void player_hud::update(const Fmatrix& cam_trans)
 	m_attach_offset_2.setHPB(m2rot.x, m2rot.y, m2rot.z);
 	m_attach_offset_2.translate_over(m2pos);
 
+	m_transform_prev = m_transform;
 	m_transform.mul(trans, m_attach_offset);
+	m_transform_2_prev = m_transform_2;
 	m_transform_2.mul(trans_2, m_attach_offset_2);
 
+	for (int i = 0; i < 8; ++i)
+		m_ik_transforms[i].second = false;
 	m_model->UpdateTracks();
 	m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model->dcast_PKinematics()->CalculateBones(TRUE);
@@ -1498,12 +1880,16 @@ void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float s
 		hud->m_model_2->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->PlayCycle(1, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
+		if (!hud->override_hand_pose[0] || g_player_hud->attached_item(1))
+			hud->m_model_2->PlayCycle(3, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
 		break;
 	case 2:
 		if (!script_anim && hud->script_anim_part == 0) return;
 		hud->m_model->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
+		if (!hud->override_hand_pose[1] || g_player_hud->attached_item(1))
+			hud->m_model->PlayCycle(4, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 		break;
 	}
@@ -1528,6 +1914,80 @@ void player_hud::delete_script_anim_item_model()
 	IRenderVisual* v = script_anim_item_model->dcast_RenderVisual();
 	::Render->model_Delete(v);
 	script_anim_item_model = nullptr;
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void player_hud::set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm, float accrue, float falloff, bool mixin)
+{
+	if (!pSettings->section_exist(sect))
+	{
+		Msg("!script motion section [%s] does not exist", sect);
+		return;
+	}
+
+	player_hud_motion_container* pm = get_hand_motions(sect);
+	player_hud_motion* phm = pm->find_motion(anm);
+
+	if (!phm)
+	{
+		Msg("!script motion [%s] not found in section [%s]", anm, sect);
+		return;
+	}
+
+	const motion_descr& M = phm->m_animations[Random.randI(phm->m_animations.size())];
+
+	switch (hand)
+	{
+	case 0:
+	{
+		if (falloff) set_current_blend_falloff(4, falloff);
+		CBlend* B = m_model->PlayCycle(4, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[1] = true;
+	}
+	break;
+	case 1:
+	{
+		if (falloff) set_current_blend_falloff(3, falloff);
+		CBlend* B = m_model_2->PlayCycle(3, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[0] = true;
+	}
+	break;
+	case 2:
+	{
+		if (falloff) set_current_blend_falloff(4, falloff);
+		CBlend* B = m_model->PlayCycle(4, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[1] = true;
+
+		if (falloff) set_current_blend_falloff(3, falloff);
+		B = m_model_2->PlayCycle(3, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[0] = true;
+	}
+	break;
+	}
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void player_hud::clear_hand_pose(u8 hand, float accrue, float falloff)
+{
+	// Clearing an already released pose must not enqueue another set of blends.
+	if ((hand == 0 || hand == 2) && override_hand_pose[1])
+	{
+		override_hand_pose[1] = false;
+		re_sync_hand(false, accrue, falloff);
+	}
+	if ((hand == 1 || hand == 2) && override_hand_pose[0])
+	{
+		override_hand_pose[0] = false;
+		re_sync_hand(true, accrue, falloff);
+	}
 }
 
 extern BOOL print_bone_warnings;
@@ -1780,24 +2240,107 @@ void player_hud::re_sync_anim(u8 part)
 	}
 }
 
+void player_hud::set_current_blend_falloff(u8 part, float falloff)
+{
+	IKinematicsAnimated* target = (part == 1 || part == 3) ? m_model_2 : m_model;
+
+	if (falloff)
+	{
+		u32 bc = target->LL_PartBlendsCount(part);
+		for (u32 bidx = 0; bidx < bc; ++bidx)
+		{
+			CBlend* BR = target->LL_PartBlend(part, bidx);
+			if (!BR)
+				continue;
+
+			BR->blendFalloff = falloff;
+		}
+	}
+}
+
+//sync hand animation back to the animation currently playing on that arm
+void player_hud::re_sync_hand(bool left, float accrue, float falloff)
+{
+	IKinematicsAnimated* target = left ? m_model_2 : m_model;
+
+	if (falloff) set_current_blend_falloff(left ? 3 : 4, falloff);
+
+	// PlayCycle may update tracks and retire source blends; snapshot before creating any.
+	struct SourceBlend
+	{
+		MotionID motion;
+		float time;
+		float speed;
+	};
+	xr_vector<SourceBlend> sources;
+	const u32 count = target->LL_PartBlendsCount(left ? 1 : 2);
+	for (u32 i = 0; i < count; ++i)
+	{
+		const CBlend* blend = target->LL_PartBlend(left ? 1 : 2, i);
+		if (blend && blend->motionID.valid())
+			sources.push_back({blend->motionID, blend->timeCurrent, blend->speed});
+	}
+	for (const SourceBlend& source : sources)
+	{
+		CBlend* blend = target->PlayCycle(left ? 3 : 4, source.motion, TRUE);
+		if (!blend)
+			continue;
+		blend->timeCurrent = source.time;
+		blend->speed = source.speed;
+		if (accrue)
+			blend->blendAccrue = accrue;
+	}
+}
+
 //set cycle time (0...1) part: 0 = root; 1 = left hand; 2 = right hand
-void player_hud::set_part_cycle_time(u8 part, float time)
+void player_hud::set_part_cycle_time(u8 part, float time, float set_time)
 {
 	if (part == 0)
 	{
-		set_part_cycle_time(1, time);
-		set_part_cycle_time(2, time);
+		IKinematicsAnimated* target = m_attached_items[0] && m_attached_items[0]->m_model
+			? m_attached_items[0]->m_model->dcast_PKinematicsAnimated() : nullptr;
+		if (target)
+		{
+			const u32 count = target->LL_PartBlendsCount(0);
+			for (u32 i = 0; i < count; ++i)
+			{
+				CBlend* blend = target->LL_PartBlend(0, i);
+				if (blend)
+					blend->timeCurrent = set_time ? set_time : blend->timeTotal * time;
+			}
+		}
+
+		set_part_cycle_time(1, time, set_time);
+		set_part_cycle_time(2, time, set_time);
 		return;
 	}
 
-	u32 bc = part == 1 ? m_model_2->LL_PartBlendsCount(part) : m_model->LL_PartBlendsCount(part);
+	IKinematicsAnimated* target = part == 1 ? m_model_2 : m_model;
+
+	u32 bc = target->LL_PartBlendsCount(part);
 	for (u32 bidx = 0; bidx < bc; ++bidx)
 	{
-		CBlend* BR = part == 1 ? m_model_2->LL_PartBlend(part, bidx) : m_model->LL_PartBlend(part, bidx);
+		CBlend* BR = target->LL_PartBlend(part, bidx);
 		if (!BR)
 			continue;
 
-		BR->timeCurrent = BR->timeTotal * time;
+		if (set_time)
+			BR->timeCurrent = set_time;
+		else
+			BR->timeCurrent = BR->timeTotal * time;
+	}
+
+	bc = target->LL_PartBlendsCount(part == 1 ? 3 : 4);
+	for (u32 bidx = 0; bidx < bc; ++bidx)
+	{
+		CBlend* BR = target->LL_PartBlend(part == 1 ? 3 : 4, bidx);
+		if (!BR)
+			continue;
+
+		if (set_time)
+			BR->timeCurrent = set_time;
+		else
+			BR->timeCurrent = BR->timeTotal * time;
 	}
 }
 
@@ -2062,6 +2605,9 @@ void player_hud::OnFrame()
 			m_attached_items[SCOPE_ATTACH_IDX]->m_item_transform.mulB_43(nearwall_0);
 		}
 	}
+
+	if (g_actor && g_actor->IsFocused() && m_model && m_model_2)
+		finalize_hands_ik();
 }
 
 void player_hud::net_Relcase(CObject* obj)
