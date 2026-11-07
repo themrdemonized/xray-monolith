@@ -1046,6 +1046,11 @@
 		function set_device_enabled(bool)
 		function is_device_enabled()
 
+		// PDA
+		function SetPdaBrightness(float)
+		function GetPdaBrightness()
+		function ResetPdaBrightness()
+
         // Bones
         u16 get_bone_id(string)
         u16 get_bone_id(string, bool bHud)
