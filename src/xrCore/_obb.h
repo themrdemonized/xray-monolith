@@ -150,6 +150,117 @@ public:
 		}
 		return false;
 	}
+
+    IC bool intersect(SelfCRef A, SelfCRef B) const
+    {
+        float RA = _sqrt(A.m_halfsize.x * A.m_halfsize.x + A.m_halfsize.y * A.m_halfsize.y + A.m_halfsize.z * A.m_halfsize.z);
+        float RB = _sqrt(B.m_halfsize.x * B.m_halfsize.x + B.m_halfsize.y * B.m_halfsize.y + B.m_halfsize.z * B.m_halfsize.z);
+
+        // Early out if too far apart to collide
+        Fvector d; d.sub(B.m_translate, A.m_translate);
+        float r = RA + RB;
+        if (d.square_magnitude() > r * r)
+            return false;
+
+        const Tvector Aaxis[3] = {A.m_rotate.i, A.m_rotate.j, A.m_rotate.k};
+        const Tvector Baxis[3] = { B.m_rotate.i, B.m_rotate.j, B.m_rotate.k };
+
+        // Half-sizes
+        const T a[3] = { A.m_halfsize[0], A.m_halfsize[1], A.m_halfsize[2] };
+        const T b[3] = { B.m_halfsize[0], B.m_halfsize[1], B.m_halfsize[2] };
+
+        // Rotation matrix R = A^T * B  (R[i][j] = dot(Ai, Bj))
+        T R[3][3], AbsR[3][3];
+
+        for (int i = 0; i < 3; ++i)
+        {
+            for (int j = 0; j < 3; ++j)
+            {
+                R[i][j] = Aaxis[i].dotproduct(Baxis[j]);
+            }
+        }
+
+        Tvector tVec;
+        tVec.sub(B.m_translate, A.m_translate);
+        T t[3] = {
+            tVec.dotproduct(Aaxis[0]),
+            tVec.dotproduct(Aaxis[1]),
+            tVec.dotproduct(Aaxis[2])
+        };
+
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                AbsR[i][j] = std::fabs(R[i][j]) + EPS_S;
+
+        T ra, rb;
+
+        for (int i = 0; i < 3; ++i)
+        {
+            ra = a[i];
+            rb = b[0] * AbsR[i][0] + b[1] * AbsR[i][1] + b[2] * AbsR[i][2];
+            if (std::fabs(t[i]) > ra + rb) return false;
+        }
+
+        for (int j = 0; j < 3; ++j)
+        {
+            ra = a[0] * AbsR[0][j] + a[1] * AbsR[1][j] + a[2] * AbsR[2][j];
+            rb = b[j];
+            const T tj = std::fabs(t[0] * R[0][j] + t[1] * R[1][j] + t[2] * R[2][j]);
+            if (tj > ra + rb) return false;
+        }
+
+        // A0 x B0
+        ra = a[1] * AbsR[2][0] + a[2] * AbsR[1][0];
+        rb = b[1] * AbsR[0][2] + b[2] * AbsR[0][1];
+        if (std::fabs(t[2] * R[1][0] - t[1] * R[2][0]) > ra + rb) return false;
+
+        // A0 x B1
+        ra = a[1] * AbsR[2][1] + a[2] * AbsR[1][1];
+        rb = b[0] * AbsR[0][2] + b[2] * AbsR[0][0];
+        if (std::fabs(t[2] * R[1][1] - t[1] * R[2][1]) > ra + rb) return false;
+
+        // A0 x B2
+        ra = a[1] * AbsR[2][2] + a[2] * AbsR[1][2];
+        rb = b[0] * AbsR[0][1] + b[1] * AbsR[0][0];
+        if (std::fabs(t[2] * R[1][2] - t[1] * R[2][2]) > ra + rb) return false;
+
+        // A1 x B0
+        ra = a[0] * AbsR[2][0] + a[2] * AbsR[0][0];
+        rb = b[1] * AbsR[1][2] + b[2] * AbsR[1][1];
+        if (std::fabs(t[0] * R[2][0] - t[2] * R[0][0]) > ra + rb) return false;
+
+        // A1 x B1
+        ra = a[0] * AbsR[2][1] + a[2] * AbsR[0][1];
+        rb = b[0] * AbsR[1][2] + b[2] * AbsR[1][0];
+        if (std::fabs(t[0] * R[2][1] - t[2] * R[0][1]) > ra + rb) return false;
+
+        // A1 x B2
+        ra = a[0] * AbsR[2][2] + a[2] * AbsR[0][2];
+        rb = b[0] * AbsR[1][1] + b[1] * AbsR[1][0];
+        if (std::fabs(t[0] * R[2][2] - t[2] * R[0][2]) > ra + rb) return false;
+
+        // A2 x B0
+        ra = a[0] * AbsR[1][0] + a[1] * AbsR[0][0];
+        rb = b[1] * AbsR[2][2] + b[2] * AbsR[2][1];
+        if (std::fabs(t[1] * R[0][0] - t[0] * R[1][0]) > ra + rb) return false;
+
+        // A2 x B1
+        ra = a[0] * AbsR[1][1] + a[1] * AbsR[0][1];
+        rb = b[0] * AbsR[2][2] + b[2] * AbsR[2][0];
+        if (std::fabs(t[1] * R[0][1] - t[0] * R[1][1]) > ra + rb) return false;
+
+        // A2 x B2
+        ra = a[0] * AbsR[1][2] + a[1] * AbsR[0][2];
+        rb = b[0] * AbsR[2][1] + b[1] * AbsR[2][0];
+        if (std::fabs(t[1] * R[0][2] - t[0] * R[1][2]) > ra + rb) return false;
+
+        return true;
+    }
+
+    IC bool intersect(SelfCRef B) const
+    {
+        return intersect(*this, B);
+    }
 };
 
 typedef _obb<float> Fobb;

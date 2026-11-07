@@ -440,12 +440,13 @@ void CMainMenu::OnRender()
 		render_reshade_effects();
 
 	const bool render_pp_ui = OnRenderPPUI_query();
-		
+	if (render_pp_ui)
     CUI3dStatic::PrepareAtlas();
 	Render->Render();
 
 	if (!render_pp_ui)
 	{
+		CUI3dStatic::PrepareAtlas();
 		DoRenderDialogs();
 	}
 	else if (CUIDialogWnd* modal = ModalOverStartDialog())

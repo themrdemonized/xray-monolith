@@ -931,6 +931,11 @@ void CWeapon::Load(LPCSTR section)
 	m_shoot_shake_mat.identity();
 
 	m_playFullShotAnim = READ_IF_EXISTS(pSettings, r_bool, *hud_sect, "rpm_anim_fix", true);
+	m_nearwall_zoomed_range = READ_IF_EXISTS(pSettings, r_float, section, "nearwall_zoomed_range", 0.04f);
+
+	m_firepos = READ_IF_EXISTS(pSettings, r_bool, section, "firepos", true);
+	m_aimpos = READ_IF_EXISTS(pSettings, r_bool, section, "aimpos", true);
+
 	//--DSR-- SilencerOverheat_start
 	if (m_eSilencerStatus == ALife::eAddonAttachable)
 	{
@@ -943,11 +948,6 @@ void CWeapon::Load(LPCSTR section)
 		}
 	}
 	//--DSR-- SilencerOverheat_end
-
-	m_nearwall_zoomed_range = READ_IF_EXISTS(pSettings, r_float, section, "nearwall_zoomed_range", 0.04f);
-
-	m_firepos = READ_IF_EXISTS(pSettings, r_bool, section, "firepos", true);
-	m_aimpos = READ_IF_EXISTS(pSettings, r_bool, section, "aimpos", true);
 }
 
 // demonized: World model on stalkers adjustments

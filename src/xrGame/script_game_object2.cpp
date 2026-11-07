@@ -67,6 +67,19 @@ void CScriptGameObject::explode(u32 level_time)
 	}
 }
 
+void CScriptGameObject::set_initiator(u16 id)
+{
+    CExplosive* explosive = smart_cast<CExplosive*>(&object());
+    if (!explosive)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CExplosive : cannot access class member explode!");
+        return;
+    }
+    
+    explosive->SetInitiator(id);
+}
+
 bool CScriptGameObject::active_zone_contact(u16 id)
 {
 	CScriptZone* script_zone = smart_cast<CScriptZone*>(&object());
@@ -478,25 +491,37 @@ bool CScriptGameObject::DisableHitMarks() const
 
 Fvector CScriptGameObject::GetMovementSpeed() const
 {
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+	{
+		return stalker->character_physics_support()->movement()->GetVelocity();
+	}
+
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call GetMovementSpeed method for non-actor object");
+		                                "ScriptGameObject : attempt to call GetMovementSpeed method for non-stalker object");
 		NODEFAULT;
 	}
-	//return actor->GetMovementSpeed();
 	return actor->character_physics_support()->movement()->GetVelocity();
 }
 
 // momopate: db.actor:set_movement_speed(vector vel)
 void CScriptGameObject::SetMovementSpeed(Fvector vel)
 {
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+	{
+		stalker->character_physics_support()->movement()->SetVelocity(vel.x, vel.y, vel.z);
+		return;
+	}
+
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call SetMovementSpeed method for non-actor object");
+		                                "ScriptGameObject : attempt to call SetMovementSpeed method for non-stalker object");
 		return;
 	}
 	actor->character_physics_support()->movement()->SetVelocity(vel.x, vel.y, vel.z);

@@ -20,6 +20,7 @@
 #include "../xrRender/r_sun_cascades.h"
 
 #include "../../xrEngine/irenderable.h"
+#include "../../Include/xrRender/RenderVisual.h"
 #include "../../xrEngine/fmesh.h"
 
 

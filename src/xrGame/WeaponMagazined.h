@@ -203,6 +203,29 @@ public:
 			return 1;
 	};
 
+    virtual int GetCurrentFireModeIndex()
+    {
+        return m_iCurFireMode;
+    }
+
+    virtual luabind::object GetFireModes_script()
+    {
+        ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+        if (HasFireModes())
+        {
+            int idx = 1;
+            for (auto& mode : m_aFireModes)
+            {
+                table[idx] = mode;
+                idx++;
+            }
+        }
+        else
+            table[1] = 1;
+
+        return table;
+    }
+
 	virtual void SetFireMode(int mode)
 	{
 		if (mode >= m_aFireModes.size()) mode = 0;

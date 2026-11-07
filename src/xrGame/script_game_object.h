@@ -569,6 +569,7 @@ public:
 	Fvector memory_position(const CScriptGameObject& lua_game_object);
 	CScriptGameObject* best_weapon();
 	void explode(u32 level_time);
+	void set_initiator(u16 id);
 	CScriptGameObject* GetEnemy() const;
 	CScriptGameObject* GetCorpse() const;
 	CScriptSoundInfo GetSoundInfo();

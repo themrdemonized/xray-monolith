@@ -29,8 +29,21 @@ using namespace collide;
 ICollisionForm::ICollisionForm(CObject* _owner, ECollisionFormType tp)
 {
 	owner = _owner;
+	owner_attachment = nullptr;
 	m_type = tp;
 	bv_sphere.identity();
+	bv_box.identity();
+	dwQueryID = 0;
+}
+
+ICollisionForm::ICollisionForm(script_attachment* _owner, ECollisionFormType tp)
+{
+	owner = nullptr;
+	owner_attachment = _owner;
+	m_type = tp;
+	bv_sphere.identity();
+	bv_box.identity();
+	dwQueryID = 0;
 }
 
 ICollisionForm::~ICollisionForm()
@@ -116,14 +129,16 @@ CCF_Skeleton::CCF_Skeleton(CObject* O) : ICollisionForm(O, cftObject)
 {
 	//getVisData
 	IRenderVisual* pVisual = O->Visual();
-	//IKinematics* K = PKinematics(pVisual); VERIFY3(K,"Can't create skeleton without Kinematics.",*O->cNameVisual());
 	IKinematics* K = PKinematics(pVisual);
 	VERIFY3(K, "Can't create skeleton without Kinematics.", *O->cNameVisual());
-	//bv_box.set (K->vis.box);
 	bv_box.set(pVisual->getVisData().box);
 	bv_box.getsphere(bv_sphere.P, bv_sphere.R);
 	vis_mask = 0;
+	dwFrame = 0;
+	dwFrameTL = 0;
 }
+
+CCF_Skeleton::CCF_Skeleton(script_attachment* O) : ICollisionForm(O, cftObject){}
 
 void CCF_Skeleton::BuildState()
 {
