@@ -11,6 +11,9 @@
 #endif
 extern CPHWorld* ph_world;
 
+// Emit the iterator constructor used by Deactivate's implicit pointer conversion.
+template class CPHItemList<CPHUpdateObject>::iterator;
+
 CPHObject::CPHObject() : ISpatial(g_SpatialSpacePhysic)
 {
 	m_flags.flags = 0;
