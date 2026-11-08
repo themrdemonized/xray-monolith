@@ -44,7 +44,6 @@
 #include "ai/monsters/burer/burer.h"
 #include "ai/monsters/controller/controller.h"
 #include "ai/monsters/poltergeist/poltergeist.h"
-#include "ai/monsters/snork/snork.h"
 #include "ai/monsters/control_manager_custom.h"
 #include "ai/monsters/control_jump.h"
 #include "ai/monsters/control_run_attack.h"

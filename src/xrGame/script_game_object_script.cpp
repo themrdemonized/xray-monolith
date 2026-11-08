@@ -20,9 +20,7 @@ extern class_<CScriptGameObject> script_register_game_object1(class_<CScriptGame
 extern class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject> &&);
 extern class_<CScriptGameObject> script_register_game_object_trader(class_<CScriptGameObject> &&);
 
-// Name tags for the mutant-reader enums whose source values are a private template enum
-// (chimera phase) or a script-only code/mask with no engine enum (poltergeist subtype, burer
-// readiness). The values are literals carrying their engine source in a comment.
+// Name tags for the mutant-reader enum exports; each value is a literal with its engine source beside it.
 namespace
 {
 	struct chimera_attack_phase_tag {};
