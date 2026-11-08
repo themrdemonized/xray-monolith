@@ -8,19 +8,24 @@ using namespace luabind;
 
 // ImPlot series take parallel x[] and y[] double arrays. Lua hands them as 1-based number
 // tables; copy once into reused scratch buffers, then call ImPlot with a defaulted ImPlotSpec.
+// Returns the points read: 0 for a non-table, else up to the first missing or non-number element.
 static xr_vector<double> s_implot_x;
 static xr_vector<double> s_implot_y;
 
-static void implot_read_xy(const luabind::object& xs, const luabind::object& ys, int count)
+static int implot_read_xy(const luabind::object& xs, const luabind::object& ys, int count)
 {
-	if (count < 0) count = 0;
+	if (count < 0 || !xs || xs.type() != LUA_TTABLE || !ys || ys.type() != LUA_TTABLE) count = 0;
 	s_implot_x.resize(count);
 	s_implot_y.resize(count);
 	for (int i = 0; i < count; ++i)
 	{
+		// type check first: this luabind converts nil to 0 for double (policy.hpp PRIMITIVE_MATCHER(double))
+		if (xs[i + 1].type() != LUA_TNUMBER || ys[i + 1].type() != LUA_TNUMBER)
+			return i;
 		s_implot_x[i] = object_cast<double>(xs[i + 1]);
 		s_implot_y[i] = object_cast<double>(ys[i + 1]);
 	}
+	return count;
 }
 
 static bool ImPlot_BeginPlot(LPCSTR title, Fvector2 size, ImPlotFlags flags)
@@ -30,28 +35,28 @@ static bool ImPlot_BeginPlot(LPCSTR title, Fvector2 size, ImPlotFlags flags)
 
 static void ImPlot_PlotLine(LPCSTR label, const luabind::object& xs, const luabind::object& ys, int count)
 {
-	implot_read_xy(xs, ys, count);
+	count = implot_read_xy(xs, ys, count);
 	if (count > 0)
 		ImPlot::PlotLine(label, s_implot_x.data(), s_implot_y.data(), count);
 }
 
 static void ImPlot_PlotShaded(LPCSTR label, const luabind::object& xs, const luabind::object& ys, int count, double yref)
 {
-	implot_read_xy(xs, ys, count);
+	count = implot_read_xy(xs, ys, count);
 	if (count > 0)
 		ImPlot::PlotShaded(label, s_implot_x.data(), s_implot_y.data(), count, yref);
 }
 
 static void ImPlot_PlotScatter(LPCSTR label, const luabind::object& xs, const luabind::object& ys, int count)
 {
-	implot_read_xy(xs, ys, count);
+	count = implot_read_xy(xs, ys, count);
 	if (count > 0)
 		ImPlot::PlotScatter(label, s_implot_x.data(), s_implot_y.data(), count);
 }
 
 static void ImPlot_PlotBars(LPCSTR label, const luabind::object& xs, const luabind::object& ys, int count, double bar_size)
 {
-	implot_read_xy(xs, ys, count);
+	count = implot_read_xy(xs, ys, count);
 	if (count > 0)
 		ImPlot::PlotBars(label, s_implot_x.data(), s_implot_y.data(), count, bar_size);
 }
