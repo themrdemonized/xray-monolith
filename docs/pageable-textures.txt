@@ -51,15 +51,21 @@ Build
 -----
 Windows, Visual Studio 2022. This tree was not compiled here (no MSVC).
 
-Open src/engine-vs2022.sln and build the configuration that matches the exe:
-    Release-AVX | x64   -> AnomalyDX11AVX.exe
-    Release     | x64   -> AnomalyDX11.exe
+The solution configuration that produces the DX11 AVX exe is DX11-AVX|x64:
 
-The texture loader is compiled into xrRender_R4 (DX11) and xrRender_R3 (DX10).
-A full build of that solution configuration rebuilds both the renderer DLL
-and the exe. Copy the resulting exe and renderer DLL over the modded-exes
-build from tag 2026.10.11 (commit c57fe5b9fab4fe0506659db03137c52d2500eb2f).
-Do not mix a new renderer DLL with an older exe.
+    msbuild /p:Configuration=DX11-AVX src/engine-vs2022.sln
+
+Output:
+
+    _build\_game\bin_dbg\AnomalyDX11AVX.exe
+
+xrEngine's project configuration for that solution config is ReleaseR4-AVX|x64.
+Solution configuration Release-AVX|x64 builds AnomalyDX9AVX, not the DX11 exe.
+The texture loader is compiled into xrRender_R4, which this solution builds
+as a static library and links into the exe. Copy AnomalyDX11AVX.exe from
+that build over the modded-exes build from tag 2026.10.11 (commit
+c57fe5b9fab4fe0506659db03137c52d2500eb2f). Do not mix that exe with
+binaries from a different build.
 
 Decoder check, no Visual Studio required:
     g++ -std=c++17 -Wall -Wextra -Werror -o dds_pageable_decode_test \
