@@ -120,6 +120,17 @@ extern float r__dtex_range;
 
 Flags32 ps_r__common_flags = {/*RFLAG_NO_RAM_TEXTURES*/ }; // All renders
 
+// 0 auto: CPU copy instead of a persistent STAGING texture.
+// 1 on: CPU copy even when r__no_ram_textures would upload immediately.
+// 2 off: legacy STAGING / immutable behavior.
+u32 ps_r__pageable_textures = 0;
+xr_token pageable_textures_token[] = {
+	{"auto", 0},
+	{"on", 1},
+	{"off", 2},
+	{0, 0}
+};
+
 //int		ps_r__Supersample			= 1		;
 int ps_r__LightSleepFrames = 10;
 
@@ -1351,6 +1362,9 @@ void xrRender_initconsole()
 	if (RENDER == R_R3 || RENDER == R_R4) ps_r__common_flags.set(RFLAG_NO_RAM_TEXTURES, TRUE);
 
 	CMD3(CCC_Mask, "r__no_ram_textures", &ps_r__common_flags, RFLAG_NO_RAM_TEXTURES);
+	// auto/on/off. auto is the DXVK host-memory fix for the STAGING path.
+	// Launch arguments -pageable_textures and -nopageable_textures override this.
+	CMD3(CCC_Token, "r__pageable_textures", &ps_r__pageable_textures, pageable_textures_token);
 	CMD2(CCC_tf_Aniso, "r__tf_aniso", &ps_r__tf_Anisotropic); //	{1..16}
 	CMD2(CCC_tf_MipBias, "r__tf_mipbias", &ps_r__tf_Mipbias); // {-3 +3}
 
