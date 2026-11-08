@@ -906,6 +906,8 @@ public:
 	void set_controller_stamina_hit(float value);
 	void set_snork_roar_enabled(bool enabled);
 	bool try_controller_tube();
+	void controller_set_veto_tube(bool veto);
+	bool controller_get_veto_tube();
 	void set_poltergeist_detection_params(float near_factor, float far_factor, float far_range,
 	                                      float speed_factor, float loose_speed);
 	void set_poltergeist_height_params(float height_min, float height_max, float change_velocity,

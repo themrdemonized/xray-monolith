@@ -123,6 +123,11 @@ public:
 	void tube_fire();
 	bool can_tube_fire();
 
+	// Script veto over the autonomous tube fire in shedule_Update; try_controller_tube ignores it. Default false = vanilla.
+	bool m_veto_tube = false;
+	void set_veto_tube(bool v) { m_veto_tube = v; }
+	bool get_veto_tube() const { return m_veto_tube; }
+
 	float m_tube_damage;
 	u32 m_tube_condition_see_duration;
 	u32 m_tube_condition_min_delay;

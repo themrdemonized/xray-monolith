@@ -42,7 +42,7 @@ public:
 
 	u32 m_target_node;
 	bool start_threaten;
-	bool m_script_roar_enabled = false; // script-armed roar gate (#715 shape); false = vanilla (GSC hardwires the roar off)
+	bool m_script_roar_enabled = false; // script-armed roar, once per attack entry via start_threaten; false = vanilla (GSC hardwires the roar off)
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

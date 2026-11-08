@@ -530,8 +530,7 @@ void CScriptGameObject::set_burer_shield_params(float cooldown_ms, float duratio
 	if (duration_ms >= 0.f) burer->m_shield_time = (TTime)duration_ms;
 }
 
-// Snork only. Arms the roar/threaten the engine hardwires off (CSnork::check_start_conditions returns false
-// for eControlThreaten in vanilla; the data is loaded). Armed, a try_monster_threaten fires it; false = vanilla.
+// Snork only. Arms the roar GSC hardwires off; armed, it fires once per attack entry (natively or via try_monster_threaten); false = vanilla.
 void CScriptGameObject::set_snork_roar_enabled(bool enabled)
 {
 	CSnork* snork = smart_cast<CSnork*>(&object());
@@ -554,6 +553,26 @@ bool CScriptGameObject::try_controller_tube()
 	if (!controller->can_tube_fire()) return false;
 	controller->tube_fire();
 	return true;
+}
+
+// Controller only. Blocks the controller's own tube fire (shedule_Update); try_controller_tube still fires. false = vanilla.
+void CScriptGameObject::controller_set_veto_tube(bool veto)
+{
+	CController* controller = smart_cast<CController*>(&object());
+	if (!controller)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CController : cannot access class member controller_set_veto_tube!");
+		return;
+	}
+	controller->set_veto_tube(veto);
+}
+
+bool CScriptGameObject::controller_get_veto_tube()
+{
+	CController* controller = smart_cast<CController*>(&object());
+	if (!controller) return false;
+	return controller->get_veto_tube();
 }
 
 void CScriptGameObject::set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms,
@@ -743,7 +762,6 @@ void CScriptGameObject::set_monster_run_attack_params(float min_dist, float max_
 	}
 	run_attack->set_params(min_dist, max_dist, min_delay_ms, max_delay_ms);
 }
-
 
 void CScriptGameObject::set_monster_jump_flags(bool auto_aim, bool prepare_in_move, bool ground_skip,
                                                float auto_aim_factor)

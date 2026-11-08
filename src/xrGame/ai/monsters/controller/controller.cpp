@@ -397,6 +397,7 @@ void CController::reinit()
 {
 	// must be before inherited call because of its use in ControlAnimation com
 	m_mental_state = eStateIdle;
+	m_veto_tube = false;
 
 	CControlledActor::reinit();
 	inherited::reinit();
@@ -502,7 +503,7 @@ void CController::shedule_Update(u32 dt)
 	if (g_Alive())
 	{
 		UpdateControlled();
-		if (can_tube_fire()) tube_fire();
+		if (!m_veto_tube && can_tube_fire()) tube_fire();
 	}
 
 	// DEBUG
