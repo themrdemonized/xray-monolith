@@ -530,7 +530,7 @@ void CScriptGameObject::set_burer_shield_params(float cooldown_ms, float duratio
 	if (duration_ms >= 0.f) burer->m_shield_time = (TTime)duration_ms;
 }
 
-// Snork only. Arms one roar GSC hardwires off; the roar disarms it (natively or via try_monster_threaten); false = vanilla.
+// Snork only. Arms one roar GSC hardwires off; the roar disarms it; false = vanilla.
 void CScriptGameObject::set_snork_roar_enabled(bool enabled)
 {
 	CSnork* snork = smart_cast<CSnork*>(&object());
@@ -540,7 +540,15 @@ void CScriptGameObject::set_snork_roar_enabled(bool enabled)
 		                                "CSnork : cannot access class member set_snork_roar_enabled!");
 		return;
 	}
-	snork->m_script_roar_enabled = enabled;
+	snork->set_script_roar_enabled(enabled);
+}
+
+// Snork only. The roar arm: true until a roar uses it; false on a non-snork.
+bool CScriptGameObject::get_snork_roar_enabled()
+{
+	CSnork* snork = smart_cast<CSnork*>(&object());
+	if (!snork) return false;
+	return snork->get_script_roar_enabled();
 }
 
 // Controller only. Fires the psi tube on the caller's premise, but only if the engine's own start conditions
@@ -549,7 +557,12 @@ void CScriptGameObject::set_snork_roar_enabled(bool enabled)
 bool CScriptGameObject::try_controller_tube()
 {
 	CController* controller = smart_cast<CController*>(&object());
-	if (!controller) return false;
+	if (!controller)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CController : cannot access class member try_controller_tube!");
+		return false;
+	}
 	if (!controller->can_tube_fire()) return false;
 	controller->tube_fire();
 	return true;

@@ -905,6 +905,7 @@ public:
 	void set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms, float min_distance);
 	void set_controller_stamina_hit(float value);
 	void set_snork_roar_enabled(bool enabled);
+	bool get_snork_roar_enabled();
 	bool try_controller_tube();
 	void controller_set_veto_tube(bool veto);
 	bool controller_get_veto_tube();

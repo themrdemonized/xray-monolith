@@ -97,6 +97,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("set_controller_tube_params", SAFE_WRAP(&CScriptGameObject::set_controller_tube_params))
 		.def("set_controller_stamina_hit", SAFE_WRAP(&CScriptGameObject::set_controller_stamina_hit))
 		.def("set_snork_roar_enabled", SAFE_WRAP(&CScriptGameObject::set_snork_roar_enabled))
+		.def("get_snork_roar_enabled", SAFE_WRAP(&CScriptGameObject::get_snork_roar_enabled))
 		.def("try_controller_tube", SAFE_WRAP(&CScriptGameObject::try_controller_tube))
 		.def("controller_set_veto_tube", SAFE_WRAP(&CScriptGameObject::controller_set_veto_tube))
 		.def("controller_get_veto_tube", SAFE_WRAP(&CScriptGameObject::controller_get_veto_tube))
