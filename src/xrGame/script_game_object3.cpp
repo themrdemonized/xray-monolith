@@ -530,7 +530,7 @@ void CScriptGameObject::set_burer_shield_params(float cooldown_ms, float duratio
 	if (duration_ms >= 0.f) burer->m_shield_time = (TTime)duration_ms;
 }
 
-// Snork only. Arms the roar GSC hardwires off; armed, it fires once per attack entry (natively or via try_monster_threaten); false = vanilla.
+// Snork only. Arms one roar GSC hardwires off; the roar disarms it (natively or via try_monster_threaten); false = vanilla.
 void CScriptGameObject::set_snork_roar_enabled(bool enabled)
 {
 	CSnork* snork = smart_cast<CSnork*>(&object());

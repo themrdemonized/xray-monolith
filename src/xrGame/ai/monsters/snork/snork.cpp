@@ -300,6 +300,7 @@ void CSnork::on_activate_control(ControlCom::EControlType type)
 	if (type == ControlCom::eControlThreaten)
 	{
 		sound().play(MonsterSound::eMonsterSoundThreaten);
+		m_script_roar_enabled = false; // one roar per arm; the script re-arms per encounter
 		//m_sound_start_threaten.play_at_pos(this, get_head_position(this));
 	}
 }
