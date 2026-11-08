@@ -77,7 +77,6 @@ public:
 	IC void SetNextState(u32 v) { m_nextState = v; }
 	IC u32 CurrStateTime() const { return Device.dwTimeGlobal - m_dw_curr_state_time; }
 	IC void ResetSubStateTime() { m_dw_curr_substate_time = Device.dwTimeGlobal; }
-	IC float MotionTimeLeft() const { return m_fCurrentMotionSpeed > 0.f ? _max(m_fCurrentMotionLength - m_fCurrentMotionTime, 0.f) / m_fCurrentMotionSpeed : 0.f; }
 	virtual void SwitchState(u32 S) = 0;
 	virtual void OnStateSwitch(u32 S, u32 oldState) = 0;
 };
@@ -126,6 +125,8 @@ public:
 		float m_fCurrentMotionLength;
 		float m_fCurrentMotionSpeed;
 	};
+
+	IC float MotionTimeLeft() const { return m_fCurrentMotionSpeed > 0.f ? _max(m_fCurrentMotionLength - m_fCurrentMotionTime, 0.f) / m_fCurrentMotionSpeed : 0.f; }
 
 	virtual void Load(LPCSTR section);
 	virtual BOOL net_Spawn(CSE_Abstract* DC) { return TRUE; };
