@@ -323,7 +323,7 @@ void CCustomMonster::net_Import(NET_Packet& P)
 
 void CCustomMonster::shedule_Update(u32 DT)
 {
-	PROF_EVENT("CCustomMonster::shedule_Update");
+	PROF_EVENT("CCustomMonster::shedule_Update", PROF_CAT(AI));
 	VERIFY(!g_Alive() || processing_enabled());
 	// Queue shrink
 	VERIFY(_valid(Position()));
@@ -422,13 +422,13 @@ void CCustomMonster::net_update::lerp(CCustomMonster::net_update& A, CCustomMons
 
 void CCustomMonster::update_sound_player()
 {
-	PROF_EVENT("AI: [Monsters] Update sounds");
+	PROF_EVENT("AI: [Monsters] Update sounds", PROF_CAT(Audio));
 	sound().update(client_update_fdelta());
 }
 
 void CCustomMonster::UpdateCL()
 {
-	START_PROFILE("CustomMonster/client_update")
+	START_PROFILE("CustomMonster/client_update", PROF_CAT(AI))
 		m_client_update_delta = (u32)std::min(Device.dwTimeGlobal - m_last_client_update_time, u32(100));
 		m_last_client_update_time = Device.dwTimeGlobal;
 
@@ -437,7 +437,7 @@ void CCustomMonster::UpdateCL()
 				animation_movement()->DBG_verify_position_not_chaged();
 #endif
 
-		START_PROFILE("CustomMonster/client_update/inherited")
+		START_PROFILE("CustomMonster/client_update/inherited", PROF_CAT(GameLogic))
 			inherited::UpdateCL();
 		STOP_PROFILE
 
@@ -459,12 +459,12 @@ void CCustomMonster::UpdateCL()
 			Device.seqParallel.push_back(xr_make_delegate(this, &CCustomMonster::update_sound_player));
 		else
 		{
-			START_PROFILE("CustomMonster/client_update/sound_player")
+			START_PROFILE("CustomMonster/client_update/sound_player", PROF_CAT(Audio))
 				update_sound_player();
 			STOP_PROFILE
 		}
 
-		START_PROFILE("CustomMonster/client_update/network extrapolation")
+		START_PROFILE("CustomMonster/client_update/network extrapolation", PROF_CAT(GameLogic))
 			if (NET.empty())
 			{
 				update_animation_movement_controller();
@@ -569,11 +569,11 @@ void CCustomMonster::UpdateCL()
 
 void CCustomMonster::UpdatePositionAnimation()
 {
-	START_PROFILE("CustomMonster/client_update/movement")
+	START_PROFILE("CustomMonster/client_update/movement", PROF_CAT(Navigation))
 		movement().on_frame(character_physics_support()->movement(), NET_Last.p_pos);
 	STOP_PROFILE
 
-	START_PROFILE("CustomMonster/client_update/animation")
+	START_PROFILE("CustomMonster/client_update/animation", PROF_CAT(Animation))
 		if (!bfScriptAnimation())
 			SelectAnimation(XFORM().k, movement().detail().direction(), movement().speed());
 	STOP_PROFILE
@@ -704,11 +704,11 @@ void CCustomMonster::eye_pp_s2()
 
 void CCustomMonster::Exec_Visibility()
 {
-	PROF_EVENT("AI: Exec_Visibility");
+	PROF_EVENT("AI: Exec_Visibility", PROF_CAT(AI));
 	//if (0==Sector())				return;
 	if (!g_Alive()) return;
 
-	PROF_EVENT("stalker/schedule_update/vision/Exec_Visibility")
+	PROF_EVENT("stalker/schedule_update/vision/Exec_Visibility", PROF_CAT(AI))
 
 	Device.Statistic->AI_Vis.Begin();
 	switch (eye_pp_stage % 2)

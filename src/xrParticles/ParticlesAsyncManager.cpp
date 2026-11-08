@@ -23,7 +23,7 @@ void CParticlesAsync::Start()
 	Instance.IsStarted = true;
 
 	{
-		PROF_EVENT("Particle Update");
+		PROF_EVENT("Particle Update", PROF_CAT(VFX));
         for (intrusive_ptr<CPS_Instance>& particle: g_pGamePersistent->ps_active)
         {
             if (particle->m_bDead)
@@ -33,7 +33,7 @@ void CParticlesAsync::Start()
         }
     }
 
-    PROF_EVENT("Particle Shedule");
+    PROF_EVENT("Particle Shedule", PROF_CAT(VFX));
     for (intrusive_ptr<CPS_Instance>& particle : g_pGamePersistent->ps_active)
 	{
 		particle->Update(Device.dwTimeDelta);
@@ -46,7 +46,7 @@ void CParticlesAsync::Wait()
 {
 	if (psDeviceFlags.test(mtParticles))
 	{
-		PROF_EVENT("Particles Wait");
+		PROF_EVENT("Particles Wait", PROF_CAT(Wait));
         xrSpinWait w;
 		while (Instance.IsStarted)
 		{
@@ -87,7 +87,7 @@ void CParticlesAsync::UpdateParticle(intrusive_ptr<CPS_Instance> particle) const
 	if (V == nullptr)
 		return;
 
-	PROF_EVENT("Particle OnFrame");
+	PROF_EVENT("Particle OnFrame", PROF_CAT(VFX));
 	V->OnFrame(dt);
 
 	particle->dwLastTime = Device.dwTimeGlobal;

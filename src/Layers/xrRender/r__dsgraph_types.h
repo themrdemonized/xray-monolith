@@ -256,7 +256,7 @@ namespace R_dsgraph
 		template<bool free = true>
 		IC void clear_graph(RenderQueueArray& queue, u32 _priority)
 		{
-			PROF_EVENT("r_dsgraph_clear_graph");
+			PROF_EVENT("r_dsgraph_clear_graph", PROF_CAT(Rendering));
 			for (u32 iPass = 0; iPass < SHADER_PASSES_MAX; ++iPass)
 			{
 				if constexpr (free)

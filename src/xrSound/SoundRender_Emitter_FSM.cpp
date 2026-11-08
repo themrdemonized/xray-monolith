@@ -28,7 +28,7 @@ inline u32 calc_cursor(const float& fTimeStarted, float& fTime, const float& fTi
 
 void CSoundRender_Emitter::update(float dt)
 {
-	PROF_EVENT("CSoundRender_Emitter::update");
+	PROF_EVENT("CSoundRender_Emitter::update", PROF_CAT(Audio));
 	float fTime = SoundRender->fTimer_Value;
 	float fDeltaTime = SoundRender->fTimer_Delta;
 
@@ -58,7 +58,7 @@ void CSoundRender_Emitter::update(float dt)
 	// Don't apply delay to already delayed sounds, they are most likely already handled in respective parts of code and scripts
 	if (need_preplay_update && m_current_state < stPlaying && starting_delay == 0.f)
 	{
-		PROF_EVENT("Sound: distance delay");
+		PROF_EVENT("Sound: distance delay", PROF_CAT(Audio));
 		if (_valid(p_source.position) && !p_source.position.similar(Fvector().set(0.f, 0.f, 0.f)) && owner_data && source() && source()->channels_num() == 1)
 		{
 			//Smooth Ramp Using Hermite(Smootherstep)
@@ -123,7 +123,7 @@ void CSoundRender_Emitter::update(float dt)
 		break;
 	case stStartingDelayed:
 	{
-		PROF_EVENT("Sound: delayed start");
+		PROF_EVENT("Sound: delayed start", PROF_CAT(Audio));
 		if (iPaused) break;
 		starting_delay -= dt;
 		if (starting_delay <= 0)
@@ -151,7 +151,7 @@ void CSoundRender_Emitter::update(float dt)
 		break;
 	case stStartingLoopedDelayed:
 	{
-		PROF_EVENT("Sound: delayed looped start");
+		PROF_EVENT("Sound: delayed looped start", PROF_CAT(Audio));
 		if (iPaused) break;
 		starting_delay -= dt;
 		if (starting_delay <= 0)
@@ -348,7 +348,7 @@ IC void volume_lerp(float& c, float t, float s, float dt)
 
 BOOL CSoundRender_Emitter::update_culling(float dt)
 {
-	PROF_EVENT("CSoundRender_Emitter::update_culling");
+	PROF_EVENT("CSoundRender_Emitter::update_culling", PROF_CAT(Audio));
 	float volume_att = 1.f;
 
 	if (b2D)

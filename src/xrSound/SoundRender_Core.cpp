@@ -439,7 +439,7 @@ void CSoundRender_Core::_destroy_data(ref_sound_data& S)
 
 CSoundRender_Environment* CSoundRender_Core::get_environment(const Fvector& P)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Audio));
 	static CSoundRender_Environment identity;
 
 	if (bUserEnvironment)

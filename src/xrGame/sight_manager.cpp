@@ -102,7 +102,7 @@ static inline float select_speed(float const distance, float const speed, float 
 
 void CSightManager::Exec_Look(float time_delta)
 {
-	START_PROFILE("Sight Manager")
+	START_PROFILE("Sight Manager", PROF_CAT(AI))
 		SBoneRotation& body = object().movement().m_body;
 		SBoneRotation& head = object().movement().m_head;
 
@@ -244,7 +244,7 @@ void CSightManager::setup(const CSightAction& sight_action)
 
 void CSightManager::update()
 {
-	START_PROFILE("Sight Manager")
+	START_PROFILE("Sight Manager", PROF_CAT(AI))
 		if (!enabled())
 			return;
 

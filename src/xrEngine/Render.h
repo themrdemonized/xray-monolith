@@ -440,6 +440,11 @@ public:
 	virtual u32 memory_usage() { return 0; }
 	virtual u32 active_phase() = 0; //Swartz: actor shadow
 	virtual void RenderToTarget(RRT target) = 0;
+
+	// GPU timeline scope around a pass drawn from outside the renderer
+	virtual u32 ScopeBegin(LPCWSTR name) { return u32(-1); }
+	virtual void ScopeEnd(u32 scope) {}
+
 	// Constructor/destructor
 	virtual ~IRender_interface();
 protected:
@@ -447,5 +452,15 @@ protected:
 };
 
 //extern ENGINE_API IRender_interface* Render;
+
+// Times a pass drawn from xrGame or xrEngine on the GPU timeline, with a profiler zone of the same name
+struct render_scope
+{
+	u32 scope;
+	render_scope(LPCWSTR name) : scope(::Render->ScopeBegin(name)) {}
+	~render_scope() { ::Render->ScopeEnd(scope); }
+};
+
+#define RENDER_SCOPE(Name) PROF_EVENT(#Name, PROF_CAT(Rendering)); render_scope renderScope##Name(L#Name)
 
 #endif

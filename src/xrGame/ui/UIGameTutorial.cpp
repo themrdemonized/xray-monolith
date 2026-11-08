@@ -323,6 +323,7 @@ void CUISequencer::OnFrame()
 
 void CUISequencer::OnRender()
 {
+	RENDER_SCOPE(ui_tutorial);
 	if (m_UIWindow->IsShown())
 		m_UIWindow->Draw();
 

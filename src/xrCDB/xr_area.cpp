@@ -123,7 +123,7 @@ void CObjectSpace::Load(IReader* F, CDB::build_callback build_callback)
 	Static.async_cform_load.run([this, this_thread_id]()
 	{
 		if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
-		PROF_EVENT("Async cform tree build");
+		PROF_EVENT("Async cform tree build", PROF_CAT(Scene));
 		Static.build_tree();
 	});
 }

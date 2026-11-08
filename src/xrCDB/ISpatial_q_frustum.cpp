@@ -62,7 +62,7 @@ public:
 
 void ISpatial_DB::q_frustum(xr_vector<ISpatialShared>& R, u32 _o, u32 _mask, const CFrustum& _frustum)
 {
-	PROF_EVENT("ISpatial_DB::q_frustum");
+	PROF_EVENT("ISpatial_DB::q_frustum", PROF_CAT(Visibility));
 	xrSRWLockGuard guard(&db_lock, true);
 	if (!m_root)
 		return;

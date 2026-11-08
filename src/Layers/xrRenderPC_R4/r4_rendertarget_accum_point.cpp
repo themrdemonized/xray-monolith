@@ -2,7 +2,7 @@
 
 void CRenderTarget::accum_point(light* L)
 {
-	PROF_EVENT("CRenderTarget::accum_point");
+	PROF_EVENT("CRenderTarget::accum_point", PROF_CAT(Rendering));
 	phase_accumulator();
 	RImplementation.stats.l_visible ++;
 

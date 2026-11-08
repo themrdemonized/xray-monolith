@@ -39,7 +39,7 @@ void fix_texture_thm_name(LPSTR fn)
 
 void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	FS_FileSet flist;
 	FS.file_list(flist, initial, FS_ListFiles, "*.thm");
@@ -108,7 +108,7 @@ void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_C
 
 void CTextureDescrMngr::LoadLTX(LPCSTR initial, map_TD& s_texture_details)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	FS_FileSet flist;
 	FS.file_list(flist, initial, FS_ListFiles, "*.ltx");

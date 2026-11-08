@@ -21,6 +21,19 @@ void fix_texture_name(LPSTR fn);
 #define		PRIORITY_NORMAL	8
 #define		PRIORITY_LOW	4
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Waits out a running async load inside a zone, so the zone fires only when the thread blocks
+#define		PROF_WAIT_LOADING()	\
+	if (flags.bLoading) \
+	{ \
+		PROF_EVENT("CTexture wait for load", PROF_CAT(Wait)); \
+		while (flags.bLoading) \
+			SwitchToThread(); \
+	}
+#else
+#define		PROF_WAIT_LOADING()
+#endif
+
 // Background PPL task group used to (re)load textures off the calling thread.
 // Defined in dx10ResourceManager_Resources.cpp; CResourceManager::_CreateTexture
 // dispatches brand-new textures' initial Load() through it whenever the device is
@@ -30,7 +43,7 @@ extern xr_task_group textures_load_tasks;
 
 void resptrcode_texture::create(LPCSTR _name)
 {
-	PROF_EVENT("resptrcode_texture::create");
+	PROF_EVENT("resptrcode_texture::create", PROF_CAT(Streaming));
 	_set(DEV->_CreateTexture(_name));
 }
 
@@ -68,6 +81,7 @@ CTexture::~CTexture()
 
 void CTexture::surface_set(ID3DBaseTexture* surf)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -139,6 +153,7 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 
 ID3DBaseTexture* CTexture::surface_get()
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -290,6 +305,7 @@ void CTexture::ProcessStaging()
 
 void CTexture::Apply(u32 dwStage)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -342,6 +358,7 @@ void CTexture::Apply(u32 dwStage)
 
 void CTexture::apply_theora(u32 dwStage)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -385,6 +402,7 @@ void CTexture::apply_theora(u32 dwStage)
 
 void CTexture::apply_avi(u32 dwStage)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -421,6 +439,7 @@ void CTexture::apply_avi(u32 dwStage)
 
 void CTexture::apply_seq(u32 dwStage)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -447,6 +466,7 @@ void CTexture::apply_seq(u32 dwStage)
 
 void CTexture::apply_gif(u32 dwStage)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -464,6 +484,7 @@ void CTexture::apply_gif(u32 dwStage)
 
 void CTexture::apply_normal(u32 dwStage)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -483,7 +504,7 @@ void CTexture::Preload()
 
 void CTexture::Load()
 {
-	PROF_EVENT("CTexture::Load");
+	PROF_EVENT("CTexture::Load", PROF_CAT(Streaming));
 
 	if (flags.bLoaded || flags.bLoading) return;
 	flags.bLoading = true;
@@ -731,6 +752,7 @@ void CTexture::Load()
 
 void CTexture::Unload()
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -782,6 +804,7 @@ void CTexture::Unload()
 
 void CTexture::desc_update()
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -846,6 +869,7 @@ D3D_USAGE CTexture::GetUsage()
 
 void CTexture::video_Play(BOOL looped, u32 _time)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -855,6 +879,7 @@ void CTexture::video_Play(BOOL looped, u32 _time)
 
 void CTexture::video_Pause(BOOL state)
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -864,6 +889,7 @@ void CTexture::video_Pause(BOOL state)
 
 void CTexture::video_Stop()
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();
@@ -873,6 +899,7 @@ void CTexture::video_Stop()
 
 BOOL CTexture::video_IsPlaying()
 {
+	PROF_WAIT_LOADING()
 	while (flags.bLoading)
 	{
 		SwitchToThread();

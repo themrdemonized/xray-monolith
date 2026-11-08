@@ -48,6 +48,10 @@ ENGINE_API CLoadScreenRenderer load_screen_renderer;
 ENGINE_API CRenderDevice* DevicePtr = nullptr;
 
 ENGINE_API xr_atomic_bool g_bRendering = false;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Frames left in a profiler capture started by prof_capture
+ENGINE_API int g_prof_capture_frames = 0;
+#endif
 extern ENGINE_API float psHUD_FOV;
 extern ENGINE_API float psCamAttachedFOV;
 
@@ -73,7 +77,7 @@ ENGINE_API float refresh_rate = 0;
 
 BOOL CRenderDevice::Begin()
 {
-	PROF_EVENT("Render: Begin");
+	PROF_EVENT("Render: Begin", PROF_CAT(Rendering));
 
 #ifndef DEDICATED_SERVER
 	switch (m_pRender->GetDeviceState())
@@ -114,7 +118,7 @@ extern void CheckPrivilegySlowdown();
 
 void CRenderDevice::End(void)
 {
-	PROF_EVENT("Render: End");
+	PROF_EVENT("Render: End", PROF_CAT(Rendering));
 
 #ifndef DEDICATED_SERVER
 
@@ -318,7 +322,7 @@ void mt_FreezeThread(void *ptr) {
 
 	while (true)
 	{
-		PROF_EVENT();
+		PROF_EVENT(PROF_CAT(Debug));
 
 		if (g_loading_events.size())
 			freezetime = 25000.0f;
@@ -327,7 +331,7 @@ void mt_FreezeThread(void *ptr) {
 
 		repeatcheck = 500.f;
 
-		START_PROFILE("Check timer");
+		START_PROFILE("Check timer", PROF_CAT(Debug));
 		if (FreezeTimer.GetElapsed_sec()*1000.f > freezetime)
 		{
 			xrLogger::FlushLog();
@@ -352,11 +356,29 @@ void CRenderDevice::on_idle()
 
 	PROF_FRAME("Main Thread");
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	if (g_prof_capture_frames > 0 && --g_prof_capture_frames == 0)
+	{
+		PROF_STOP_CAPTURE();
+		string_path fn;
+		FS.update_path(fn, "$logs$", "optick.opt");
+		FILETIME before;
+		GetSystemTimeAsFileTime(&before);
+		PROF_SAVE_CAPTURE(fn);
+		// Optick reports success even when it cannot open the file, so the file itself is checked
+		WIN32_FILE_ATTRIBUTE_DATA fa;
+		if (GetFileAttributesExA(fn, GetFileExInfoStandard, &fa) && CompareFileTime(&fa.ftLastWriteTime, &before) >= 0 && (fa.nFileSizeLow || fa.nFileSizeHigh))
+			Msg("~ profiler capture saved to %s", fn);
+		else
+			Msg("! profiler capture could not be saved to %s", fn);
+	}
+#endif
+
 #ifdef DEDICATED_SERVER
     u32 FrameStartTime = TimerGlobal.GetElapsed_ms();
 #endif
 
-	START_PROFILE("Set stat gathering");
+	START_PROFILE("Set stat gathering", PROF_CAT(Debug));
 	if (psDeviceFlags.test(rsStatistic))
 		g_bEnableStatGather = TRUE;
 	else g_bEnableStatGather = FALSE;
@@ -364,19 +386,21 @@ void CRenderDevice::on_idle()
 
 	if (g_loading_events.size())
 	{
+		// Loads lower the perf hub's gate, so the hub skips the frames they span
+		frame_record_on = false;
 		{
-			PROF_EVENT("Loading...");
+			PROF_EVENT("Loading...", PROF_CAT(UI));
 			if (g_loading_events.front()())
 				g_loading_events.pop_front();
 		}
-		PROF_EVENT("LoadDraw");
+		PROF_EVENT("LoadDraw", PROF_CAT(UI));
 		pApp->LoadDraw();
 		return;
 	}
 
 	if (!Device.dwPrecacheFrame && !g_SASH.IsBenchmarkRunning() && g_bLoaded)
 	{
-		PROF_EVENT("Start xrSASH Benchmark");
+		PROF_EVENT("Start xrSASH Benchmark", PROF_CAT(Debug));
 		g_SASH.StartBenchmark();
 	}
 
@@ -386,7 +410,7 @@ void CRenderDevice::on_idle()
 	}
 
 	{
-		PROF_EVENT("seqParallelBeforRender");
+		PROF_EVENT("seqParallelBeforRender", PROF_CAT(GameLogic));
 		xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
 
 		// A callback invoked here can destroy an object that owns a particle
@@ -406,11 +430,15 @@ void CRenderDevice::on_idle()
 		Device.seqParallelBeforRender.clear();
 	}
 
+	// The perf hub raises the gate in seqFrame, so it holds from FrameMove to the next
+	if (frame_record_on)
+		frame_record.start = CPU::QPC();
 	FrameMove();
+	const bool record = frame_record_on;
 
     if (g_pGamePersistent != nullptr)
     {
-        PROF_EVENT("Update Particles");
+        PROF_EVENT("Update Particles", PROF_CAT(VFX));
         g_pGamePersistent->UpdateParticles();
     }
     secondary_tasks.run(&XRay::Engine::PreRenderThread);
@@ -418,7 +446,9 @@ void CRenderDevice::on_idle()
 	// Precache
 	if (dwPrecacheFrame)
 	{
-		PROF_EVENT("Precache frame");
+		// Precache frames are part of the load for the perf hub too
+		frame_record_on = false;
+		PROF_EVENT("Precache frame", PROF_CAT(Rendering));
 		float factor = float(dwPrecacheFrame) / float(dwPrecacheTotal);
 		float angle = PI_MUL_2 * factor;
 		vCameraDirection.set(_sin(angle), 0, _cos(angle));
@@ -430,7 +460,7 @@ void CRenderDevice::on_idle()
 	}
 
 	// Matrices
-	START_PROFILE("Matrices");
+	START_PROFILE("Matrices", PROF_CAT(Camera));
 	mFullTransform.mul(mProject, mView);
 	mFullTransformHud.mul(mProjectHud, mView);
 	mFullTransformCam.mul(mProjectCam, mView);
@@ -498,10 +528,12 @@ void CRenderDevice::on_idle()
 
 	secondary_tasks.run(&XRay::Engine::GameThread);
 	
+	if (record)
+		frame_record.cap[0] = CPU::QPC();
 #ifdef ECO_RENDER // ECO_RENDER START
 	if (Device.Paused() || IsMainMenuActive() || ps_framelimiter)
 	{
-		PROF_EVENT("Eco Render");
+		PROF_EVENT("Eco Render", PROF_CAT(Wait));
 
 		if (refresh_rate == 0)
 			refresh_rate = GetMonitorRefresh();
@@ -522,6 +554,8 @@ void CRenderDevice::on_idle()
 		tlastf = std::chrono::high_resolution_clock::now();
 	}
 #endif // ECO_RENDER END
+	if (record)
+		frame_record.cap[1] = CPU::QPC();
 
 #ifndef DEDICATED_SERVER
 	Statistic->RenderTOTAL_Real.FrameStart();
@@ -529,13 +563,14 @@ void CRenderDevice::on_idle()
 
 	if (b_is_Active && Begin())
 	{
-		START_PROFILE("Process seqRender");
+		START_PROFILE("Process seqRender", PROF_CAT(Rendering));
 		seqRender.Process(rp_Render);
 		STOP_PROFILE;
 
 		if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size())
 		{
-			PROF_EVENT("Draw statistics");
+			PROF_EVENT("Draw statistics", PROF_CAT(Debug));
+			RENDER_SCOPE(stats);
 			Statistic->Show();
 		}
 
@@ -547,7 +582,17 @@ void CRenderDevice::on_idle()
 #endif 
 	Device.isRendering = false;
 
-	secondary_tasks.wait();
+	if (record)
+		frame_record.join[0] = CPU::QPC();
+	{
+		PROF_EVENT("secondary_tasks.wait", PROF_CAT(Wait));
+		secondary_tasks.wait();
+	}
+	if (record)
+	{
+		frame_record.join[1] = CPU::QPC();
+		frame_record.frame = dwFrame;
+	}
 
 	if (psLua_ParallelGC_debug && psLua_ParallelGC && Device.LuaGCDebug)
 	{
@@ -576,7 +621,7 @@ void CRenderDevice::message_loop_editor()
 
 void CRenderDevice::Screenshot()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 	Render->Screenshot();
 }
 
@@ -616,7 +661,7 @@ void mt_DiscordThread(void*)
 		//Discord
 		if (use_discord && psDeviceFlags2.test(rsDiscord))
 		{
-			START_PROFILE("Discord");
+			START_PROFILE("Discord", PROF_CAT(Network));
 			discord_core->RunCallbacks();
 			updateDiscordPresence();
 			STOP_PROFILE;
@@ -668,7 +713,7 @@ u32 app_inactive_time_start = 0;
 
 void CRenderDevice::FrameMove()
 {
-	PROF_EVENT("Render: Frame Move");
+	PROF_EVENT("Render: Frame Move", PROF_CAT(Rendering));
 
 	if (InterlockedExchange(&g_monitor_list_dirty, 0))
 		refresh_vid_monitor_list();
@@ -679,7 +724,7 @@ void CRenderDevice::FrameMove()
 	dwTimeContinual = TimerMM.GetElapsed_ms() - app_inactive_time;
 	if (psDeviceFlags.test(rsConstantFPS))
 	{
-		PROF_EVENT("Constant FPS");
+		PROF_EVENT("Constant FPS", PROF_CAT(Debug));
 
 		// 20ms = 50fps
 		//fTimeDelta = 0.020f;
@@ -694,7 +739,7 @@ void CRenderDevice::FrameMove()
 	}
 	else
 	{
-		PROF_EVENT("Timer FPS");
+		PROF_EVENT("Timer FPS", PROF_CAT(Debug));
 
 		// Timer
 		float fPreviousFrameTime = Timer.GetElapsed_sec();
@@ -720,7 +765,7 @@ void CRenderDevice::FrameMove()
 
 	ShaderBus::frame_latch();
 	
-	START_PROFILE("Process seqFrame");
+	START_PROFILE("Process seqFrame", PROF_CAT(GameLogic));
 	Device.seqFrame.Process(rp_Frame);
 	STOP_PROFILE;
 	
@@ -733,7 +778,7 @@ ENGINE_API BOOL bShowPauseString = TRUE;
 
 void CRenderDevice::Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	static int snd_emitters_ = -1;
 
@@ -875,7 +920,7 @@ void CRenderDevice::OnWM_Activate(WPARAM wParam, LPARAM lParam)
 
 void CRenderDevice::AddSeqFrame(pureFrame* f, bool mt)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	if (mt)
 		seqFrameMT.Add(f, REG_PRIORITY_HIGH);
@@ -885,7 +930,7 @@ void CRenderDevice::AddSeqFrame(pureFrame* f, bool mt)
 
 void CRenderDevice::RemoveSeqFrame(pureFrame* f)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	seqFrameMT.Remove(f);
 	seqFrame.Remove(f);
@@ -898,7 +943,7 @@ CLoadScreenRenderer::CLoadScreenRenderer()
 
 void CLoadScreenRenderer::start(bool b_user_input)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
 
 	Device.seqRender.Add(this, 0);
 	b_registered = true;
@@ -907,7 +952,7 @@ void CLoadScreenRenderer::start(bool b_user_input)
 
 void CLoadScreenRenderer::stop()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
 
 	if (!b_registered)
 		return;
@@ -919,7 +964,8 @@ void CLoadScreenRenderer::stop()
 
 void CLoadScreenRenderer::OnRender()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
+	RENDER_SCOPE(load_screen);
 
 	pApp->load_draw_internal();
 }

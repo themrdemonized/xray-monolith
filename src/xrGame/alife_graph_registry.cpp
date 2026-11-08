@@ -69,6 +69,7 @@ void CALifeGraphRegistry::setup_current_level()
 	level_load.run([=]()
 	{
 		if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
+		PROF_EVENT("CALifeGraphRegistry level_load", PROF_CAT(Scene));
 		Level().Load(levelid);
 	});
 

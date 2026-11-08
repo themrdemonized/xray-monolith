@@ -1,0 +1,9 @@
+<Project>
+  <!-- /p:XrProfiler=true builds the Optick profiler into any configuration and leaves its other settings as they are -->
+  <!-- PROFILER_OPTICK carries the same body as profiler.h so its define there is no redefinition -->
+  <ItemDefinitionGroup Condition="'$(XrProfiler)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>XRCORE_PROFILER;PROFILER_OPTICK=(1);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>
