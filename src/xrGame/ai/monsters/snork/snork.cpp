@@ -286,10 +286,9 @@ bool CSnork::check_start_conditions(ControlCom::EControlType type)
 
 	if (type == ControlCom::eControlThreaten)
 	{
-		// script-armed revival (#715 shape): the roar is hardwired off in vanilla; armed from Lua it fires
-		return m_script_roar_enabled;
-		// 		if (!start_threaten) return false;
-		// 		start_threaten = false;
+		// script-armed revival of GSC's once-per-attack-entry gate (start_threaten, set by the state manager)
+		if (!m_script_roar_enabled || !start_threaten) return false;
+		start_threaten = false;
 		// 		if (Random.randI(100) < 50) return false;
 	}
 

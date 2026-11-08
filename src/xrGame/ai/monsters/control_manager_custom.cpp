@@ -689,11 +689,6 @@ void CControlManagerCustom::check_rotation_jump()
 	if (!m_man->check_start_conditions(ControlCom::eControlRotationJump)) return;
 	if (!m_object->check_start_conditions(ControlCom::eControlRotationJump)) return;
 
-	// Crash-safety: a species registered with the ability but no rotation-jump data loaded would index
-	// an empty vector below in release (the VERIFY is compiled out). No vanilla species does that, but
-	// the guard makes an unarmed registration a no-op instead of a crash.
-	if (m_rot_jump_data.empty()) return;
-
 	VERIFY(!m_rot_jump_data.empty());
 
 	m_man->capture(this, ControlCom::eControlRotationJump);

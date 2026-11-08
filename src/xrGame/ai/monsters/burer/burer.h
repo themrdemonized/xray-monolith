@@ -172,7 +172,6 @@ public:
 	bool get_request_gravi_attack() const { return m_request_gravi_attack; }
 
 
-
 private:
 	bool m_force_gravi_attack;
 	bool m_request_gravi_attack;
