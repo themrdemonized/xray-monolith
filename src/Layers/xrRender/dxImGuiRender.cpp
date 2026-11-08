@@ -5,6 +5,7 @@
 
 #if defined(USE_DX11)
 #include <backends/imgui_impl_dx11.h>
+#include "../xrRenderDX10/dx10GpuTimeline.h"
 #elif defined(USE_DX10)
 #include <backends/imgui_impl_dx10.h>
 #else
@@ -67,7 +68,11 @@ void dxImGuiRender::Frame()
 void dxImGuiRender::Render(ImDrawData* data)
 {
 #if defined(USE_DX11)
+    // The timeline window shows its own draw cost through this scope
+    const u32 scope = ps_r__gpu_timeline ? gpu_timeline::scope_begin(L"imgui") : gpu_timeline::no_scope;
     ImGui_ImplDX11_RenderDrawData(data);
+    if (scope != gpu_timeline::no_scope)
+        gpu_timeline::scope_end(scope);
 #elif defined(USE_DX10)
     ImGui_ImplDX10_RenderDrawData(data);
 #else

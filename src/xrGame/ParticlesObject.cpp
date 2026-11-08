@@ -166,6 +166,7 @@ void CParticlesObject::Stop(BOOL bDefferedStop)
 
 void CParticlesObject::shedule_Update(u32 _dt)
 {
+	PROF_EVENT("CParticlesObject::shedule_Update", PROF_CAT(VFX));
 	inherited::shedule_Update(_dt);
 
 	if (g_dedicated_server) return;

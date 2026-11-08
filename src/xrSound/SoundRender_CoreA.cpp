@@ -539,7 +539,7 @@ void CSoundRender_CoreA::_clear()
 
 void CSoundRender_CoreA::update_listener(const Fvector& P, const Fvector& D, const Fvector& N, float dt)
 {
-	PROF_EVENT("Sound: update_listener");
+	PROF_EVENT("Sound: update_listener", PROF_CAT(Audio));
 	inherited::update_listener(P, D, N, dt);
 
 	Listener.curVelocity.sub(P, Listener.position);

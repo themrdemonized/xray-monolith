@@ -321,6 +321,7 @@ void CLevel::Send(NET_Packet& P, u32 dwFlags, u32 dwTimeout)
 
 void CLevel::net_Update()
 {
+	PROF_EVENT("net_Update", PROF_CAT(Network));
 	if (game_configured)
 	{
 		// If we have enought bandwidth - replicate client data on to server
