@@ -20,6 +20,15 @@ extern class_<CScriptGameObject> script_register_game_object1(class_<CScriptGame
 extern class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject> &&);
 extern class_<CScriptGameObject> script_register_game_object_trader(class_<CScriptGameObject> &&);
 
+// Name tags for the mutant-reader enum exports; each value is a literal with its engine source beside it.
+namespace
+{
+	struct chimera_attack_phase_tag {};
+	struct monster_jump_flags_tag {};
+	struct bloodsucker_visibility_tag {};
+	struct poltergeist_subtype_tag {};
+}
+
 #pragma optimize("s",on)
 void CScriptGameObject::script_register(lua_State* L)
 {
@@ -187,7 +196,51 @@ void CScriptGameObject::script_register(lua_State* L)
 			value("eStateAttackCamp", int(eStateAttackCamp)),
 			value("eStateAttack_MoveToHomePoint", int(eStateAttack_MoveToHomePoint)),
 			value("eStateAttack_Attack_On_Run", int(eStateAttack_Attack_On_Run)),
-			value("eStateCustom", int(eStateCustom))
+			value("eStateCustom", int(eStateCustom)),
+			value("eStateBurerAttack_Gravi", int(eStateBurerAttack_Gravi)),
+			value("eStateBurerAttack_Shield", int(eStateBurerAttack_Shield)),
+			value("eStateBurerAttack_AntiAim", int(eStateBurerAttack_AntiAim)),
+			value("eStateBurerAttack_Tele", int(eStateBurerAttack_Tele)),
+			value("eStateBurerAttack_Melee", int(eStateBurerAttack_Melee)),
+			value("eStateBurerAttack_RunAround", int(eStateBurerAttack_RunAround)),
+			value("eStateBurerAttack_FaceEnemy", int(eStateBurerAttack_FaceEnemy))
+		],
+
+		// The active jump's flag bits (SControlJumpData::EFlags, control_jump.h:11), the two the leap
+		// variant reads; get_monster_jump_flags returns the raw mask to test against these.
+		class_<enum_exporter<monster_jump_flags_tag>>("monster_jump_flags")
+		.enum_("flag")
+		[
+			value("ePrepareSkip", 2),   // 1 << 1: sudden, no telegraphed wind-up
+			value("eUseAutoAim", 256)   // 1 << 8: steered glide
+		],
+
+		// ChimeraAttackState::enum_state (chimera_attack_state.h:43); get_chimera_attack_phase returns it.
+		class_<enum_exporter<chimera_attack_phase_tag>>("chimera_attack_phase")
+		.enum_("phase")
+		[
+			value("state_undefined", 0),
+			value("state_rotate", 1),
+			value("state_prepare_jump", 2)
+		],
+
+		// CAI_Bloodsucker::visibility_t (bloodsucker.h:203); the vanilla get_visibility_state returns it.
+		class_<enum_exporter<bloodsucker_visibility_tag>>("bloodsucker_visibility")
+		.enum_("state")
+		[
+			value("unset", -1),
+			value("no_visibility", 0),
+			value("partial_visibility", 1),
+			value("full_visibility", 2)
+		],
+
+		// CPoltergeist::subtype_code (poltergeist.h:112); get_poltergeist_subtype returns it.
+		class_<enum_exporter<poltergeist_subtype_tag>>("poltergeist_subtype")
+		.enum_("subtype")
+		[
+			value("none", 0),
+			value("flame", 1),
+			value("tele", 2)
 		],
 
 		def("buy_condition", (void (*)(CScriptIniFile*, LPCSTR))(&::buy_condition)),

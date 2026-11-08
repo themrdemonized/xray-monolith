@@ -852,9 +852,45 @@
         eStateAttackCamp             = 262160,
         eStateAttack_MoveToHomePoint = 262165,
         eStateAttack_Attack_On_Run   = 262169,
-        eStateCustom                 = 1073741824
+        eStateCustom                 = 1073741824,
+        // Burer attack substates get_monster_state resolves (its ladder recurses); not proposable via monster_on_combat_action.
+        eStateBurerAttack_Tele       = 1074003974,
+        eStateBurerAttack_Gravi      = 1074003975,
+        eStateBurerAttack_RunAround  = 1074003976,
+        eStateBurerAttack_FaceEnemy  = 1074003977,
+        eStateBurerAttack_Melee      = 1074003978,
+        eStateBurerAttack_Shield     = 1074003979,
+        eStateBurerAttack_AntiAim    = 1074003980
     }
-    
+
+    // get_monster_jump_flags bits (SControlJumpData::EFlags), the two the leap variant reads
+    enum monster_jump_flags {
+        ePrepareSkip = 2,
+        eUseAutoAim  = 256
+    }
+
+    // get_chimera_attack_phase values (ChimeraAttackState::enum_state)
+    enum chimera_attack_phase {
+        state_undefined    = 0,
+        state_rotate       = 1,
+        state_prepare_jump = 2
+    }
+
+    // get_visibility_state values (CAI_Bloodsucker::visibility_t); the vanilla bloodsucker cloak read
+    enum bloodsucker_visibility {
+        unset              = -1,
+        no_visibility      = 0,
+        partial_visibility = 1,
+        full_visibility    = 2
+    }
+
+    // get_poltergeist_subtype values
+    enum poltergeist_subtype {
+        none  = 0,
+        flame = 1,
+        tele  = 2
+    }
+
     // slot ids, the same numbers move_to_slot and active_slot use, read as inventory.knife
     enum inventory.slot {
         no_active   = 0,
@@ -948,6 +984,11 @@
         // CBaseMonster - FSM and combat-state readers. All return -1 / false on a non-monster object.
         number get_monster_state() // Deepest resolved FSM state id (EMonsterState) via StateMan->get_state_type(): recurses into the current substate, so an attacking monster reports the substate it runs (e.g. Attack_Run, Attack_Melee), not just eStateAttack. eStateUnknown while no state is active.
         bool is_monster_jumping() // True while a jump control is active on the monster.
+        number get_monster_jump_flags() // The active jump's flag mask (SControlJumpData::EFlags), 0 when not jumping. Test the discriminating bits to name the leap variant: bit 2 (ePrepareSkip) = sudden vs telegraphed wind-up, bit 256 (eUseAutoAim) = steered glide vs straight. Gated on is_monster_jumping so stale flags never leak.
+        bool get_burer_shield_active() // Burer only. True while the telekinetic shield is up (blocks incoming hits). A read; false on a non-burer.
+        number get_chimera_attack_phase() // Chimera/lurker only. The monolithic attack brain's phase: 0 undefined, 1 rotate (circling the point behind the enemy), 2 prepare_jump (winding up to leap); 0 outside combat or on a non-chimera. The only read into the chimera combat state - get_monster_state reports only eStateAttack for it. Constants: chimera_attack_phase.
+        bool get_poltergeist_hidden() // Poltergeist only. True while it holds its invisible state; false on a non-poltergeist.
+        number get_poltergeist_subtype() // Poltergeist only. Attack subtype (poltergeist_subtype): 1 flame, 2 telekinesis, 0 neither or non-poltergeist. Set once per the section's type.
         number get_monster_rank() // m_rank integer (Rank()).
         bool ability_invisibility() // Per-species class flags, hints only - NOT the live capability envelope: a species can report false yet execute the maneuver through a registered component (a dog reports can_jump false and still jumps). The try_* invoke booleans below are the authoritative capability read.
         bool ability_can_drag()
