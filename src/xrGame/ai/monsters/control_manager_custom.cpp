@@ -482,14 +482,9 @@ bool CControlManagerCustom::script_try_jump(const Fvector& position, float facto
 		ctrl_data->flags.or(SControlJumpData::eUseTargetPosition);
 	}
 
-	// Feasibility gate. The other invokes gate in their own check_start_conditions; the jump's real
-	// feasibility (cooldown, distance band, angle, height, accessibility) lives in can_jump, which the
-	// hollow check_start_conditions above does NOT run - so without this a doomed jump (out of range,
-	// bad angle, wrong floor, still cooling) returns true and launches. Run it now that ePrepareSkip is
-	// set, because can_jump's prepare-trace reads that flag; pass skip_prepare as the aggressive arg so
-	// the close-range pounce keeps its min-distance drop. Release the capture and refuse on failure.
-	// Still NO monster-side check_start_conditions - that is the FSM pacing bypass, kept by design.
-	if (!m_jump->can_jump(position, skip_prepare))
+	// can_jump after ePrepareSkip is set (its trace reads the flag); the aggressive mode is the species' call, as in jump_if_possible
+	bool const aggressive_jump = enemy ? m_object->can_use_agressive_jump(enemy) : false;
+	if (!m_jump->can_jump(position, aggressive_jump))
 	{
 		m_man->release(this, ControlCom::eControlJump);
 		return false;
