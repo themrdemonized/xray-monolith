@@ -225,6 +225,10 @@
         void set_part_cycle_time(number part, number time, number set_time)
 
         // HUD hands, script motions and blend anms
+        void set_hud_motion_freelook(number hand, bool keep) // hand 0 right, 1 left, 2 both, keep lets freelook stay active while that script motion plays and blends out
+        void set_hud_sway(number hand, number hands, number item, number own) // hand 0 right, 1 left, 2 both, weights of at least 0 for the hands hud, held item and own section sway values of a kept hand, normalised over the sources present, hands values when none is
+        void set_hud_sway_section(number hand, string section) // hand 0 right, 1 left, 2 both, own sway section read with the hip inertion_* and strafe_* keys of a weapon hud section
+        void clear_hud_sway(number hand) // hand 0 right, 1 left, 2 both, drops the weights and own section, a held item then lends its sway and empty hands sway on the hands hud values
         bool hud_motion_exists(string section, string anm_name) // true when the section defines the motion and the loaded hands model has that cycle
         number hud_motion_blocked_reason() // 0 nothing blocks, 1 right item pending, 2 right item boring, 3 left item pending, 4 left item boring, 5 a script motion already plays
         number hud_motion_part() // 0 right, 1 left, 2 both for the script motion playing now, nil when none plays
@@ -233,6 +237,8 @@
         function hud_anm_state(string name) -> bool found, bool active, number blend // blend runs 0 to 1, found is false when no layer carries that name
         bool hud_anm_exists(string name) // true when the anm file is found under $level$ or $game_anims$
         game_object hud_attached_item(number slot) // slot 0 right hand, 1 left hand, 2 scope, nil when the slot is empty
+        void set_hud_offset(number part, number x, number y, number z, number pitch, number yaw, number roll, number blend_ms) // part 0 right, 1 left, 2 both, position in metres, angles in degrees with the aim_hud_offset_rot signs, eased in over blend_ms milliseconds. Unlike hud_adjust.set_hud_offset it leaves the item's hands offsets alone and moves the hand on top of them
+        void clear_hud_offset(number part, number blend_ms) // part 0 right, 1 left, 2 both, eases the offset back out over blend_ms milliseconds
 
         bool model_prefetched(string name)
         table list_lanims() // light-animations

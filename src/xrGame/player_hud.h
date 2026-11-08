@@ -218,6 +218,57 @@ struct script_layer
 	}
 };
 
+struct hud_offset
+{
+	Fvector m_pos;
+	Fvector m_rot;
+	float blend_amount;
+	float m_fade_time;
+	bool active;
+	Fmatrix blend;
+
+	hud_offset()
+	{
+		clear();
+	}
+
+	void clear()
+	{
+		m_pos.set(0.f, 0.f, 0.f);
+		m_rot.set(0.f, 0.f, 0.f);
+		blend_amount = 0.f;
+		m_fade_time = .4f;
+		active = false;
+		blend.identity();
+	}
+
+	const Fmatrix& XFORM()
+	{
+		auto min_jerk_interp = [](float t) {
+			return 10*t*t*t - 15*t*t*t*t + 6*t*t*t*t*t;
+		};
+
+		float eased = min_jerk_interp(blend_amount);
+
+		Fvector ypr = m_rot;
+		ypr.mul(PI / 180.f);
+
+		Fmatrix full;
+		// rotation signs match aim_hud_offset_rot
+		full.setHPB(-ypr.x, -ypr.y, -ypr.z);
+
+		Fquaternion qA; qA.identity();
+		Fquaternion qB; qB.set(full);
+		Fquaternion q; q.slerp(qA, qB, eased);
+
+		Fvector t = m_pos;
+		t.mul(eased);
+
+		blend.mk_xform(q, t);
+		return blend;
+	}
+};
+
 struct BoneCallbackParams
 {
 	Fvector m_current;
@@ -296,6 +347,62 @@ struct hud_item_measures
 	float m_fFreelookZOffset;
 	bool m_bLeadGunLeftHand;
 	float m_attach_scale;
+};
+
+// hip inertia and strafe values a kept script hand sways on
+struct hud_sway_params
+{
+	float m_tendto_speed;
+	float m_tendto_ret_speed;
+	float m_min_angle;
+	Fvector4 m_offset_LRUD;
+
+	Fvector m_strafe_pos;
+	Fvector m_strafe_rot;
+	float m_strafe_enabled;
+	float m_strafe_time;
+	float m_strafe_cam_limit;
+	float m_strafe_cam_min_angle;
+
+	hud_sway_params();
+	void load(const shared_str& sect_name);
+	void load(const hud_item_measures& measures);
+	void blend(const hud_sway_params& src, float weight);
+};
+
+// per hand sway source weights for hands, item and own values, and the hand's sway factors
+struct hud_sway
+{
+	Fvector m_weights;
+	bool m_custom;
+	bool m_own_valid;
+	hud_sway_params m_own;
+
+	float m_fLR_CameraFactor;
+	float m_fLR_MovingFactor;
+	float m_fLR_InertiaFactor;
+	float m_fUD_InertiaFactor;
+
+	hud_sway()
+	{
+		clear();
+		reset();
+	}
+
+	void clear()
+	{
+		m_weights.set(1.f, 0.f, 0.f);
+		m_custom = false;
+		m_own_valid = false;
+	}
+
+	void reset()
+	{
+		m_fLR_CameraFactor = 0.f;
+		m_fLR_MovingFactor = 0.f;
+		m_fLR_InertiaFactor = 0.f;
+		m_fUD_InertiaFactor = 0.f;
+	}
 };
 
 struct attachable_hud_item
@@ -393,6 +500,11 @@ public:
 	u8 script_anim_part;
 	// the part of the last script motion, kept while the offset blends back out
 	u8 script_anim_last_part;
+	bool script_anim_keep_freelook[2];
+	hud_offset m_hud_offsets[2];
+	hud_sway m_hud_sway[2];
+	hud_sway_params m_hud_sway_hands;
+	shared_str m_hud_sway_hands_sect;
 	Fvector script_anim_offset[2];
 	shared_str script_anim_section;
 	shared_str script_anim_name;
@@ -436,6 +548,15 @@ public:
 
 	void StopBlendAnmFade(LPCSTR name, bool bForce, float fade_time);
 	bool BlendAnmState(LPCSTR name, bool& active, float& blend);
+
+	void SetHudOffset(u8 part, const Fvector& pos, const Fvector& rot, float fade_time);
+	void ClearHudOffset(u8 part, float fade_time);
+	void SetScriptAnimFreelook(u8 part, bool keep);
+	void SetHudSway(u8 part, float hands, float item, float own);
+	void SetHudSwaySection(u8 part, LPCSTR section);
+	void ClearHudSway(u8 part);
+	bool hud_sway_active(u8 hand) const;
+	void update_hud_sway(const Fmatrix& base, const bool* hands, Fmatrix& trans, Fmatrix& trans_2);
 
 	void detach_all_items()
 	{

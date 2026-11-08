@@ -1750,6 +1750,70 @@ u32 PlayHudMotion(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true,
 	return g_player_hud->script_anim_play(hand, itm_name, anm_name, bMixIn, speed);
 }
 
+// hand 0 is the right, 1 the left, 2 both
+void SetHudMotionFreelook(u8 hand, bool keep)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!set_hud_motion_freelook called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	g_player_hud->SetScriptAnimFreelook(hand, keep);
+}
+
+// weights for the hands hud, held item and own section sway values of a kept hand
+void SetHudSway(u8 hand, float hands, float item, float own)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2 || hands < 0.f || item < 0.f || own < 0.f || !_valid(hands + item + own))
+	{
+		Msg("!set_hud_sway called with part %d and weights %.3f %.3f %.3f, part must be 0, 1 or 2 and weights finite and not negative", hand, hands, item, own);
+		return;
+	}
+
+	g_player_hud->SetHudSway(hand, hands, item, own);
+}
+
+void SetHudSwaySection(u8 hand, LPCSTR section)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!set_hud_sway_section called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	if (!section || !section[0] || !pSettings->section_exist(section))
+	{
+		Msg("!set_hud_sway_section called with missing section [%s]", section ? section : "");
+		return;
+	}
+
+	g_player_hud->SetHudSwaySection(hand, section);
+}
+
+void ClearHudSway(u8 hand)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!clear_hud_sway called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	g_player_hud->ClearHudSway(hand);
+}
+
 void StopHudMotion()
 {
 	g_player_hud->StopScriptAnim(true);
@@ -1893,6 +1957,38 @@ bool BlendAnmExists(LPCSTR name)
 	string_path full_path;
 
 	return !!FS.exist(full_path, "$level$", name) || !!FS.exist(full_path, "$game_anims$", name);
+}
+
+// part 0 is the right hand, 1 the left hand, 2 both, angles in degrees and position in metres
+void SetHudOffset(u8 part, float x, float y, float z, float pitch, float yaw, float roll, float blend_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!set_hud_offset called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	Fvector pos = { x, y, z };
+	Fvector rot = { yaw, pitch, roll };
+
+	g_player_hud->SetHudOffset(part, pos, rot, blend_ms / 1000.f);
+}
+
+void ClearHudOffset(u8 part, float blend_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!clear_hud_offset called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	g_player_hud->ClearHudOffset(part, blend_ms / 1000.f);
 }
 
 // 0 = disabled, 1 = enabling, 2 = enabled, 3 = disabling
@@ -3472,6 +3568,10 @@ void CLevel::script_register(lua_State* L)
 		def("set_hand_motion_marks", set_hand_motion_marks),
 		def("set_part_cycle_time", set_part_cycle_time),
 		def("play_hud_motion", PlayHudMotion),
+		def("set_hud_motion_freelook", SetHudMotionFreelook),
+		def("set_hud_sway", SetHudSway),
+		def("set_hud_sway_section", SetHudSwaySection),
+		def("clear_hud_sway", ClearHudSway),
 		def("stop_hud_motion", StopHudMotion),
 		def("set_hud_motion_lock", SetHudMotionLock),
 		def("get_motion_length", MotionLength),
@@ -3489,6 +3589,8 @@ void CLevel::script_register(lua_State* L)
 		def("hud_anm_state", BlendAnmState, pure_out_value<2>() + pure_out_value<3>()),
 		def("hud_anm_exists", BlendAnmExists),
 		def("hud_attached_item", HudAttachedItem),
+		def("set_hud_offset", SetHudOffset),
+		def("clear_hud_offset", ClearHudOffset),
 		def("only_allow_movekeys", block_all_except_movement),
 		def("only_movekeys_allowed", only_movement_allowed),
 		def("set_actor_allow_ladder", set_actor_allow_ladder),
