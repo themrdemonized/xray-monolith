@@ -18,6 +18,16 @@ extern int g_nearwall;
 int ps_hud_ik_compensation = 0;
 
 player_hud* g_player_hud = NULL;
+int g_blend_move_anims_override = -1;
+
+bool blend_move_anims_enabled()
+{
+	if (g_blend_move_anims_override >= 0)
+		return g_blend_move_anims_override > 0;
+
+	return !!psDeviceFlags2.test(rsBlendMoveAnims);
+}
+
 Fvector _ancor_pos;
 Fvector _wpn_root_pos;
 
@@ -823,6 +833,8 @@ player_hud::~player_hud()
 	delete_data(m_script_layers);
 	delete_data(m_movement_layers);
 	delete_data(m_bone_callback_params);
+
+	g_blend_move_anims_override = -1;
 }
 
 void player_hud::FingerCallback(CBoneInstance* B)
@@ -1841,7 +1853,7 @@ void player_hud::update(const Fmatrix& cam_trans)
 
 void player_hud::updateMovementLayerState()
 {
-	CActor* pActor = Actor();
+	CActor* pActor = g_actor;
 
 	if (!pActor)
 		return;

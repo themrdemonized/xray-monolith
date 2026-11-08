@@ -658,3 +658,7 @@ public:
 };
 
 extern player_hud* g_player_hud;
+
+// -1 follows the console flag, 0 forces the movement blend off, 1 forces it on
+extern int g_blend_move_anims_override;
+bool blend_move_anims_enabled();

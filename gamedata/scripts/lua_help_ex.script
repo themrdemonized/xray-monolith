@@ -239,6 +239,8 @@
         game_object hud_attached_item(number slot) // slot 0 right hand, 1 left hand, 2 scope, nil when the slot is empty
         void set_hud_offset(number part, number x, number y, number z, number pitch, number yaw, number roll, number blend_ms) // part 0 right, 1 left, 2 both, position in metres, angles in degrees with the aim_hud_offset_rot signs, eased in over blend_ms milliseconds. Unlike hud_adjust.set_hud_offset it leaves the item's hands offsets alone and moves the hand on top of them
         void clear_hud_offset(number part, number blend_ms) // part 0 right, 1 left, 2 both, eases the offset back out over blend_ms milliseconds
+        void set_blend_move_anims_override(bool mode) // true forces the movement blend anms on, false forces them off, nil returns control to the console flag
+        bool get_blend_move_anims() // the movement blend anm state in effect, override included
 
         bool model_prefetched(string name)
         table list_lanims() // light-animations

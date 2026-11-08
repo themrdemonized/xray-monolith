@@ -1959,6 +1959,22 @@ bool BlendAnmExists(LPCSTR name)
 	return !!FS.exist(full_path, "$level$", name) || !!FS.exist(full_path, "$game_anims$", name);
 }
 
+void SetBlendMoveAnimsOverride(const ::luabind::object& mode)
+{
+	if (!mode || mode.type() != LUA_TBOOLEAN)
+		g_blend_move_anims_override = -1;
+	else
+		g_blend_move_anims_override = ::luabind::object_cast<bool>(mode) ? 1 : 0;
+
+	if (g_player_hud)
+		g_player_hud->updateMovementLayerState();
+}
+
+bool GetBlendMoveAnims()
+{
+	return blend_move_anims_enabled();
+}
+
 // part 0 is the right hand, 1 the left hand, 2 both, angles in degrees and position in metres
 void SetHudOffset(u8 part, float x, float y, float z, float pitch, float yaw, float roll, float blend_ms)
 {
@@ -3589,6 +3605,8 @@ void CLevel::script_register(lua_State* L)
 		def("hud_anm_state", BlendAnmState, pure_out_value<2>() + pure_out_value<3>()),
 		def("hud_anm_exists", BlendAnmExists),
 		def("hud_attached_item", HudAttachedItem),
+		def("set_blend_move_anims_override", SetBlendMoveAnimsOverride),
+		def("get_blend_move_anims", GetBlendMoveAnims),
 		def("set_hud_offset", SetHudOffset),
 		def("clear_hud_offset", ClearHudOffset),
 		def("only_allow_movekeys", block_all_except_movement),
