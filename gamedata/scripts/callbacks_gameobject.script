@@ -202,6 +202,13 @@ _G.CActorHudOnScriptAnimEnd = function(part, section, anm_name, reason)
 	SendScriptCallback("actor_hud_on_script_anim_end", part, section, anm_name, reason)
 end
 
+-- Hands section change callback
+-- fires when the player hud switches its hands section, sends the new and the previous section name
+AddScriptCallback("actor_hud_on_hands_changed")
+_G.CActorHudOnHandsChanged = function(new_section, old_section)
+	SendScriptCallback("actor_hud_on_hands_changed", new_section, old_section)
+end
+
 -- Mouse callbacks
 -- Scroll wheel callback, sends mouse wheel direction as a number
 -- 1 is up, 0 is down

@@ -1975,6 +1975,31 @@ bool GetBlendMoveAnims()
 	return blend_move_anims_enabled();
 }
 
+bool SetBareHands(const ::luabind::object& section)
+{
+	if (!g_player_hud)
+		return false;
+
+	if (!section || section.type() != LUA_TSTRING)
+		return g_player_hud->SetBareHands(nullptr);
+
+	return g_player_hud->SetBareHands(::luabind::object_cast<LPCSTR>(section));
+}
+
+::luabind::object GetBareHands()
+{
+	lua_State* L = ai().script_engine().lua();
+
+	if (g_player_hud && g_player_hud->bare_hands_section().size())
+		return ::luabind::object(L, g_player_hud->bare_hands_section().c_str());
+
+	::luabind::object none(L);
+	lua_pushnil(L);
+	none.set();
+
+	return none;
+}
+
 // part 0 is the right hand, 1 the left hand, 2 both, angles in degrees and position in metres
 void SetHudOffset(u8 part, float x, float y, float z, float pitch, float yaw, float roll, float blend_ms)
 {
@@ -3607,6 +3632,8 @@ void CLevel::script_register(lua_State* L)
 		def("hud_attached_item", HudAttachedItem),
 		def("set_blend_move_anims_override", SetBlendMoveAnimsOverride),
 		def("get_blend_move_anims", GetBlendMoveAnims),
+		def("set_bare_hands", SetBareHands),
+		def("get_bare_hands", GetBareHands),
 		def("set_hud_offset", SetHudOffset),
 		def("clear_hud_offset", ClearHudOffset),
 		def("only_allow_movekeys", block_all_except_movement),
