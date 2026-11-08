@@ -2,6 +2,12 @@
 
 _G.MODDED_EXES_VERSION = get_modded_exes_version()
 
+-- Cache device
+local device_ = device()
+_G.device = function()
+	return device_
+end
+
 -- IMPORTS
 local string_find 	= string.find
 local string_format	= string.format
