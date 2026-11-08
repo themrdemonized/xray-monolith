@@ -10,7 +10,7 @@ public:
 	float real_velocity;     // CControlMovement::real_velocity()    - the physics translation (XZ, going dir)
 	bool path_completed;     // CMovementManager::path_completed() - reached the path end (arrived, correctly idle)
 	bool path_actual;        // CMovementManager::actual_all()     - path is current/valid (false = rebuilding or unreachable)
-	bool path_active;        // CControl_ComBase::is_active()      - the path-builder component is driving movement (false = yielded to a capture)
+	bool path_active;        // !CControl_Manager::is_captured(eControlPath) - false while a capture such as a jump or roar holds the path
 
 	CScriptMonsterMovementInfo()
 	{

@@ -396,7 +396,7 @@ CScriptMonsterMovementInfo CScriptGameObject::GetMonsterMovementInfo()
 		CControlPathBuilder& pb = ctrl.path_builder();
 		ret_val.set(ctrl.movement().velocity_current(), ctrl.movement().velocity_target(),
 		            ctrl.movement().real_velocity(),
-		            pb.path_completed(), pb.actual_all(), pb.is_active());
+		            pb.path_completed(), pb.actual_all(), !ctrl.is_captured(ControlCom::eControlPath));
 	}
 	else
 	{
