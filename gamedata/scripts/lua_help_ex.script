@@ -224,6 +224,15 @@
         // time is normalized (0..1); a nonzero set_time overrides it with seconds.
         void set_part_cycle_time(number part, number time, number set_time)
 
+        // HUD hands, script motions and blend anms
+        bool hud_motion_exists(string section, string anm_name) // true when the section defines the motion and the loaded hands model has that cycle
+        number hud_motion_blocked_reason() // 0 nothing blocks, 1 right item pending, 2 right item boring, 3 left item pending, 4 left item boring, 5 a script motion already plays
+        number hud_motion_part() // 0 right, 1 left, 2 both for the script motion playing now, nil when none plays
+        bool hud_needs_blend(number part) // part 0 right, 1 left, true when that hand wants a blend anm this frame
+        void stop_hud_anm_fade(string name, bool bForce, number fade_ms) // fades the layer out over fade_ms milliseconds, a true bForce cuts the layer at once with no fade
+        function hud_anm_state(string name) -> bool found, bool active, number blend // blend runs 0 to 1, found is false when no layer carries that name
+        bool hud_anm_exists(string name) // true when the anm file is found under $level$ or $game_anims$
+
         bool model_prefetched(string name)
         table list_lanims() // light-animations
         bool top_input_receiver() // UI dialog owns input

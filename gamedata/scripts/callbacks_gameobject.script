@@ -193,6 +193,15 @@ _G.CActorHudOnNearWall = function(arg)
 	SendScriptCallback("actor_hud_on_nearwall", arg)
 end
 
+-- Script hud motion end callback
+-- part is 0 for the right hand, 1 for the left hand, 2 for both
+-- section is the hud section the motion belongs to, anm_name the motion that ended
+-- reason is 0 when the motion reached its end, 1 when something stopped it early
+AddScriptCallback("actor_hud_on_script_anim_end")
+_G.CActorHudOnScriptAnimEnd = function(part, section, anm_name, reason)
+	SendScriptCallback("actor_hud_on_script_anim_end", part, section, anm_name, reason)
+end
+
 -- Mouse callbacks
 -- Scroll wheel callback, sends mouse wheel direction as a number
 -- 1 is up, 0 is down

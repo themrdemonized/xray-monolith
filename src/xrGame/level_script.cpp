@@ -1751,7 +1751,7 @@ u32 PlayHudMotion(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true,
 
 void StopHudMotion()
 {
-	g_player_hud->StopScriptAnim();
+	g_player_hud->StopScriptAnim(true);
 }
 
 void SetHudMotionLock(float target, float time)
@@ -1768,6 +1768,65 @@ float MotionLength(LPCSTR section, LPCSTR name, float speed)
 bool AllowHudMotion()
 {
 	return g_player_hud->allow_script_anim();
+}
+
+bool HudMotionExists(LPCSTR section, LPCSTR anm_name)
+{
+	if (!g_player_hud || !g_player_hud->m_model)
+		return false;
+
+	if (!section || !section[0] || !anm_name || !anm_name[0])
+	{
+		Msg("!hud_motion_exists called with an empty section or motion name");
+		return false;
+	}
+
+	if (!pSettings->section_exist(section))
+	{
+		Msg("!hud_motion_exists section [%s] does not exist", section);
+		return false;
+	}
+
+	player_hud_motion_container* pm = g_player_hud->get_hand_motions(section);
+	player_hud_motion* phm = pm ? pm->find_motion(anm_name) : nullptr;
+
+	return phm && !phm->m_animations.empty() && g_player_hud->m_model->ID_Cycle_Safe(phm->m_base_name).valid();
+}
+
+int HudMotionBlockedReason()
+{
+	if (!g_player_hud)
+		return 0;
+
+	return g_player_hud->script_anim_blocked_reason();
+}
+
+::luabind::object HudMotionPart()
+{
+	lua_State* L = ai().script_engine().lua();
+
+	if (g_player_hud && g_player_hud->script_anim_part < 3)
+		return ::luabind::object(L, int(g_player_hud->script_anim_part));
+
+	::luabind::object none(L);
+	lua_pushnil(L);
+	none.set();
+
+	return none;
+}
+
+bool HudNeedsBlend(u8 part)
+{
+	if (!g_player_hud)
+		return false;
+
+	if (part > 1)
+	{
+		Msg("!hud_needs_blend called with part %d, must be 0 or 1", part);
+		return false;
+	}
+
+	return g_player_hud->need_blend_anm(part);
 }
 
 bool MotionExists(LPCSTR model_path, LPCSTR motion_name)
@@ -1800,6 +1859,39 @@ void StopAllBlendAnms(bool bForce)
 float SetBlendAnmTime(LPCSTR name, float time)
 {
 	return g_player_hud->SetBlendAnmTime(name, time);
+}
+
+void StopBlendAnmFade(LPCSTR name, bool bForce, float fade_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	g_player_hud->StopBlendAnmFade(name, bForce, fade_ms / 1000.f);
+}
+
+bool BlendAnmState(LPCSTR name, bool& active, float& blend)
+{
+	if (!g_player_hud)
+	{
+		active = false;
+		blend = 0.f;
+		return false;
+	}
+
+	return g_player_hud->BlendAnmState(name, active, blend);
+}
+
+bool BlendAnmExists(LPCSTR name)
+{
+	if (!name || !name[0])
+	{
+		Msg("!hud_anm_exists called with an empty name");
+		return false;
+	}
+
+	string_path full_path;
+
+	return !!FS.exist(full_path, "$level$", name) || !!FS.exist(full_path, "$game_anims$", name);
 }
 
 void block_all_except_movement(bool b)
@@ -3330,10 +3422,17 @@ void CLevel::script_register(lua_State* L)
 		def("get_motion_length", MotionLength),
 		def("hud_motion_allowed", AllowHudMotion),
 		def("motion_exists", MotionExists),
+		def("hud_motion_exists", HudMotionExists),
+		def("hud_motion_blocked_reason", HudMotionBlockedReason),
+		def("hud_motion_part", HudMotionPart),
+		def("hud_needs_blend", HudNeedsBlend),
 		def("play_hud_anm", PlayBlendAnm),
 		def("stop_hud_anm", StopBlendAnm),
+		def("stop_hud_anm_fade", StopBlendAnmFade),
 		def("stop_all_hud_anms", StopAllBlendAnms),
 		def("set_hud_anm_time", SetBlendAnmTime),
+		def("hud_anm_state", BlendAnmState, pure_out_value<2>() + pure_out_value<3>()),
+		def("hud_anm_exists", BlendAnmExists),
 		def("only_allow_movekeys", block_all_except_movement),
 		def("only_movekeys_allowed", only_movement_allowed),
 		def("set_actor_allow_ladder", set_actor_allow_ladder),

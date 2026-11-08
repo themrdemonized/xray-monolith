@@ -1630,9 +1630,9 @@ void player_hud::update(const Fmatrix& cam_trans)
 			continue;
 
 		if (anm->active)
-			anm->blend_amount += Device.fTimeDelta / .4f;
+			anm->blend_amount += Device.fTimeDelta / anm->m_fade_time;
 		else
-			anm->blend_amount -= Device.fTimeDelta / .4f;
+			anm->blend_amount -= Device.fTimeDelta / anm->m_fade_time;
 
 		clamp(anm->blend_amount, 0.f, 1.f);
 
@@ -1685,8 +1685,8 @@ void player_hud::update(const Fmatrix& cam_trans)
 	}
 
 	bool need_blend[2];
-	need_blend[0] = ((script_anim_part == 0 || script_anim_part == 2) || (m_attached_items[0] && m_attached_items[0]->m_parent_hud_item->NeedBlendAnm()));
-	need_blend[1] = ((script_anim_part == 1 || script_anim_part == 2) || (m_attached_items[1] && m_attached_items[1]->m_parent_hud_item->NeedBlendAnm()));
+	need_blend[0] = need_blend_anm(0);
+	need_blend[1] = need_blend_anm(1);
 
 	for (movement_layer* anm : m_movement_layers)
 	{
@@ -1859,6 +1859,7 @@ void player_hud::PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bo
 			anm->anm->Speed() = speed;
 			anm->m_power = power;
 			anm->active = true;
+			anm->m_fade_time = .4f;
             anm->m_pivot_bone = pivot_bone;
 			return;
 		}
@@ -1870,14 +1871,39 @@ void player_hud::PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bo
 
 void player_hud::StopBlendAnm(LPCSTR name, bool bForce)
 {
+	StopBlendAnmFade(name, bForce, 0.f);
+}
+
+void player_hud::StopBlendAnmFade(LPCSTR name, bool bForce, float fade_time)
+{
 	for (script_layer* anm : m_script_layers)
 	{
 		if (!xr_strcmp(*anm->m_name, name))
 		{
+			if (fade_time > 0.f)
+				anm->m_fade_time = _max(fade_time, .001f);
+
 			anm->Stop(bForce);
 			return;
 		}
 	}
+}
+
+bool player_hud::BlendAnmState(LPCSTR name, bool& active, float& blend)
+{
+	for (script_layer* anm : m_script_layers)
+	{
+		if (!xr_strcmp(*anm->m_name, name))
+		{
+			active = anm->active;
+			blend = anm->blend_amount;
+			return true;
+		}
+	}
+
+	active = false;
+	blend = 0.f;
+	return false;
 }
 
 void player_hud::StopAllBlendAnms(bool bForce)
@@ -2034,13 +2060,18 @@ void player_hud::clear_hand_pose(u8 hand, float accrue, float falloff)
 }
 
 extern BOOL print_bone_warnings;
-void player_hud::StopScriptAnim()
+void player_hud::StopScriptAnim(bool forced)
 {
 	u8 part = script_anim_part;
+	shared_str section = script_anim_section;
+	shared_str anm_name = script_anim_name;
+
 	script_anim_part = u8(-1);
 	delete_script_anim_item_model();
 	script_anim_lead_gun = false;
 	script_anim_lock_camera = 0.f;
+	script_anim_section = nullptr;
+	script_anim_name = nullptr;
 
 	updateMovementLayerState();
 
@@ -2057,6 +2088,15 @@ void player_hud::StopScriptAnim()
 		re_sync_anim(part + 1);
 	else
 		OnMovementChanged((ACTOR_DEFS::EMoveCommand)0);
+
+	// fires last so a handler that starts the next motion is not overwritten by the resync
+	// reason 0 = the motion reached its end, 1 = something stopped it early
+	if (part < 3 && section.size())
+	{
+		::luabind::functor<void> on_anim_end;
+		if (ai().script_engine().functor("_G.CActorHudOnScriptAnimEnd", on_anim_end))
+			on_anim_end(int(part), section.c_str(), anm_name.c_str(), forced ? 1 : 0);
+	}
 }
 
 //part: 0 = right arm; 1 = left arm
@@ -2112,6 +2152,10 @@ void player_hud::update_script_item()
 // 0 = right arm + hand, 1 = left arm + hand, 2 = both
 u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool bMixIn, float speed)
 {
+	// a new play replaces the running motion, which then reports no end
+	script_anim_section = nullptr;
+	script_anim_name = nullptr;
+
 	if (!pSettings->section_exist(section))
 	{
 		Msg("!script motion section [%s] does not exist", section);
@@ -2185,6 +2229,10 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 		return 0;
 	}
+
+	// set once the motion is known to exist so a failed play reports nothing
+	script_anim_section = section;
+	script_anim_name = anm_name;
 
 	const motion_descr& M = phm->m_animations[Random.randI(phm->m_animations.size())];
 
@@ -2495,14 +2543,41 @@ void player_hud::detach_item(CHudItem* item)
 
 bool player_hud::allow_script_anim()
 {
-	if (m_attached_items[0] && (m_attached_items[0]->m_parent_hud_item->IsPending() || m_attached_items[0]->m_parent_hud_item->GetState() == CHudItem::EHudStates::eBore))
-		return false;
-	else if (m_attached_items[1] && (m_attached_items[1]->m_parent_hud_item->IsPending() || m_attached_items[1]->m_parent_hud_item->GetState() == CHudItem::EHudStates::eBore))
-		return false;
-	else if (script_anim_part != u8(-1))
+	return script_anim_blocked_reason() == 0;
+}
+
+// 0 = allowed, 1/2 = right hand item pending/bore, 3/4 = left hand item, 5 = a script anim holds the hands
+int player_hud::script_anim_blocked_reason()
+{
+	if (m_attached_items[0])
+	{
+		if (m_attached_items[0]->m_parent_hud_item->IsPending())
+			return 1;
+		if (m_attached_items[0]->m_parent_hud_item->GetState() == CHudItem::EHudStates::eBore)
+			return 2;
+	}
+
+	if (m_attached_items[1])
+	{
+		if (m_attached_items[1]->m_parent_hud_item->IsPending())
+			return 3;
+		if (m_attached_items[1]->m_parent_hud_item->GetState() == CHudItem::EHudStates::eBore)
+			return 4;
+	}
+
+	if (script_anim_part != u8(-1))
+		return 5;
+
+	return 0;
+}
+
+bool player_hud::need_blend_anm(u8 part)
+{
+	if (part > 1)
 		return false;
 
-	return true;
+	return ((script_anim_part == part || script_anim_part == 2) ||
+		(m_attached_items[part] && m_attached_items[part]->m_parent_hud_item->NeedBlendAnm()));
 }
 
 void player_hud::calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result, bool leadGun)

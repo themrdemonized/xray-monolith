@@ -152,6 +152,7 @@ struct script_layer
 	Fmatrix blend;
 	u8 m_part;
     shared_str m_pivot_bone;
+	float m_fade_time;
 
 	script_layer(LPCSTR name, u8 part, float speed = 1.f, float power = 1.f, bool looped = true, LPCSTR pivot_bone = nullptr)
 	{
@@ -159,6 +160,7 @@ struct script_layer
 		m_part = part;
 		m_power = power;
 		m_pivot_bone = pivot_bone;
+		m_fade_time = .4f;
 		blend.identity();
 		anm = xr_new<CObjectAnimator>();
 		anm->Load(name);
@@ -369,7 +371,7 @@ public:
 	void load_default() { load("actor_hud_05", true); };
 	void update(const Fmatrix& trans);
 	void updateMovementLayerState();
-	void StopScriptAnim();
+	void StopScriptAnim(bool forced = false);
 	void create_script_anim_item_model(LPCSTR section);
 	void delete_script_anim_item_model();
 	void PlayBlendAnm(LPCSTR name, u8 part = 0, float speed = 1.f, float power = 1.f, bool bLooped = true, bool no_restart = false, LPCSTR pivot_bone = nullptr);
@@ -392,6 +394,8 @@ public:
 	// the part of the last script motion, kept while the offset blends back out
 	u8 script_anim_last_part;
 	Fvector script_anim_offset[2];
+	shared_str script_anim_section;
+	shared_str script_anim_name;
 	u32 script_anim_end;
 	float script_anim_offset_factor;
 	bool m_bStopAtEndAnimIsRunning;
@@ -427,6 +431,11 @@ public:
 	void detach_item(CHudItem* item);
 
 	bool allow_script_anim();
+	int script_anim_blocked_reason();
+	bool need_blend_anm(u8 part);
+
+	void StopBlendAnmFade(LPCSTR name, bool bForce, float fade_time);
+	bool BlendAnmState(LPCSTR name, bool& active, float& blend);
 
 	void detach_all_items()
 	{
