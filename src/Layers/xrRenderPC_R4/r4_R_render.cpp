@@ -9,6 +9,74 @@
 #include "../xrRender/QueryHelper.h"
 
 #include	"../xrRender/dxRenderDeviceRender.h"
+#include "../xrRender/xrRender_console.h"
+
+namespace
+{
+float temporal_halton(u32 index, u32 base)
+{
+	float result = 0.f;
+	float fraction = 1.f;
+	while (index > 0)
+	{
+		fraction /= float(base);
+		result += fraction * float(index % base);
+		index /= base;
+	}
+	return result;
+}
+
+class ScopedTemporalJitter
+{
+public:
+	explicit ScopedTemporalJitter(CRenderTarget* target) : m_target(target)
+	{
+		if (!m_target || ps_r4_temporal_aa == 0 || RImplementation.o.dx10_msaa ||
+			Device.m_SecondViewport.IsSVPFrame())
+			return;
+
+		m_project.set(Device.mProject);
+		m_full.set(Device.mFullTransform);
+		m_invFull.set(Device.mInvFullTransform);
+
+		const u32 sample = Device.dwFrame % 8 + 1;
+		m_jitter.set(temporal_halton(sample, 2) - 0.5f, temporal_halton(sample, 3) - 0.5f);
+		const float jitterX = 2.f * m_jitter.x / float(Device.dwWidth);
+		const float jitterY = -2.f * m_jitter.y / float(Device.dwHeight);
+
+		Device.mProject._31 += jitterX;
+		Device.mProject._32 += jitterY;
+		Device.mFullTransform.mul(Device.mProject, Device.mView);
+		D3DXMatrixInverse(
+			(D3DXMATRIX*)&Device.mInvFullTransform, nullptr, (D3DXMATRIX*)&Device.mFullTransform);
+		RCache.set_xform_view(Device.mView);
+		RCache.set_xform_project(Device.mProject);
+
+		m_target->begin_temporal_frame(m_jitter);
+		m_active = true;
+	}
+
+	~ScopedTemporalJitter()
+	{
+		if (!m_active)
+			return;
+
+		Device.mProject.set(m_project);
+		Device.mFullTransform.set(m_full);
+		Device.mInvFullTransform.set(m_invFull);
+		RCache.set_xform_view(Device.mView);
+		RCache.set_xform_project(Device.mProject);
+	}
+
+private:
+	CRenderTarget* m_target = nullptr;
+	bool m_active = false;
+	Fvector2 m_jitter = {0.f, 0.f};
+	Fmatrix m_project;
+	Fmatrix m_full;
+	Fmatrix m_invFull;
+};
+}
 
 void CRender::render_menu()
 {
@@ -97,6 +165,8 @@ void CRender::Render()
 
 	if ((Device.dwFrame % (u32)ps_r__tex_evict_interval) == 0)
 		dxRenderDeviceRender::Instance().Resources->EvictStalledTextures();
+
+	ScopedTemporalJitter temporalJitter(Target);
 
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
 

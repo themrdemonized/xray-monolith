@@ -118,6 +118,12 @@
 #define		r2_RT_ssfx_prev_frame		"$user$ssfx_prev_frame" // Prev Frame
 #define		r2_RT_ssfx_motion_vectors	"$user$ssfx_motion_vectors" // Motion vectors
 
+#define		r4_RT_temporal_velocity		"$user$temporal_velocity"
+#define		r4_RT_temporal_depth			"$user$temporal_depth"
+#define		r4_RT_temporal_reactive		"$user$temporal_reactive"
+#define		r4_RT_temporal_output			"$user$temporal_output"
+#define		r4_RT_temporal_history			"$user$temporal_history"
+
 #define		r2_RT_ssfx_prevPos		"$user$ssfx_prev_p" // Prev Position
 
 #define		JITTER(a) r2_jitter #a
