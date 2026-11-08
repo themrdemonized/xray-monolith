@@ -752,8 +752,11 @@ player_hud::player_hud()
 	m_transform_2_prev.identity();
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
+	script_anim_last_part = u8(-1);
 	script_anim_offset_factor = 0.f;
 	script_anim_lock_camera = 0.f;
+	script_anim_offset[0].set(0.f, 0.f, 0.f);
+	script_anim_offset[1].set(0.f, 0.f, 0.f);
 	m_item_pos.identity();
 	script_override_arms = false;
 	script_anim_item_model = nullptr;
@@ -961,6 +964,13 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 			const shared_str& _bone = _b->second;
 			m_ancors.push_back(m_model->dcast_PKinematics()->LL_BoneID(_bone));
 		}
+	}
+
+	for (hand_motions* phm : m_hand_motions)
+	{
+		phm->pm.m_anims.clear();
+		if (pSettings->section_exist(phm->section.c_str()))
+			phm->pm.load(m_model, phm->section);
 	}
 
 	if (!b_reload)
@@ -1362,6 +1372,12 @@ u32 player_hud::motion_length_script(LPCSTR section, LPCSTR anm_name, float spee
 		return 0;
 	}
 
+	if (phm->m_animations.empty())
+	{
+		Msg("!script motion [%s] in section [%s] has no animations", anm_name, section);
+		return 0;
+	}
+
 	const CMotionDef* temp;
 	return motion_length(phm->m_animations[0].mid, temp, speed);
 }
@@ -1559,21 +1575,29 @@ void player_hud::update(const Fmatrix& cam_trans)
 	}
 	else if (script_anim_offset_factor != 0.f)
 	{
-		Fvector& hand_pos = script_anim_part == 0 ? m1pos : m2pos;
-		Fvector& hand_rot = script_anim_part == 0 ? m1rot : m2rot;
+		// the live part is already cleared when a motion ends so the blend follows the part that played
+		const u8 blend_part = script_anim_last_part;
+		const bool blend_hand_0 = (blend_part == 0 || blend_part == 2);
+		const bool blend_hand_1 = (blend_part != 0);
 
-		hand_pos.lerp(script_anim_part == 0 ? m1pos : m2pos, script_anim_offset[0], script_anim_offset_factor);
-		hand_rot.lerp(script_anim_part == 0 ? m1rot : m2rot, script_anim_offset[1], script_anim_offset_factor);
-
-		if (script_anim_part == 0)
+		if (blend_hand_0)
 		{
-			trans_b.inertion(trans, script_anim_offset_factor);
-			trans = trans_b;
+			m1pos.lerp(m1pos, script_anim_offset[0], script_anim_offset_factor);
+			m1rot.lerp(m1rot, script_anim_offset[1], script_anim_offset_factor);
+
+			Fmatrix base = trans_b;
+			base.inertion(trans, script_anim_offset_factor);
+			trans = base;
 		}
-		else
+
+		if (blend_hand_1)
 		{
-			trans_b.inertion(trans_2, script_anim_offset_factor);
-			trans_2 = trans_b;
+			m2pos.lerp(m2pos, script_anim_offset[0], script_anim_offset_factor);
+			m2rot.lerp(m2rot, script_anim_offset[1], script_anim_offset_factor);
+
+			Fmatrix base = trans_b;
+			base.inertion(trans_2, script_anim_offset_factor);
+			trans_2 = base;
 		}
 	}
 
@@ -2153,7 +2177,22 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 		return 0;
 	}
 
+	if (phm->m_animations.empty())
+	{
+		Msg("!script motion [%s] in section [%s] has no animations", anm_name, section);
+		m_bStopAtEndAnimIsRunning = true;
+		script_anim_end = Device.dwTimeGlobal;
+
+		return 0;
+	}
+
 	const motion_descr& M = phm->m_animations[Random.randI(phm->m_animations.size())];
+
+	// the loader replaces a missing cycle with the idle down pose under the requested name, so check the picked entry by its name
+	const bool cycle_resolved = m_model->ID_Cycle_Safe(M.name).valid();
+
+	// set after the checks so a failed play leaves the blend out on the hand that played
+	script_anim_last_part = hand;
 
 	if (script_anim_item_model)
 	{
@@ -2191,8 +2230,15 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 		m_bStopAtEndAnimIsRunning = true;
 		script_anim_end = Device.dwTimeGlobal + length;
 	}
+	else if (!cycle_resolved)
+	{
+		m_bStopAtEndAnimIsRunning = true;
+		script_anim_end = Device.dwTimeGlobal;
+	}
 	else
+	{
 		m_bStopAtEndAnimIsRunning = false;
+	}
 
 	updateMovementLayerState();
 
@@ -2231,13 +2277,31 @@ void player_hud::attach_item(CHudItem* item)
 	}
 }
 
+static void sync_part_cycle(IKinematicsAnimated* model, u16 pid, const MotionID& M, const CBlend* src)
+{
+	CBlend* B = model->PlayCycle(pid, M, TRUE);
+	if (!B)
+		return;
+
+	B->timeCurrent = src->timeCurrent;
+	B->speed = src->speed;
+}
+
 //sync anim of other part to selected part (1 = sync to left hand anim; 2 = sync to right hand anim)
 void player_hud::re_sync_anim(u8 part)
 {
-	u32 bc = part == 1 ? m_model_2->LL_PartBlendsCount(part) : m_model->LL_PartBlendsCount(part);
+	if (part != 1 && part != 2)
+		return;
+
+	IKinematicsAnimated* src = part == 1 ? m_model_2 : m_model;
+
+	// a held hand pose keeps its partition the same way play_blend skips it
+	const bool hold_pose[2] = { override_hand_pose[0] && !attached_item(1), override_hand_pose[1] && !attached_item(1) };
+
+	u32 bc = src->LL_PartBlendsCount(part);
 	for (u32 bidx = 0; bidx < bc; ++bidx)
 	{
-		CBlend* BR = part == 1 ? m_model_2->LL_PartBlend(part, bidx) : m_model->LL_PartBlend(part, bidx);
+		CBlend* BR = src->LL_PartBlend(part, bidx);
 		if (!BR)
 			continue;
 
@@ -2246,21 +2310,12 @@ void player_hud::re_sync_anim(u8 part)
 		u16 pc = m_model->partitions().count(); //same on both armatures
 		for (u16 pid = 0; pid < pc; ++pid)
 		{
-			if (pid == 0)
-			{
-				CBlend* B = m_model->PlayCycle(0, M, TRUE);
-				B->timeCurrent = BR->timeCurrent;
-				B->speed = BR->speed;
-				B = m_model_2->PlayCycle(0, M, TRUE);
-				B->timeCurrent = BR->timeCurrent;
-				B->speed = BR->speed;
-			}
-			else if (pid != part)
-			{
-				CBlend* B = part == 1 ? m_model->PlayCycle(pid, M, TRUE) : m_model_2->PlayCycle(pid, M, TRUE);
-				B->timeCurrent = BR->timeCurrent;
-				B->speed = BR->speed;
-			}
+			// the right arm armature never drives its left hand partition, the source already plays
+			if (pid != 1 && !(src == m_model && pid == part) && !(pid == 4 && hold_pose[1]))
+				sync_part_cycle(m_model, pid, M, BR);
+
+			if (!(src == m_model_2 && pid == part) && !(pid == 3 && hold_pose[0]))
+				sync_part_cycle(m_model_2, pid, M, BR);
 		}
 	}
 }

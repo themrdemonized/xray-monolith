@@ -389,6 +389,8 @@ public:
 	void net_Relcase(CObject* obj);
 
 	u8 script_anim_part;
+	// the part of the last script motion, kept while the offset blends back out
+	u8 script_anim_last_part;
 	Fvector script_anim_offset[2];
 	u32 script_anim_end;
 	float script_anim_offset_factor;
