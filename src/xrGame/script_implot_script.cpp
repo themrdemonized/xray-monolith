@@ -1,10 +1,22 @@
 #include "pch_script.h"
 #include "script_implot.h"
 #include "implot/implot.h"
+#include "implot/implot_internal.h"
 #include "imgui/imgui.h"
 
 using namespace luabind;
 #pragma optimize("s",on)
+
+// ImPlot dereferences the current plot with no null return, so a Lua call outside BeginPlot/EndPlot is refused here
+static bool implot_in_plot()
+{
+	return ImPlot::GetCurrentContext() && ImPlot::GetCurrentPlot();
+}
+
+static bool implot_in_setup()
+{
+	return implot_in_plot() && !ImPlot::GetCurrentPlot()->SetupLocked;
+}
 
 // ImPlot series take parallel x[] and y[] double arrays. Lua hands them as 1-based number
 // tables; copy once into reused scratch buffers, then call ImPlot with a defaulted ImPlotSpec.
@@ -14,7 +26,7 @@ static xr_vector<double> s_implot_y;
 
 static int implot_read_xy(const luabind::object& xs, const luabind::object& ys, int count)
 {
-	if (count < 0 || !xs || xs.type() != LUA_TTABLE || !ys || ys.type() != LUA_TTABLE) count = 0;
+	if (!implot_in_plot() || count < 0 || !xs || xs.type() != LUA_TTABLE || !ys || ys.type() != LUA_TTABLE) count = 0;
 	s_implot_x.resize(count);
 	s_implot_y.resize(count);
 	for (int i = 0; i < count; ++i)
@@ -30,7 +42,23 @@ static int implot_read_xy(const luabind::object& xs, const luabind::object& ys, 
 
 static bool ImPlot_BeginPlot(LPCSTR title, Fvector2 size, ImPlotFlags flags)
 {
+	if (!ImPlot::GetCurrentContext() || ImPlot::GetCurrentPlot()) return false;
 	return ImPlot::BeginPlot(title, *(ImVec2*)&size, flags);
+}
+
+static void ImPlot_EndPlot()
+{
+	if (implot_in_plot()) ImPlot::EndPlot();
+}
+
+static void ImPlot_SetupAxes(LPCSTR x_label, LPCSTR y_label, ImPlotAxisFlags x_flags, ImPlotAxisFlags y_flags)
+{
+	if (implot_in_setup()) ImPlot::SetupAxes(x_label, y_label, x_flags, y_flags);
+}
+
+static void ImPlot_SetupAxisLimits(ImAxis axis, double v_min, double v_max, ImPlotCond cond)
+{
+	if (implot_in_setup()) ImPlot::SetupAxisLimits(axis, v_min, v_max, cond);
 }
 
 static void ImPlot_PlotLine(LPCSTR label, const luabind::object& xs, const luabind::object& ys, int count)
@@ -66,9 +94,9 @@ void ScriptImPlot::script_register(::lua_State* L)
 	module(L, "ImPlot")
 	[
 		def("BeginPlot", &ImPlot_BeginPlot),
-		def("EndPlot", &ImPlot::EndPlot),
-		def("SetupAxes", &ImPlot::SetupAxes),
-		def("SetupAxisLimits", &ImPlot::SetupAxisLimits),
+		def("EndPlot", &ImPlot_EndPlot),
+		def("SetupAxes", &ImPlot_SetupAxes),
+		def("SetupAxisLimits", &ImPlot_SetupAxisLimits),
 		def("PlotLine", &ImPlot_PlotLine),
 		def("PlotShaded", &ImPlot_PlotShaded),
 		def("PlotScatter", &ImPlot_PlotScatter),

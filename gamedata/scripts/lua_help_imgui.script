@@ -855,6 +855,7 @@
 	};
 
 	-- ImPlot: real XY plots (axes, legend, zoom) built on ImGui. Series take parallel 1-based number arrays (xs, ys) plus their count.
+	-- A plot or setup call outside a BeginPlot/EndPlot pair is ignored, a setup call after the first series too, and BeginPlot returns false inside an open plot.
 	namespace ImPlot
 	{
 		bool BeginPlot(string title, vector2 size, ImPlotFlags flags)
