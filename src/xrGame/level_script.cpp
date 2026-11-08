@@ -1654,6 +1654,7 @@ void reload_language()
 }
 
 #include "player_hud.h"
+#include "../xrEngine/CameraBase.h"
 
 void hud_adj_offs(int off, int idx, float x, float y, float z)
 {
@@ -1892,6 +1893,58 @@ bool BlendAnmExists(LPCSTR name)
 	string_path full_path;
 
 	return !!FS.exist(full_path, "$level$", name) || !!FS.exist(full_path, "$game_anims$", name);
+}
+
+// 0 = disabled, 1 = enabling, 2 = enabled, 3 = disabling
+int ActorFreelookState()
+{
+	CActor* actor = g_actor;
+	if (!actor)
+		return 0;
+
+	switch (actor->cam_freelook)
+	{
+	case eflEnabling:
+		return 1;
+	case eflEnabled:
+		return 2;
+	case eflDisabling:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
+// signed radians between the body yaw and the camera yaw
+float ActorFreelookYawSplit()
+{
+	CActor* actor = g_actor;
+	if (!actor || !actor->cam_FirstEye())
+		return 0.f;
+
+	float body_yaw = -angle_normalize_signed(actor->old_torso_yaw);
+	float cam_yaw = -angle_normalize_signed(actor->cam_FirstEye()->yaw);
+
+	return angle_difference_signed(body_yaw, cam_yaw);
+}
+
+// slot 0 is the right hand, 1 the left hand, 2 the scope
+CScriptGameObject* HudAttachedItem(u16 slot)
+{
+	if (!g_player_hud)
+		return nullptr;
+
+	if (slot > SCOPE_ATTACH_IDX)
+	{
+		Msg("!hud_attached_item called with slot %d, must be 0, 1 or 2", slot);
+		return nullptr;
+	}
+
+	attachable_hud_item* item = g_player_hud->attached_item(slot);
+	if (!item || !item->m_parent_hud_item || !item->m_parent_hud_item->has_object())
+		return nullptr;
+
+	return item->m_parent_hud_item->object().lua_game_object();
 }
 
 void block_all_except_movement(bool b)
@@ -3233,6 +3286,8 @@ void CLevel::script_register(lua_State* L)
 			def("hold_action", &LevelHoldAction),
 
 			def("actor_moving_state", &ActorMovingState),
+			def("actor_freelook_state", &ActorFreelookState),
+			def("actor_freelook_yaw_split", &ActorFreelookYawSplit),
 			def("get_env_rads", &get_env_rads),
 			def("get_texture_size", &get_texture_size),
 			def("iterate_nearest", &iterate_nearest),
@@ -3433,6 +3488,7 @@ void CLevel::script_register(lua_State* L)
 		def("set_hud_anm_time", SetBlendAnmTime),
 		def("hud_anm_state", BlendAnmState, pure_out_value<2>() + pure_out_value<3>()),
 		def("hud_anm_exists", BlendAnmExists),
+		def("hud_attached_item", HudAttachedItem),
 		def("only_allow_movekeys", block_all_except_movement),
 		def("only_movekeys_allowed", only_movement_allowed),
 		def("set_actor_allow_ladder", set_actor_allow_ladder),
