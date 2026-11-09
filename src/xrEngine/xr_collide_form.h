@@ -8,6 +8,10 @@ class CObject;
 class CInifile;
 class script_attachment;
 
+bool RAYvsOBB(const Fmatrix& IM, const Fvector& b_hsize, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
+bool RAYvsSPHERE(const Fsphere& s_sphere, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
+bool RAYvsCYLINDER(const Fcylinder& c_cylinder, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
+
 // t-defs
 const u32 clGET_TRIS = (1 << 0);
 const u32 clGET_BOXES = (1 << 1);

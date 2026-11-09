@@ -53,10 +53,6 @@ static void update_visbox_attachment(IKinematics* k)
 	}
 }
 
-extern IC bool RAYvsOBB(const Fmatrix& IM, const Fvector& b_hsize, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
-extern IC bool RAYvsSPHERE(const Fsphere& s_sphere, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
-extern IC bool RAYvsCYLINDER(const Fcylinder& c_cylinder, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
-
 CCF_Attachment_Skeleton::CCF_Attachment_Skeleton(script_attachment* O) : CCF_Skeleton(O)
 {
 	IRenderVisual* pVisual = O->Visual();
