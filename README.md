@@ -240,7 +240,7 @@ How to compile exes:
 
 ## Changelog
 
-**2026.11.09**
+**2026.11.09 (Prerelease)**
 * Main and MT:
   * Fix https://github.com/themrdemonized/xray-monolith/issues/825
 CustomZone spatial is transparent to NPC vision, previously it lead to NPCs not see through anomalies even disabled ones
