@@ -2187,19 +2187,22 @@ void CActor::RenderCamAttached()
 	{
 		if (GetAttachments()->size())
 		{
+            Fmatrix cam;
+            Cameras().camera_Matrix(cam);
+
 			::Render->set_HUD(TRUE);
 			::Render->set_CamAttached(TRUE);
 			::Render->set_Object(this);
-
-			Fmatrix cam = Fidentity;
-			Cameras().camera_Matrix(cam);
 
 			for (auto& pair : m_script_attachments)
 			{
 				script_attachment* att = pair.second;
 
 				if (att->GetType() == eSA_CamAttached)
-					att->Render(nullptr, &cam);
+                {
+                    att->UpdateXFORM(nullptr, &cam);
+                    att->renderable_Render();
+                }
 			}
 
 			::Render->set_CamAttached(FALSE);

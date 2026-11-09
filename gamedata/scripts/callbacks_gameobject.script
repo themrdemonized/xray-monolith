@@ -856,6 +856,12 @@ function on_imgui_render(name)
 	SendScriptCallback("imgui_on_render", name)
 end
 
+AddScriptCallback("imgui_on_show")
+AddScriptCallback("imgui_on_hide")
+function on_imgui_show(show)
+	SendScriptCallback(show and "imgui_on_show" or "imgui_on_hide")
+end
+
 --on GAME path build fail callback (can be used when npc tries to get to currently unavailable smart), 
 --can be used to intercept and redirect squad to available smart, also can suppress error message with flags.ret_value = false
 AddScriptCallback("npc_on_game_path_build_fail")

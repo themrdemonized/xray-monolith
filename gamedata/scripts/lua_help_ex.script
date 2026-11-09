@@ -613,15 +613,19 @@
         bool set_array_uint(number token, number first, table rows) -- set_array with unsigned rows
         bool set_object(number token, game_object obj, number x, number y, number z, number w) -- the object's own value on a lane whose id starts obj_, HUD draws read the actor's
         bool clear_object(number token, game_object obj) -- the object reads the lane's value again
+        bool set_attachment(number token, script_attachment obj, number x, number y, number z, number w) -- the attachment's own value on a lane whose id starts obj_ (world and HUD)
+        bool clear_attachment(number token, script_attachment obj) -- the attachment reads the lane's value again
         bool set_texture(number token, string name) -- the texture or render target $user$bus_<id> shows from the next frame, "" empties it
         function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
         function get_uint(string id) -> bool ok, number a, number b, number c, number d -- the bound value as unsigned integers
         function get_row(string id, number i) -> bool ok, number x, number y, number z, number w -- bound row i, false past the rows a shader declared, unsigned on a uint lane
         function get_object(string id, game_object obj) -> bool ok, number x, number y, number z, number w -- what draws of obj read, its own value or the lane's
+        function get_attachment(string id, script_attachment obj) -> bool ok, number x, number y, number z, number w -- what draws of obj read, its own value or the lane's
         string get_texture(string id) -- what $user$bus_<id> shows, nil for none or an unknown id
         function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value last written through the token, the largest of the tokens on a shared lane, unsigned on a uint lane
         table writers(string id) -- rows {owner, x, y, z, w}, one per token of a shared lane that called set, empty for any other lane
         table writers(string id, game_object obj) -- the same rows for the tokens that gave obj an object value
+        table writers(string id, script_attachment obj) -- the same rows for the tokens that gave obj an attachment value
         bool has(string id)
         string describe(string id) -- nil for an unknown or unregistered id
         string owner_of(string id) -- nil for an unknown or unregistered id
@@ -1125,6 +1129,9 @@
 		function set_device_enabled(bool)
 		function is_device_enabled()
 
+		// Explosive
+		function set_initiator(obj)
+
         // Bones
         u16 get_bone_id(string)
         u16 get_bone_id(string, bool bHud)
@@ -1458,7 +1465,17 @@
         function SetZoomCamMaxAngleHorz(float)
         function SetZoomCamStepAngleHorz(float)
 		
-		
+		-- lua table listing the different firemodes
+		-- example:
+		-- {
+		--    [1] = -1
+		--    [2] = 1
+		--    [3] = 3
+		-- }
+		function GetFireModes()
+
+		-- returns the index of the engine firemode array (starting at 0 unlike the table returned by GetFireModes)
+        function GetFireModeIndex()
 
         // Zoom
         bool StopZoom() // leaves ADS, plays the aim end animation when the weapon has one, false if the weapon was not zoomed
@@ -1640,7 +1657,8 @@
         function set_scale(vector);
         function set_scale(number, number, number);
         function set_scale(number);
-        function get_scale();
+        function get_scale(); -- returns vector
+        function get_scale_val(); -- returns number (x if x,y,z are the same, otherwise the average of all three values)
         function get_transform();
         function get_center();
 

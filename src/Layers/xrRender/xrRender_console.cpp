@@ -395,6 +395,9 @@ Fvector4 ps_s3ds_param_2 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 
+// Reflex Sights
+Fvector4 ps_reflex_param = { 0, 0, 0, 0 };
+
 float hud_fov_aim_factor = 0;
 
 int interpolation_based_scope_zoom = 0;
@@ -1091,11 +1094,7 @@ static const struct
 	{"shader_param_5", &ps_dev_param_5},
 	{"shader_param_6", &ps_dev_param_6},
 	{"shader_param_7", &ps_dev_param_7},
-	{"shader_param_8", &ps_dev_param_8},
-	{"s3ds_param_1", &ps_s3ds_param_1},
-	{"s3ds_param_2", &ps_s3ds_param_2},
-	{"s3ds_param_3", &ps_s3ds_param_3},
-	{"s3ds_param_4", &ps_s3ds_param_4}
+	{"shader_param_8", &ps_dev_param_8}
 };
 
 class CCC_BusList : public IConsole_Command
@@ -1564,21 +1563,24 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4Legacy, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
 	CMD4(CCC_Vector4Legacy, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
 
-	CMD1(CCC_BusList, "bus_list");
-	CMD1(CCC_BusGet, "bus_get");
-	CMD1(CCC_BusForce, "bus_force");
-	CMD1(CCC_BusRelease, "bus_release");
-
 	// Mark Switch
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
 	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
 	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 
 	// Shader 3D Scopes
-	CMD4(CCC_Vector4Legacy, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
-	CMD4(CCC_Vector4Legacy, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
-	CMD4(CCC_Vector4Legacy, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
-	CMD4(CCC_Vector4Legacy, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+	
+	CMD1(CCC_BusList, "bus_list");
+	CMD1(CCC_BusGet, "bus_get");
+	CMD1(CCC_BusForce, "bus_force");
+	CMD1(CCC_BusRelease, "bus_release");
+
+	// Reflex Sights
+	CMD4(CCC_Vector4, "reflex_param", &ps_reflex_param, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1000.0, 1000.0, 1000.0, 1000.0));
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
 

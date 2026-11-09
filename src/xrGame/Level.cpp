@@ -323,6 +323,7 @@ CLevel::~CLevel()
 	xr_delete(m_autosave_manager);
     xr_delete(m_debug_renderer);
     delete_data(m_debug_render_queue);
+    delete_data(m_debug_render_queue_immediate);
     if (!g_dedicated_server)
         ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
     xr_delete(game);
@@ -1198,7 +1199,16 @@ void CLevel::OnFrame()
 	}
 
 	for (auto& pair : m_script_attachments)
+    {
 		pair.second->Update();
+        pair.second->UpdateXFORM(nullptr, nullptr);
+    }
+
+	for (auto& light : g_pGamePersistent->ScriptLights)
+		light->Update();
+
+	for (auto& glow : g_pGamePersistent->ScriptGlows)
+		glow->Update();
 }
 
 int psLUA_GCSTEP = 300;
@@ -1327,6 +1337,16 @@ void CLevel::OnRender()
 
 	ScriptDebugRender();
 
+	for (u32 I = 0; I < Level().Objects.o_count(); I++)
+	{
+		CObject* _O = Level().Objects.o_get_by_iterator(I);
+		CGameObject* obj = smart_cast<CGameObject*>(_O);
+		if (obj) obj->DBGDrawPhysicsShell();
+	}
+
+	for (auto& pair : m_script_attachments)
+		pair.second->DBGDrawPhysicsShell();
+
 #ifdef DEBUG
     draw_wnds_rects();
     physics_world()->OnRender();
@@ -1436,7 +1456,7 @@ void CLevel::OnRender()
 
 void CLevel::ScriptDebugRender()
 {
-	if (!m_debug_render_queue.size())
+	if (!m_debug_render_queue.size() && !m_debug_render_queue_immediate.size())
 		return;
 
 	bool hasVisibleObj = false;
@@ -1449,6 +1469,19 @@ void CLevel::ScriptDebugRender()
 			hasVisibleObj = true;
 			obj->Render();
 		}
+	}
+
+	if (m_debug_render_queue_immediate.size())
+    {
+        hasVisibleObj = true;
+
+        for (auto& obj : m_debug_render_queue_immediate)
+        {
+            obj->Render();
+            xr_delete(obj);
+        }
+
+        m_debug_render_queue_immediate.clear_and_free();
 	}
 
 	// demonized: fix of showing console window when there are no visible gizmos 
@@ -1796,6 +1829,7 @@ void CLevel::OnAlifeSimulatorUnLoaded()
 	MapManager().ResetStorage();
 	GameTaskManager().ResetStorage();
 	delete_data(m_debug_render_queue);
+	delete_data(m_debug_render_queue_immediate);
 }
 
 void CLevel::OnAlifeSimulatorLoaded()
@@ -1803,6 +1837,7 @@ void CLevel::OnAlifeSimulatorLoaded()
 	MapManager().ResetStorage();
 	GameTaskManager().ResetStorage();
 	delete_data(m_debug_render_queue);
+	delete_data(m_debug_render_queue_immediate);
 }
 
 void CLevel::OnSessionTerminate(LPCSTR reason)

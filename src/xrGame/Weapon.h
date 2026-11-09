@@ -35,6 +35,9 @@ extern xr_map<shared_str, float> listScopeRadii;
 extern float scope_scrollpower;
 extern float sens_multiple;
 
+// non-linear weapon inertia
+extern BOOL g_use_non_linear_inertia;
+
 struct PickParam
 {
 	collide::rq_result RQ;
@@ -794,6 +797,18 @@ public:
 	{
 		return 1;
 	}
+
+    virtual int GetCurrentFireModeIndex()
+    {
+        return 0;
+    }
+
+    virtual luabind::object GetFireModes_script()
+    {
+        ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+        table[1] = 1;
+        return table;
+    }
 
 	//ïàðàìåòû îðóæèÿ â çàâèñèìîòè îò åãî ñîñòîÿíèÿ èñïðàâíîñòè
 	float GetConditionDispersionFactor() const;

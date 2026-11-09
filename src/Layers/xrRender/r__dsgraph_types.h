@@ -81,6 +81,7 @@ namespace R_dsgraph
 		dxRender_Visual* pVisual;
 		Fmatrix Matrix; // matrix (copy)
 		Fmatrix PrevMatrix;
+		float fov;
 	};
 
 	struct _MatrixItemS : public _MatrixItem

@@ -323,6 +323,7 @@ struct attachable_hud_item
 	~attachable_hud_item();
 	void load(const shared_str& sect_name);
 	void update(bool bForce);
+	void update_attachments_xform();
 	void setup_firedeps(firedeps& fd);
 	void render();
 	void render_item_ui();

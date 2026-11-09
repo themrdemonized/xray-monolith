@@ -754,6 +754,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("remove_attachment", SAFE_WRAP((void (CScriptGameObject::*)(script_attachment*)) &CScriptGameObject::RemoveAttachment))
 		.def("iterate_attachments", SAFE_WRAP(&CScriptGameObject::IterateAttachments))
 
+        // Lucy: Shader/Texture
 		.def("get_shaders", SAFE_WRAP(&CScriptGameObject::GetShaders))
 		.def("get_default_shaders", SAFE_WRAP(&CScriptGameObject::GetDefaultShaders))
 		.def("set_shader", SAFE_WRAP(&CScriptGameObject::SetShaderTexture))

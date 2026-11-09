@@ -1001,6 +1001,8 @@ ENGINE_API float psHUD_FOV_def = 0.45f;
 ENGINE_API float psHUD_FOV = psHUD_FOV_def;
 ENGINE_API float psCamAttachedFOV = 83.f;
 
+float psCAM_ATTACHED_FOV = 1.0;
+
 //extern int psSkeletonUpdate;
 extern int rsDVB_Size;
 extern int rsDIB_Size;
@@ -1249,6 +1251,10 @@ void CCC_Register()
 
 	CMD4(CCC_Integer, "r__framelimit", &ps_framelimiter, 0, 500);
 	CMD3(CCC_Mask, "rs_refresh_60hz", &psDeviceFlags, rsRefresh60hz);
+	CMD3(CCC_Mask, "dbg_ph_shapes", &psDeviceFlags2, rsDBGDrawPHShapes);
+	CMD3(CCC_Mask, "dbg_ph_bones", &psDeviceFlags2, rsDBGDrawPHBones);
+	CMD3(CCC_Mask, "dbg_vis_boxes", &psDeviceFlags2, rsDBGDrawVisBoxes);
+	CMD3(CCC_Mask, "dbg_attachment_cforms", &psDeviceFlags2, rsDBGDrawAttCForms);
 	CMD2(CCC_Color, "g_crosshair_color", &g_crosshair_color);
 	CMD4(CCC_Float, "mouse_sens_aim", &g_AimLookFactor, 0.01f, 5.0f);
 

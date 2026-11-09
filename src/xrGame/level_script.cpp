@@ -2493,6 +2493,9 @@ DBG_ScriptObject* add_object(LPCSTR s, DebugRenderType type)
 	case eDBGLine:
 		dbg_obj = xr_new<DBG_ScriptLine>();
 		break;
+    case eDBGCylinder:
+        dbg_obj = xr_new<DBG_ScriptCylinder>();
+        break;
 	default:
 		R_ASSERT2(false, "Wrong debug object type used!");
 	}
@@ -2506,6 +2509,50 @@ DBG_ScriptObject* add_object(u32 id, DebugRenderType type)
 {
 	auto s = std::to_string(id);
 	return add_object(s.c_str(), type);
+}
+
+void dbg_draw_line(Fvector& a, Fvector& b, Fcolor& color, bool hud)
+{
+    DBG_ScriptLine* dbg_obj = xr_new<DBG_ScriptLine>();
+    dbg_obj->m_point_a = a;
+    dbg_obj->m_point_b = b;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
+}
+
+void dbg_draw_box(Fmatrix& mat, Fvector& halfsize, Fcolor& color, bool hud)
+{
+    DBG_ScriptBox* dbg_obj = xr_new<DBG_ScriptBox>();
+    dbg_obj->m_mat = mat;
+    dbg_obj->m_size = halfsize;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
+}
+
+void dbg_draw_sphere(Fmatrix& mat, Fcolor& color, bool hud)
+{
+    DBG_ScriptSphere* dbg_obj = xr_new<DBG_ScriptSphere>();
+    dbg_obj->m_mat = mat;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
+}
+
+void dbg_draw_cylinder(Fmatrix& mat, float length, float radius, Fcolor& color, bool hud)
+{
+    DBG_ScriptCylinder* dbg_obj = xr_new<DBG_ScriptCylinder>();
+    dbg_obj->m_mat = mat;
+    dbg_obj->m_length = length;
+    dbg_obj->m_radius = radius;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
 }
 
 u32 get_flags()
@@ -2824,10 +2871,12 @@ void CLevel::script_register(lua_State* L)
 		[
 			value("line", (int)DebugRenderType::eDBGLine),
 			value("sphere", (int)DebugRenderType::eDBGSphere),
-			value("box", (int)DebugRenderType::eDBGBox)
+			value("box", (int)DebugRenderType::eDBGBox),
+			value("cylinder", (int)DebugRenderType::eDBGCylinder)
 		]
 	.def("cast_dbg_sphere", &DBG_ScriptObject::cast_dbg_sphere)
 		.def("cast_dbg_box", &DBG_ScriptObject::cast_dbg_box)
+		.def("cast_dbg_cylinder", &DBG_ScriptObject::cast_dbg_cyl)
 		.def("cast_dbg_line", &DBG_ScriptObject::cast_dbg_line)
 		.def_readwrite("color", &DBG_ScriptObject::m_color)
 		.def_readwrite("hud", &DBG_ScriptObject::m_hud)
@@ -2839,6 +2888,11 @@ void CLevel::script_register(lua_State* L)
 		class_<DBG_ScriptBox, DBG_ScriptObject>("DBG_ScriptBox")
 		.def_readwrite("matrix", &DBG_ScriptBox::m_mat)
 		.def_readwrite("size", &DBG_ScriptBox::m_size),
+
+		class_<DBG_ScriptCylinder, DBG_ScriptObject>("DBG_ScriptCylinder")
+		.def_readwrite("matrix", &DBG_ScriptCylinder::m_mat)
+		.def_readwrite("length", &DBG_ScriptCylinder::m_length)
+		.def_readwrite("radius", &DBG_ScriptCylinder::m_radius),
 
 		class_<DBG_ScriptLine, DBG_ScriptObject>("DBG_ScriptLine")
 		.def_readwrite("point_a", &DBG_ScriptLine::m_point_a)
@@ -2854,7 +2908,11 @@ void CLevel::script_register(lua_State* L)
 			def("get_object", ((DBG_ScriptObject * (*)(u32)) & get_object)),
 			def("get_object", ((DBG_ScriptObject * (*)(LPCSTR)) & get_object)),
 			def("get_flags", get_flags),
-			def("set_flags", set_flags)
+			def("set_flags", set_flags),
+			def("draw_line", dbg_draw_line),
+			def("draw_box", dbg_draw_box),
+			def("draw_sphere", dbg_draw_sphere),
+			def("draw_cylinder", dbg_draw_cylinder)
 		];
 
 	module(L)

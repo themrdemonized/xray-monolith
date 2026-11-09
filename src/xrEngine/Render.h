@@ -62,8 +62,12 @@ public:
 	{
 	};
 	virtual void set_position(const Fvector& P, const float eps = EPS) = 0;
+	virtual const Fvector& get_position() const = 0;
 	virtual void set_rotation(const Fvector& D, const Fvector& R, const float eps = EPS) = 0;
+	virtual const Fvector& get_rotation() const = 0;
+	virtual const Fvector& get_right() const = 0;
 	virtual void set_cone(float angle) = 0;
+	virtual const float& get_cone() const = 0;
 	virtual void set_range(float R) = 0;
 	virtual void set_virtual_size(float R) = 0;
 	virtual void set_texture(LPCSTR name) = 0;
@@ -71,7 +75,10 @@ public:
 	virtual void set_color(float r, float g, float b) = 0;
 	virtual void set_hud_mode(bool b) = 0;
 	virtual bool get_hud_mode() = 0;
+	virtual void set_ortho(bool b) = 0;
+	virtual bool get_ortho() = 0;
 	virtual void set_is_playerlight(bool b) = 0;
+	virtual bool get_is_playerlight() = 0;
 	virtual ~IRender_Light();
 };
 
@@ -288,6 +295,8 @@ public:
 	virtual BOOL get_UI3D() = 0;
 	virtual void set_CamAttached(BOOL V) = 0;
 	virtual BOOL get_CamAttached() = 0;
+	virtual void set_CustomFOV(float V) = 0;
+	virtual float get_CustomFOV() = 0;
 	virtual void set_Invisible(BOOL V) = 0;
 	virtual void flush() = 0;
 	virtual void set_Object(IRenderable* O) = 0;

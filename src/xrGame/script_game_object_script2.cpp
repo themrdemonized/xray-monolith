@@ -221,6 +221,7 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("memory_position", SAFE_WRAP(&CScriptGameObject::memory_position))
 		.def("best_weapon", SAFE_WRAP(&CScriptGameObject::best_weapon))
 		.def("explode", SAFE_WRAP(&CScriptGameObject::explode))
+		.def("set_initiator", SAFE_WRAP(&CScriptGameObject::set_initiator))
 		.def("get_enemy", SAFE_WRAP(&CScriptGameObject::GetEnemy))
 		.def("get_corpse", SAFE_WRAP(&CScriptGameObject::GetCorpse))
 		.def("get_enemy_strength", &CScriptGameObject::GetEnemyStrength)

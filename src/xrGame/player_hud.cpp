@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "player_hud.h"
+#include "Level.h"
 #include "HudItem.h"
 #include "ui_base.h"
 #include "actor.h"
@@ -279,6 +280,18 @@ void attachable_hud_item::update(bool bForce)
 	}
 }
 
+void attachable_hud_item::update_attachments_xform()
+{
+	if (!m_parent_hud_item->has_object()) return;
+
+	for (auto& pair : *m_parent_hud_item->object().GetAttachments())
+	{
+		script_attachment* att = pair.second;
+		if (att->GetType() == eSA_HUD)
+			att->UpdateXFORM(m_model, &m_item_transform);
+	}
+}
+
 void attachable_hud_item::setup_firedeps(firedeps& fd)
 {
 	update(false);
@@ -336,18 +349,19 @@ bool attachable_hud_item::need_renderable()
 
 void attachable_hud_item::render()
 {
+	m_parent_hud_item->render_hud_mode();
+
+	if (m_parent_hud_item->m_instance_holder_hud && !m_parent_hud_item->m_instance_holder_hud->ModelInstanceMultirender()) return;
+
 	::Render->set_Transform(&m_item_transform);
 	::Render->add_Visual(m_model->dcast_RenderVisual());
 
-	m_parent_hud_item->render_hud_mode();
+	if (!m_parent_hud_item->has_object()) return;
 
-	if (m_parent_hud_item->has_object() && m_parent_hud_item->object().GetAttachments()->size())
-	{
 		for (auto& pair : *m_parent_hud_item->object().GetAttachments())
 		{
 			if (pair.second->GetType() == eSA_HUD)
-				pair.second->Render(m_model, &m_item_transform);
-		}
+			pair.second->renderable_Render();
 	}
 }
 
@@ -360,13 +374,12 @@ void attachable_hud_item::render_item_ui()
 {
 	m_parent_hud_item->render_item_3d_ui();
 
-	if (m_parent_hud_item->has_object() && m_parent_hud_item->object().GetAttachments()->size())
-	{
+	if (!m_parent_hud_item->has_object()) return;
+
 		for (auto& pair : *m_parent_hud_item->object().GetAttachments())
 		{
 			if (pair.second->GetType() == eSA_HUD)
 				pair.second->RenderUI();
-		}
 	}
 }
 
@@ -591,6 +604,8 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 
 attachable_hud_item::~attachable_hud_item()
 {
+	if (m_parent_hud_item->m_instance_holder_hud) m_parent_hud_item->m_instance_holder_hud->ClearModelInstance();
+
 	IRenderVisual* v = m_model->dcast_RenderVisual();
 	::Render->model_Delete(v);
 	m_model = nullptr;
@@ -981,17 +996,18 @@ void player_hud::load_script(LPCSTR section)
 
 bool player_hud::render_item_ui_query()
 {
-	bool res = false;
-	if (m_attached_items[0])
-		res |= m_attached_items[0]->render_item_ui_query();
+    if (m_attached_items[0] && m_attached_items[0]->render_item_ui_query()) return true;
+    if (m_attached_items[1] && m_attached_items[1]->render_item_ui_query()) return true;
 
-	if (m_attached_items[1])
-		res |= m_attached_items[1]->render_item_ui_query();
+    if (m_attached_items[SCOPE_ATTACH_IDX] && m_attached_items[SCOPE_ATTACH_IDX]->render_item_ui_query()) return true;
 
-	if (m_attached_items[SCOPE_ATTACH_IDX])
-		res |= m_attached_items[SCOPE_ATTACH_IDX]->render_item_ui_query();
+    for (auto& pair : *g_actor->GetAttachments())
+    {
+        script_attachment* att = pair.second;
+        if (att->GetType() == eSA_HUD && att->HasUI()) return true;
+    }
 
-	return res;
+	return false;
 }
 
 void player_hud::render_item_ui()
@@ -1012,11 +1028,11 @@ void player_hud::render_item_ui()
 	UIRender->CacheSetCullMode(IUIRender::cmCCW);
 	UI().m_currentPointType = bk;
 
-	if (g_actor->GetAttachments()->size())
+	for (auto& pair : *g_actor->GetAttachments())
 	{
-		for (auto& pair : *g_actor->GetAttachments())
-			if (pair.second->GetType() == eSA_HUD)
-				pair.second->RenderUI();
+		script_attachment* att = pair.second;
+		if (att->GetType() == eSA_HUD)
+			att->RenderUI();
 	}
 }
 
@@ -1314,23 +1330,13 @@ void player_hud::render_hud()
 		::Render->add_Visual(script_anim_item_model->dcast_RenderVisual());
 	}
 
-	if (g_actor->GetAttachments()->size())
-	{
-		for (auto& pair : *g_actor->GetAttachments())
+	auto& actor_hud_attachments = *g_actor->GetAttachments();
+	for (auto& pair : actor_hud_attachments)
 		{
 			script_attachment* att = pair.second;
 
 			if (att->GetType() == eSA_HUD)
-			{
-				// Left arm
-				if (att->GetParentBone() < 21)
-					att->Render(m_model_2->dcast_PKinematics(), &m_transform_2);
-
-				// Right arm
-				else
-					att->Render(m_model->dcast_PKinematics(), &m_transform);
-			}
-		}
+            att->renderable_Render();
 	}
 }
 
@@ -2607,7 +2613,29 @@ void player_hud::OnFrame()
 	}
 
 	if (g_actor && g_actor->IsFocused() && m_model && m_model_2)
+	{
+        // Update weapon transforms
+		if (m_attached_items[0])
+			m_attached_items[0]->update_attachments_xform();
+
+		if (m_attached_items[1])
+			m_attached_items[1]->update_attachments_xform();
+
+        // Call Lua to update targets and solve IK
 		finalize_hands_ik();
+
+        // Update hud attachments transforms
+		xr_map<shared_str, script_attachment*>& actor_hud_attachments = *g_actor->GetAttachments();
+		for (auto& pair : actor_hud_attachments)
+		{
+			script_attachment* att = pair.second;
+			if (att->GetType() == eSA_HUD)
+			{
+				bool m2 = att->GetParentBone() < 21;
+				att->UpdateXFORM(m2 ? m_model_2->dcast_PKinematics() : m_model->dcast_PKinematics(), m2 ? &m_transform_2 : &m_transform);
+			}
+		}
+	}
 }
 
 void player_hud::net_Relcase(CObject* obj)

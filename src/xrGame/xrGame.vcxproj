@@ -1270,6 +1270,7 @@
     <ClInclude Include="inventory_upgrade_root.h" />
     <ClInclude Include="inventory_upgrade_root_inline.h" />
     <ClInclude Include="invincible_fury.h" />
+    <ClInclude Include="iscript_attachment.h" />
     <ClInclude Include="item_manager.h" />
     <ClInclude Include="key_binding_registrator.h" />
     <ClInclude Include="killer_victim_velocity_angle.h" />

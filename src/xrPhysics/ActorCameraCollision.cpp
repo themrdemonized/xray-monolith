@@ -11,6 +11,7 @@
 #include "PHShell.h"
 #include "matrix_utils.h"
 #include "iphysicsshellholder.h"
+#include "../xrGame/Iscript_attachment.h"
 
 //#include "ai/stalker/ai_stalker.h"
 #include "GeometryBits.h"
@@ -47,8 +48,15 @@ static void cammera_shell_collide_callback_common(bool& do_collide, bool bo1, dC
 	dxGeomUserData* oposite_data = retrieveGeomUserData(bo1 ? c.geom.g2 : c.geom.g1);
 
 	VERIFY(my_data);
-	if (oposite_data && oposite_data->ph_ref_object == my_data->ph_ref_object)
+    if (oposite_data)
+    {
+        if (oposite_data->ph_ref_object == my_data->ph_ref_object)
 		return;
+
+        if (oposite_data->ph_ref_attachment && !oposite_data->ph_ref_attachment->GetCamCollide())
+            return;
+    }
+   
 	if (c.geom.depth > camera_collision_sckin_depth / 2.f)
 		cam_collided = true;
 

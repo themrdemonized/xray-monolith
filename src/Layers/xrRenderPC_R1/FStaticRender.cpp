@@ -6,6 +6,7 @@
 #include "../../xrEngine/igame_persistent.h"
 #include "../../xrEngine/environment.h"
 #include "../xrRender/fbasicvisual.h"
+#include "../../Include/xrRender/RenderVisual.h"
 #include "../../xrEngine/CustomHUD.h"
 #include "../../xrEngine/xr_object.h"
 #include "../../xrEngine/fmesh.h"

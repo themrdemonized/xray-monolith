@@ -98,6 +98,9 @@ void CLight_Compute_XFORM_and_VIS::compute_xf_spot(light* L)
 		tan_shift = 0.0610865f; //deg2rad(3.5f);
 
 	/* Ray Twitty end */
+	if (L->flags.bOrtho)
+		L->X.S.project.build_projection_ortho(L->cone + tan_shift, L->cone + tan_shift, L->virtual_size, L->range + EPS_S);
+	else
 	L->X.S.project.build_projection(L->cone + tan_shift, 1.f, L->virtual_size, L->range + EPS_S);
 	L->X.S.combine.mul(L->X.S.project, L->X.S.view);
 }
