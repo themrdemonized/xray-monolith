@@ -249,5 +249,16 @@ public:
 	virtual void on_attack_on_run_hit();
 	bool done_enough_hits_before_vampire();
 
+	// Script levers over the vampire grab, read in the grab gate (bloodsucker_vampire_execute_inline.h).
+	// force: fire the grab on our premise, bypassing the warm-up-hits and want-accumulator pacing - the
+	// feasibility and safety gates (range, facing, actor-only, not-controlling) still hold; consumed
+	// when the grab starts, so it fires once. veto: block the grab. Both default false = vanilla.
+	bool m_force_vampire = false;
+	bool m_veto_vampire = false;
+	void set_force_vampire(bool v) { m_force_vampire = v; }
+	bool get_force_vampire() const { return m_force_vampire; }
+	void set_veto_vampire(bool v) { m_veto_vampire = v; }
+	bool get_veto_vampire() const { return m_veto_vampire; }
+
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

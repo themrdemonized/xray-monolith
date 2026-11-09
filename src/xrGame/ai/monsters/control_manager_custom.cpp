@@ -9,6 +9,8 @@
 #include "../../level.h"
 #include "control_animation_base.h"
 #include "control_critical_wound.h"
+#include "pch_script.h"
+#include "../../script_game_object.h"
 
 
 CControlManagerCustom::CControlManagerCustom()
@@ -478,6 +480,14 @@ bool CControlManagerCustom::script_try_jump(const Fvector& position, float facto
 	{
 		ctrl_data->target_object = enemy;
 		ctrl_data->flags.or(SControlJumpData::eUseTargetPosition);
+	}
+
+	// can_jump after ePrepareSkip is set (its trace reads the flag); the aggressive mode is the species' call, as in jump_if_possible
+	bool const aggressive_jump = enemy ? m_object->can_use_agressive_jump(enemy) : false;
+	if (!m_jump->can_jump(position, aggressive_jump))
+	{
+		m_man->release(this, ControlCom::eControlJump);
+		return false;
 	}
 
 	m_man->activate(ControlCom::eControlJump);

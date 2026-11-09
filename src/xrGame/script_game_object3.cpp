@@ -44,6 +44,7 @@
 #include "ai/monsters/burer/burer.h"
 #include "ai/monsters/controller/controller.h"
 #include "ai/monsters/poltergeist/poltergeist.h"
+#include "ai/monsters/snork/snork.h"
 #include "ai/monsters/control_manager_custom.h"
 #include "ai/monsters/control_jump.h"
 #include "ai/monsters/control_run_attack.h"
@@ -512,6 +513,79 @@ void CScriptGameObject::set_burer_tele_params(int max_objects, float find_radius
 	if (min_dist >= 0.f) burer->m_tele_min_distance = min_dist;
 	if (max_dist >= 0.f) burer->m_tele_max_distance = max_dist;
 	if (fly_velocity >= 0.f) burer->m_tele_fly_velocity = fly_velocity;
+}
+
+// Burer only. Shield pacing: cooldown between raises and how long each holds. Negative keeps the loaded
+// value; default byte-identical vanilla. The trigger (lost ~1% health + off cooldown) stays engine-owned.
+void CScriptGameObject::set_burer_shield_params(float cooldown_ms, float duration_ms)
+{
+	CBurer* burer = smart_cast<CBurer*>(&object());
+	if (!burer)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBurer : cannot access class member set_burer_shield_params!");
+		return;
+	}
+	if (cooldown_ms >= 0.f) burer->m_shield_cooldown = (TTime)cooldown_ms;
+	if (duration_ms >= 0.f) burer->m_shield_time = (TTime)duration_ms;
+}
+
+// Snork only. Arms one roar GSC hardwires off; the roar disarms it; false = vanilla.
+void CScriptGameObject::set_snork_roar_enabled(bool enabled)
+{
+	CSnork* snork = smart_cast<CSnork*>(&object());
+	if (!snork)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSnork : cannot access class member set_snork_roar_enabled!");
+		return;
+	}
+	snork->set_script_roar_enabled(enabled);
+}
+
+// Snork only. The roar arm: true until a roar uses it; false on a non-snork.
+bool CScriptGameObject::get_snork_roar_enabled()
+{
+	CSnork* snork = smart_cast<CSnork*>(&object());
+	if (!snork) return false;
+	return snork->get_script_roar_enabled();
+}
+
+// Controller only. Fires the psi tube on the caller's premise, but only if the engine's own start conditions
+// pass (can_tube_fire: live enemy, see-duration met, psy-hit ready, min distance). Returns whether it fired.
+// Refusal-checked - never commands a blind fire. There is no force flag to mirror; this is a direct invoke.
+bool CScriptGameObject::try_controller_tube()
+{
+	CController* controller = smart_cast<CController*>(&object());
+	if (!controller)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CController : cannot access class member try_controller_tube!");
+		return false;
+	}
+	if (!controller->can_tube_fire()) return false;
+	controller->tube_fire();
+	return true;
+}
+
+// Controller only. Blocks the controller's own tube fire (shedule_Update); try_controller_tube still fires. false = vanilla.
+void CScriptGameObject::controller_set_veto_tube(bool veto)
+{
+	CController* controller = smart_cast<CController*>(&object());
+	if (!controller)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CController : cannot access class member controller_set_veto_tube!");
+		return;
+	}
+	controller->set_veto_tube(veto);
+}
+
+bool CScriptGameObject::controller_get_veto_tube()
+{
+	CController* controller = smart_cast<CController*>(&object());
+	if (!controller) return false;
+	return controller->get_veto_tube();
 }
 
 void CScriptGameObject::set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms,

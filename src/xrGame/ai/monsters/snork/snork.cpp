@@ -286,9 +286,9 @@ bool CSnork::check_start_conditions(ControlCom::EControlType type)
 
 	if (type == ControlCom::eControlThreaten)
 	{
-		return false;
-		// 		if (!start_threaten) return false;
-		// 		start_threaten = false;
+		// script-armed revival of GSC's once-per-attack-entry gate (start_threaten, set by the state manager)
+		if (!m_script_roar_enabled || !start_threaten) return false;
+		start_threaten = false;
 		// 		if (Random.randI(100) < 50) return false;
 	}
 
@@ -300,6 +300,7 @@ void CSnork::on_activate_control(ControlCom::EControlType type)
 	if (type == ControlCom::eControlThreaten)
 	{
 		sound().play(MonsterSound::eMonsterSoundThreaten);
+		m_script_roar_enabled = false; // one roar per arm; the script re-arms per encounter
 		//m_sound_start_threaten.play_at_pos(this, get_head_position(this));
 	}
 }
