@@ -177,13 +177,13 @@ void CDialogHolder::RemoveDialogToRender(CUIWindow* pDialog)
 }
 
 
-void CDialogHolder::DoRenderDialogs()
+void CDialogHolder::DoRenderDialogs(CUIWindow* skip)
 {
     m_b_in_render = true;
 	xr_vector<dlgItem>::iterator it = m_dialogsToRender.begin();
 	for (; it != m_dialogsToRender.end(); ++it)
 	{
-		if ((*it).enabled && (*it).wnd && (*it).wnd->IsShown())
+		if ((*it).enabled && (*it).wnd && (*it).wnd->IsShown() && (*it).wnd != skip)
 			(*it).wnd->Draw();
 	}
     m_b_in_render = false;

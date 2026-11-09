@@ -19,7 +19,7 @@
 #include "UI/UIGameTutorial.h"
 #include "ui/UIPdaWnd.h"
 #include "../xrNetServer/NET_AuthCheck.h"
-
+#include "script_attachment_manager.h"
 #include "../xrphysics/physicscommon.h"
 extern ENGINE_API bool g_dedicated_server;
 
@@ -73,6 +73,7 @@ void CLevel::remove_objects()
 		}
 	}
 
+	delete_data(m_script_attachments);
 	BulletManager().Clear();
 	ph_commander().clear();
 	ph_commander_scripts().clear();

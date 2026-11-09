@@ -77,11 +77,16 @@ BOOL CSpaceRestrictor::net_Spawn(CSE_Abstract* data)
 	if (!result)
 		return (FALSE);
 
-	//Alundaio: zone visible for ai if g_ai_die_in_anomaly = 1 unless it's Radioactive Zone or Campfire
+	// Keep damaging anomalies detectable for NPC avoidance independently of damage settings.
 	CCustomZone* zone = smart_cast<CCustomZone*>(this);
-	//if (g_ai_die_in_anomaly == 0 || !zone || smart_cast<CRadioactiveZone*>(zone) || smart_cast<CZoneCampfire*>(zone))
 	if (!zone || smart_cast<CRadioactiveZone*>(zone) || smart_cast<CZoneCampfire*>(zone))
 		SpatialComponent->spatial.type &= ~STYPE_VISIBLEFORAI;
+
+#ifdef SPATIAL_CHANGE
+	// Anomaly trigger volumes must not occlude sight rays through their area.
+	if (zone)
+		SpatialComponent->spatial.type |= STYPE_FEELVISIONIGNORE;
+#endif
 
 	setEnabled(FALSE);
 	setVisible(FALSE);

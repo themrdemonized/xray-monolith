@@ -166,7 +166,7 @@ public:
 		return (d > 0);
 	}
 
-	ICF BOOL intersect(const _sphere<T>& S) const
+	ICF bool intersect(const _sphere<T>& S) const
 	{
 		T SumR = R + S.R;
 		return P.distance_to_sqr(S.P) < SumR * SumR;

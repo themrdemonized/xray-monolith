@@ -9,6 +9,7 @@ struct vis_data
 	Fbox box; //
 	u32 hom_frame; // when to perform test - shedule
 	u32 hom_tested; // when it was last time tested
+    bool skip_marker; // do not copy!
 
 	IC void clear()
 	{
@@ -17,6 +18,7 @@ struct vis_data
 		box.invalidate();
 		hom_frame = 0;
 		hom_tested = 0;
+        skip_marker = false;
 	}
 };
 #pragma pack(pop)

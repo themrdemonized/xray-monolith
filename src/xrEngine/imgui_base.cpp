@@ -260,6 +260,7 @@ namespace xr_imgui
 
         m_shown = bShow;
         m_shown ? IR_Capture() : IR_Release();
+        g_pGamePersistent->ImGui_OnShow(m_shown);
     }
 
     ImFont* ide::GetFont(LPCSTR name)

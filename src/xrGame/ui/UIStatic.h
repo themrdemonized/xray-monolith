@@ -59,6 +59,19 @@ public:
 		m_UIStaticItem.SetHeadingPivot(p, offset, fixedLT);
 	}
 
+	void SetOnlyHeadingPivot(const Fvector2& p)
+	{
+		m_UIStaticItem.vHeadingPivot = p;
+	}
+
+	void SetOnlyHeadingOffset(const Fvector2& offset)
+	{
+		m_UIStaticItem.vHeadingOffset = offset;
+	}
+
+	Fvector2 GetOnlyHeadingPivot() const { return m_UIStaticItem.vHeadingPivot; }
+	Fvector2 GetOnlyHeadingOffset() const { return m_UIStaticItem.vHeadingOffset; }
+
 	void ResetHeadingPivot() { m_UIStaticItem.ResetHeadingPivot(); }
 
 	float SetLineTo(float x1, float y1, float x2, float y2, float thickness);

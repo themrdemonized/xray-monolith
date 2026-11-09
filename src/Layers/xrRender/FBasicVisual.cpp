@@ -28,11 +28,11 @@ dxRender_Visual::dxRender_Visual()
 	Type = 0;
 	shader = 0;
 	vis.clear();
+    dbg_id = 1;
+    skinning = 1;
 }
 
-dxRender_Visual::~dxRender_Visual()
-{
-}
+dxRender_Visual::~dxRender_Visual() {}
 
 void dxRender_Visual::Release()
 {

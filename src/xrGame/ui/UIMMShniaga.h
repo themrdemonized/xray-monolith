@@ -54,6 +54,7 @@ protected:
 	void ProcessEvent(EVENT ev);
 
 	bool IsButton(CUIWindow* st);
+	bool IsFrozenByModal();
 	void CreateList(xr_vector<CUITextWnd*>& lst, CUIXml& xml_doc, LPCSTR path);
 	void ShowMain();
 	void ShowNewGame();

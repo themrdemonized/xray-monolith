@@ -36,6 +36,7 @@
 #include "inventory.h"
 #include "activatingcharcollisiondelay.h"
 #include "stalker_movement_manager_smart_cover.h"
+#include "script_attachment_manager.h"
 
 #include "../build_config_defines.h"
 
@@ -1089,6 +1090,30 @@ void CCharacterPhysicsSupport::AddActiveWeaponCollision()
 	//DBG_ClosedCashedDraw( 50000 );
 }
 
+void CCharacterPhysicsSupport::AddAllAttachmentsCollision()
+{
+	CGameObject* obj = smart_cast<CGameObject*>(&m_EntityAlife);
+	VERIFY(obj);
+	auto attachments = obj->GetAttachments();
+	if (!attachments || !attachments->size())
+		return;
+
+	for (auto& pair : *attachments)
+		pair.second->OnParentCreatePhysicsShell();
+}
+
+void CCharacterPhysicsSupport::RemoveAllAttachmentsCollision()
+{
+	CGameObject* obj = smart_cast<CGameObject*>(&m_EntityAlife);
+	VERIFY(obj);
+	auto attachments = obj->GetAttachments();
+	if (!attachments || !attachments->size())
+		return;
+
+	for (auto& pair : *attachments)
+		pair.second->OnParentDestroyPhysicsShell();
+}
+
 void CCharacterPhysicsSupport::CreateShell(CObject* who, Fvector& dp, Fvector& velocity)
 {
 	xr_delete(m_collision_activating_delay);
@@ -1296,6 +1321,11 @@ void CCharacterPhysicsSupport::in_ChangeVisual()
 			m_hit_animations.SetupHitMotions(*KA);
 	}
 
+	RecreateSkeleton();
+}
+
+void CCharacterPhysicsSupport::RecreateSkeleton()
+{
 	if (!m_physics_skeleton && !m_pPhysicsShell) return;
 
 	if (m_pPhysicsShell)

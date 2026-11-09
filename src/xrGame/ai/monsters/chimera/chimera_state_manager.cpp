@@ -27,8 +27,9 @@ CStateManagerChimera::CStateManagerChimera(CChimera* obj) : inherited(obj)
 	add_state(eStateEat, xr_new<CStateMonsterEat<CChimera>>(obj));
 	add_state(eStateHearInterestingSound, xr_new<CStateMonsterHearInterestingSound<CChimera>>(obj));
 	add_state(eStateHearDangerousSound, xr_new<CStateMonsterHearDangerousSound<CChimera>>(obj));
-	// 	add_state(eStateHitted,					xr_new<CStateMonsterHitted<CChimera> >					(obj));
-	// 	add_state(eStateThreaten,				xr_new<CStateChimeraThreaten<CChimera> >				(obj));
+	// dormant: no ladder branch selects these, only a monster_on_combat_action proposal reaches them
+	add_state(eStateHitted, xr_new<CStateMonsterHitted<CChimera>>(obj));
+	add_state(eStateThreaten, xr_new<CStateChimeraThreaten<CChimera>>(obj));
 	// 	add_state(eStateCustom,					xr_new<CStateMonsterTestState<CChimera> >				(obj));
 }
 
@@ -44,16 +45,24 @@ void CStateManagerChimera::execute()
 
 	if (enemy)
 	{
-		//if (check_state(eStateThreaten)) state_id = eStateThreaten;
-		switch (object->EnemyMan.get_danger_type())
+		// a Lua-proposed state is taken only if registered and its own start conditions pass
+		u32 proposed = object->script_combat_substate();
+		CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+		if (proposed_state && proposed_state->check_start_conditions())
 		{
-		case eStrong: state_id = eStatePanic;
-			break;
-		case eWeak: state_id = eStateAttack;
-			break;
+			state_id = proposed;
 		}
-		// 	else if (object->HitMemory.is_hit()) {
-		// 		state_id = eStateHitted;
+		else
+		{
+			switch (object->EnemyMan.get_danger_type())
+			{
+			case eStrong: state_id = eStatePanic;
+				break;
+			case eWeak: state_id = eStateAttack;
+				break;
+			}
+		}
 	}
 	else if (object->hear_dangerous_sound)
 	{

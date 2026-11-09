@@ -54,6 +54,40 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 	return _sqrt(clampr((ssa - r_ssaGLOD_end) / (r_ssaGLOD_start - r_ssaGLOD_end), 0.f, 1.f));
 }
 
+namespace
+{
+class CCustomFOVInitializer
+{
+	bool enabled;
+	bool near_depth;
+	Fmatrix saved_project;
+	Fmatrix saved_full;
+
+public:
+	explicit CCustomFOVInitializer(float fov, bool adjust_depth = false)
+		: enabled(fov != 0.f), near_depth(adjust_depth)
+	{
+		if (!enabled) return;
+		saved_project = RCache.get_xform_project();
+		saved_full = Device.mFullTransform;
+		Fmatrix project;
+		project.build_projection(deg2rad(fov), Device.fASPECT, R_VIEWPORT_NEAR,
+			g_pGamePersistent->Environment().CurrentEnv->far_plane);
+		if (near_depth) RImplementation.rmNear();
+		Device.mFullTransform.mul(project, Device.mView);
+		RCache.set_xform_project(project);
+	}
+
+	~CCustomFOVInitializer()
+	{
+		if (!enabled) return;
+		if (near_depth) RImplementation.rmNormal();
+		Device.mFullTransform = saved_full;
+		RCache.set_xform_project(saved_project);
+	}
+};
+}
+
 template<typename T, bool Reverse>
 void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear)
 {
@@ -67,6 +101,7 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 		dxRender_Visual* V = item.pVisual;
 		VERIFY(V && V->shader._get());
 		RCache.set_Element(item.pSE);
+		CCustomFOVInitializer projection(item.fov);
 		RCache.set_xform_world(*item.pMatrix);
 		RImplementation.apply_object(item.pObject);
 		RImplementation.apply_lmaterial();
@@ -181,6 +216,8 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
             }
 
 			auto& item = packet.item;
+			// Opaque custom-FOV geometry keeps all of its original material passes.
+			CCustomFOVInitializer projection(item.fov, true);
 			if (!static_geometry)
 			{
 				RCache.set_xform_world(*item.pMatrix);
@@ -210,7 +247,13 @@ void CDSGraphManager::r_dsgraph_render_hud()
 	// Rendering
 	RImplementation.rmNear();
 	r_dsgraph_render_graph_sorted(RGraph.mapHUD);
+	r_dsgraph_render_graph_sorted(RGraph.mapCustomFOV);
 
+	if (!RGraph.mapCamAttached.empty())
+	{
+		initializer.SetCamMode();
+		r_dsgraph_render_graph_sorted(RGraph.mapCamAttached);
+	}
 	RImplementation.rmNormal();
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
@@ -218,27 +261,20 @@ void CDSGraphManager::r_dsgraph_render_hud()
 	{
 		RCache.set_RT(RImplementation.Target->rt_ssfx_temp->pRT, 3); // Render scope_3D to any buffer
 
+		initializer.SetHudMode();
 		r_dsgraph_render_graph_sorted(RGraph.mapScopeHUD);
+		initializer.SetCamMode();
+		r_dsgraph_render_graph_sorted(RGraph.mapScopeCamAttached);
+		initializer.SetHudMode();
 
 		if (!RImplementation.o.ssfx_motionvectors)
 			RCache.set_RT(NULL, 3);
 		else
 			RCache.set_RT(RImplementation.Target->rt_ssfx_motion_vectors->pRT, 3);
 	}
+	RGraph.mapScopeHUD.clear();
+	RGraph.mapScopeCamAttached.clear();
 #endif
-
-	if (RGraph.mapCamAttached.size())
-	{
-		RImplementation.rmNear();
-
-		// Change projection
-		initializer.SetCamMode();
-
-		// Rendering
-		r_dsgraph_render_graph_sorted(RGraph.mapCamAttached);
-
-		RImplementation.rmNormal();
-	}
 }
 
 void CDSGraphManager::r_dsgraph_render_hud_ui()
@@ -268,27 +304,18 @@ void CDSGraphManager::r_dsgraph_render_cam_ui()
 // strict-sorted render
 void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 {
+	r_dsgraph_render_ui();
 	{
 		PROF_EVENT("r_dsgraph_render_sorted");
 		// Rendering
 		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, true);
 		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, true);
+		r_dsgraph_render_graph_sorted(RGraph.mapCustomFOVSorted.Sorted, true);
 	}
 
 	if (render_hud)
 		r_dsgraph_render_sorted_hud();
 
-	// Camera Script Attachments
-	if (RGraph.mapCamAttachedSorted.Sorted.size())
-	{
-		RImplementation.rmNear();
-		// Change projection
-		CHudInitializer initializer(2);
-
-		// Rendering
-		r_dsgraph_render_graph_sorted(RGraph.mapCamAttachedSorted.Sorted, true);
-		RImplementation.rmNormal();
-	}
 }
 
 void CDSGraphManager::r_dsgraph_capture_hud()
@@ -311,6 +338,8 @@ void CDSGraphManager::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shad
 	// Rendering
 	RImplementation.rmNear();
 	r_dsgraph_render_graph_sorted(RGraph.mapScopeHUDSorted, true);
+	initializer.SetCamMode();
+	r_dsgraph_render_graph_sorted(RGraph.mapScopeCamAttachedSorted, true);
 	RImplementation.rmNormal();
 }
 #endif
@@ -325,6 +354,8 @@ void CDSGraphManager::r_dsgraph_render_sorted_hud()
 
 	RImplementation.rmNear();
 	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Sorted, true);
+	initializer.SetCamMode();
+	r_dsgraph_render_graph_sorted(RGraph.mapCamAttachedSorted.Sorted, true);
 	RImplementation.rmNormal();
 }
 
@@ -336,6 +367,7 @@ void CDSGraphManager::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 #if	RENDER!=R_R1
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Emissive, clear);
 	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Emissive, clear);
+	r_dsgraph_render_graph_sorted(RGraph.mapCustomFOVSorted.Emissive, clear);
 	
 	//	HACK: Calculate this only once
 	CHudInitializer initializer(true);
@@ -433,6 +465,7 @@ void CDSGraphManager::r_dsgraph_render_distort()
 	// Rendering
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Distort, true);
 	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Distort, true);
+	r_dsgraph_render_graph_sorted(RGraph.mapCustomFOVSorted.Distort, true);
 	//	HACK: Calculate this only once
 	CHudInitializer initalizer(true);
 
@@ -758,4 +791,66 @@ void CDSGraphManager::r_dsgraph_capture(bool lights, bool dynamic, CObject* O)
 
 	if (dynamic)
 		r_dsgraph_capture_dynamic(O);
+}
+
+void CDSGraphManager::r_dsgraph_render_ui_3d()
+{
+    const Fmatrix saved_world = RCache.get_xform_world();
+    const Fmatrix saved_view = RCache.get_xform_view();
+    const Fmatrix saved_project = RCache.get_xform_project();
+    const Fmatrix saved_full = Device.mFullTransform;
+    Device.mFullTransform = Device.mFullTransform3DIcons;
+    RCache.set_xform_view(Device.mView);
+    RCache.set_xform_project(Device.mProject3DIcons);
+    auto render_icons = [&](auto& graph, bool material_shader = false)
+    {
+        std::sort(graph.begin(), graph.end());
+        for (auto& item : graph)
+        {
+            dxRender_Visual* visual = item.pVisual;
+            VERIFY(visual && visual->shader._get());
+            if (material_shader)
+            {
+                // DX11 sorted icons use main's selected mesh material and distance-based LOD.
+                RCache.set_Element(item.pSE);
+                RCache.set_xform_world(*item.pMatrix);
+                RImplementation.apply_object(item.pObject);
+                RImplementation.apply_lmaterial();
+                visual->Render(calcLOD(item.sortKey, visual->vis.sphere.R));
+                continue;
+            }
+            R_ASSERT(visual->skinning >= -1 && visual->skinning <= 4);
+            RCache.set_Shader(RImplementation.Target->s_ui_icons[visual->skinning + 1]);
+            RCache.set_Textures(visual->shader->E[0]->passes[0]->T);
+            RCache.set_xform_world(*item.pMatrix);
+#if RENDER == R_R4
+            RImplementation.apply_object(nullptr);
+            RImplementation.apply_lmaterial();
+#endif
+            visual->Render(0.f);
+        }
+        graph.clear();
+    };
+    render_icons(RGraph.mapUI3D);
+#if RENDER != R_R1
+    render_icons(RGraph.mapUI3DEmissive);
+#endif
+#if RENDER == R_R4
+    render_icons(RGraph.mapUI3DSorted, true);
+#else
+    render_icons(RGraph.mapUI3DSorted);
+#endif
+    owned_transforms.clear();
+    Device.mFullTransform = saved_full;
+    RCache.set_xform_world(saved_world);
+    RCache.set_xform_view(saved_view);
+    RCache.set_xform_project(saved_project);
+}
+
+void CDSGraphManager::r_dsgraph_render_ui()
+{
+	// Capture may run on workers; UI drawing touches RCache and runs here on the render thread.
+	for (IRenderable* object : renderable_ui)
+		object->renderable_RenderUI();
+	renderable_ui.clear();
 }

@@ -124,6 +124,7 @@ public:
 	virtual CAI_Stalker* cast_stalker() { return nullptr; }
 	virtual CScriptEntity* cast_script_entity() { return nullptr; }
 	virtual CWeapon* cast_weapon() { return nullptr; }
+	virtual CFlashlight* cast_flashlight() { return nullptr; }
 	virtual CExplosive* cast_explosive() { return nullptr; }
 	virtual CSpaceRestrictor* cast_restrictor() { return nullptr; }
 	virtual CAttachableItem* cast_attachable_item() { return nullptr; }
@@ -264,6 +265,10 @@ public:
 	virtual void remove_attachment(LPCSTR name) { remove_child(name, true); }
 	virtual void remove_attachment(script_attachment* child);
 	virtual void iterate_attachments(::luabind::functor<bool> functor);
+	void RefreshAttachmentVisBox(u16 type);
+	xr_map<shared_str, script_attachment*>* GetAttachments() { return &m_script_attachments; }
+
+	script_attachment* m_instance_holder;
 
 private:
 	bool m_bCrPr_Activated;
@@ -421,9 +426,10 @@ public:
 	}
 
 	virtual void on_matrix_change(const Fmatrix& previous);
+    const Fmatrix& XFORM_prev() { return m_previous_matrix; }
 
 	void FootStepCallback(float power, bool b_play, bool b_on_ground, bool b_hud_view);
-	xr_map<shared_str, script_attachment*>* GetAttachments() { return &m_script_attachments; }
+	void DBGDrawPhysicsShell();
 };
 
 #endif // !defined(AFX_GAMEOBJECT_H__3DA72D03_C759_4688_AEBB_89FA812AA873__INCLUDED_)

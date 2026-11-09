@@ -15,6 +15,8 @@ class IMainMenu;
 class ScriptWallmarksManager;
 class ENGINE_API CPS_Instance;
 class script_attachment;
+class ScriptLight;
+class ScriptGlow;
 
 //-----------------------------------------------------------------------------------------------------------
 class ENGINE_API IGame_Persistent :
@@ -124,6 +126,8 @@ public:
 	IC ScriptWallmarksManager& GetWallmarksManager() const { return *m_pWallmarksManager; }
 	ShadersExternalData* m_pGShaderConstants; //--#SM+#--
 	xr_vector<script_attachment*> AttachmentUIsToRender;
+	xr_vector<ScriptLight*> ScriptLights;
+	xr_vector<ScriptGlow*> ScriptGlows;
 
 	void UpdateParticles();
 
@@ -142,6 +146,7 @@ public:
 	virtual void OnAppDeactivate();
 	virtual void _BCL OnFrame();
 	virtual void ImGui_OnRender(LPCSTR name) {};
+	virtual void ImGui_OnShow(bool show) {};
 
 	// вызывается только когда изменяется тип игры
 	virtual void OnGameStart();

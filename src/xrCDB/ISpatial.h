@@ -79,6 +79,7 @@ class ISpatialOwner;
 class ISpatial_NODE;
 class IRender_Sector;
 class ISpatial_DB;
+class ICollidable;
 
 namespace Feel
 {
@@ -134,6 +135,7 @@ public:
 	void spatial_updatesector();
 
 	CObject*		dcast_CObject		();
+	ICollidable* dcast_Collidable();
 	Feel::Sound*	dcast_FeelSound		();
 	IRenderable*	dcast_Renderable	();
 	IRender_Light*	dcast_Light			();
@@ -165,6 +167,7 @@ public:
 
 	
 	virtual CObject*		dcast_CObject		() { return nullptr; };
+	virtual ICollidable* dcast_Collidable() { return nullptr; }
 	virtual Feel::Sound*	dcast_FeelSound		() { return nullptr; };
 	virtual IRenderable*	dcast_Renderable	() { return nullptr; };
 	virtual IRender_Light*	dcast_Light			() { return nullptr; };

@@ -67,8 +67,12 @@ public:
 	{
 	};
 	virtual void set_position(const Fvector& P, const float eps = EPS) = 0;
+	virtual const Fvector& get_position() const = 0;
 	virtual void set_rotation(const Fvector& D, const Fvector& R, const float eps = EPS) = 0;
+	virtual const Fvector& get_rotation() const = 0;
+	virtual const Fvector& get_right() const = 0;
 	virtual void set_cone(float angle) = 0;
+	virtual const float& get_cone() const = 0;
 	virtual void set_range(float R) = 0;
 	virtual void set_virtual_size(float R) = 0;
 	virtual void set_texture(LPCSTR name) = 0;
@@ -76,6 +80,8 @@ public:
 	virtual void set_color(float r, float g, float b) = 0;
 	virtual void set_hud_mode(bool b) = 0;
 	virtual bool get_hud_mode() = 0;
+	virtual void set_ortho(bool b) = 0;
+	virtual bool get_ortho() = 0;
 	virtual void set_is_playerlight(bool b) = 0;
 	virtual vis_data& get_homdata() = 0;
 
@@ -88,6 +94,7 @@ public:
 	virtual void	set_decor_object					(CObject* O, int index = 0)			= 0;
 	virtual CObject* get_decor_object					(int index = 0)						= 0;
 
+	virtual bool get_is_playerlight() = 0;
 	virtual ~IRender_Light();
 	virtual void destroy(bool deffered = true) = 0;
 };
@@ -211,10 +218,18 @@ public:
 		fl_max,
 	};
 	IRenderable* val_pObject = nullptr;
+	bool val_bUI3D = false;
+	float val_fCustomFOV = 0.f;
+
+	void set_UI3D(bool value) { val_bUI3D = value; }
+	bool get_UI3D() const { return val_bUI3D; }
+	void set_CustomFOV(float value) { val_fCustomFOV = value; }
+	float get_CustomFOV() const { return val_fCustomFOV; }
 	bool i_mask[fl_max]{};//deffered,forward,wmarks,normal,shmap,val_invisible,val_hud,val_cam_attached
 
 	virtual void add_Static(IRenderVisual* pVisual, CFrustum& frustum, u32 planes) = 0;
 	virtual void add_Dynamic(IRenderVisual* piVisual, Fmatrix* xform) = 0;
+	virtual void add_RenderableUI(IRenderable* object) = 0;
 
 	virtual void set_Object(IRenderable* O = nullptr) = 0;
 	IRenderable* get_Object() { return val_pObject; }
@@ -346,6 +361,7 @@ public:
 	virtual IRender_Target* getTarget() = 0;
 
 	// Main
+	virtual IDSGraphManager* GetUI3DGraph() = 0;
 	virtual void flush() = 0;
 	virtual void add_Occluder(Fbox2& bb_screenspace) = 0; // mask screen region as oclluded (-1..1, -1..1)
 	// virtual void add_StaticWallmark (ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V)=0;
@@ -399,7 +415,7 @@ public:
 	virtual void models_Prefetch() = 0;
 	virtual void models_PrefetchOne(LPCSTR name, bool assert = true) = 0;
 	virtual void models_Clear(BOOL b_complete) = 0; 
-	virtual bool models_Exists(LPCSTR name) = 0;
+	virtual bool models_Exists(LPCSTR name, bool no_prefetch = false) = 0;
 	
 	//  antglobes: Sun Values
 	virtual Fvector GetSunPosition() { static Fvector default_pos; return default_pos; };
@@ -418,6 +434,13 @@ public:
 	// Main
 	virtual void Calculate() = 0;
 	virtual void Render() = 0;
+	virtual void RenderUI3DDirect() = 0;
+	// Renderers without an atlas use RenderUI3DDirect for each icon.
+	// Return allocated dimensions, not pending console settings; resolution is the live icon scale.
+	virtual bool GetUI3DIconAtlasInfo(u32& width, u32& height, float& resolution) { return false; }
+	virtual bool BeginUI3DIconAtlas() { return false; }
+	virtual void BeginUI3DIconAtlasItem() {}
+	virtual void EndUI3DIconAtlas() {}
 
 	virtual void Screenshot(ScreenshotMode mode = SM_NORMAL, LPCSTR name = 0) = 0;
 	virtual void Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer) = 0;

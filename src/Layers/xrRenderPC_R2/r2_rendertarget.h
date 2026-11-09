@@ -205,6 +205,8 @@ public:
 	ref_geom g_postprocess;
 	ref_shader s_menu;
 	ref_geom g_menu;
+	ref_shader s_ui_icons[6]; // SKIN_NONE, SKIN_0 ... SKIN_4
+	IDirect3DSurface9* ui_icons_depth = nullptr; // Reused; never clear scene depth for icons.
 private:
 	float im_noise_time;
 	u32 im_noise_shift_w;

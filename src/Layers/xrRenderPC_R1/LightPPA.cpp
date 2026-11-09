@@ -257,6 +257,10 @@ void CLightR_Manager::render_spot(u32 _priority)
 		L_up.normalize();
 		L_pos.set(L->position);
 		L_view.build_camera_dir(L_pos, L_dir, L_up);
+
+		if (L->flags.bOrtho)
+			L_project.build_projection_ortho(L->cone, L->cone, SSM_near_plane, L->range + EPS_S);
+		else
 		L_project.build_projection(L->cone, 1.f, SSM_near_plane, L->range + EPS_S);
 		L_combine.mul(L_project, L_view);
 
@@ -314,52 +318,20 @@ void CLightR_Manager::render_spot(u32 _priority)
 	//		??? grass ???l
 }
 
-IC void hud_light_apply(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, xr_vector<light*>& source)
-{
-	for (u32 it = 0; it < source.size(); it++)
-	{
-		light* L = source[it];
-		if (!L->get_hud_mode()) continue;
-
-		saved_pos.emplace(L, mk_pair(L->position, L->direction));
-
-		Device.hud_to_world(L->position);
-		Device.hud_to_world_dir(L->direction);
-	}
-}
-
-IC void hud_light_restore(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, xr_vector<light*>& source)
-{
-	for (const auto& saved : saved_pos)
-	{
-		light* L = saved.first;
-		if (!L->get_hud_mode()) continue;
-
-		L->position = saved.second.first;
-		L->direction = saved.second.second;
-	}
-}
-
 void CLightR_Manager::render(u32 _priority)
 {
-	xr_map<light*, std::pair<Fvector, Fvector>> saved_pos;
-
 	if (selected_spot.size())
 	{
-		hud_light_apply(saved_pos, selected_spot);
 		RImplementation.phase = CRender::PHASE_SPOT;
 		render_spot(_priority);
-		hud_light_restore(saved_pos, selected_spot);
 
 		if (_priority == 1)
 			selected_spot.clear();
 	}
 	if (selected_point.size())
 	{
-		hud_light_apply(saved_pos, selected_point);
 		RImplementation.phase = CRender::PHASE_POINT;
 		render_point(_priority);
-		hud_light_restore(saved_pos, selected_point);
 
 		if (_priority == 1)
 			selected_point.clear();

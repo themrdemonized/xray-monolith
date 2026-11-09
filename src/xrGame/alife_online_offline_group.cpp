@@ -62,6 +62,9 @@ void CSE_ALifeOnlineOfflineGroup::update()
             MEMBER* commander = (*m_members.begin()).second;
             if (commander)
             {
+                // Members are not in the level registry, so the switch manager never syncs them.
+                if (commander->m_bOnline)
+                    commander->synchronize_location();
                 o_Position = commander->o_Position;
                 m_tNodeID = commander->m_tNodeID;
                 m_tGraphID = commander->m_tGraphID;
@@ -185,6 +188,14 @@ bool CSE_ALifeOnlineOfflineGroup::synchronize_location()
     m_members.begin(); // force actualize
 	if (m_bOnline && !m_members.empty())
 	{
+		MEMBERS::iterator I = m_members.begin();
+		MEMBERS::iterator E = m_members.end();
+		for (; I != E; ++I)
+		{
+			if ((*I).second && (*I).second->m_bOnline)
+				(*I).second->synchronize_location();
+		}
+
 		MEMBER* member = (*m_members.begin()).second;
         if (member)
         {
@@ -292,8 +303,18 @@ void CSE_ALifeOnlineOfflineGroup::switch_offline()
 	if (!m_members.empty())
 	{
 		MEMBER* member = (*m_members.begin()).second;
+		// fold the squad onto a member that is still online, not a stale teleported one
+		for (const auto& it : m_members)
+		{
+			if (it.second->m_bOnline)
+			{
+				member = it.second;
+				break;
+			}
+		}
 
-		member->synchronize_location();
+		if (member->m_bOnline)
+			member->synchronize_location();
 
 		o_Position = member->o_Position;
 		m_tNodeID = member->m_tNodeID;

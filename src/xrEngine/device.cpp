@@ -49,6 +49,7 @@ ENGINE_API CRenderDevice* DevicePtr = nullptr;
 
 ENGINE_API xr_atomic_bool g_bRendering = false;
 extern ENGINE_API float psHUD_FOV;
+extern float psCAM_ATTACHED_FOV;
 extern ENGINE_API float psCamAttachedFOV;
 
 BOOL g_bLoaded = FALSE;
@@ -109,8 +110,6 @@ void CRenderDevice::Clear()
 	m_pRender->Clear();
 }
 
-extern void CheckPrivilegySlowdown();
-
 
 void CRenderDevice::End(void)
 {
@@ -152,16 +151,6 @@ void CRenderDevice::End(void)
 #ifdef FIND_CHUNK_BENCHMARK_ENABLE
             g_find_chunk_counter.flush();
 #endif // FIND_CHUNK_BENCHMARK_ENABLE
-
-			CheckPrivilegySlowdown();
-
-			if (g_pGamePersistent->GameType() == 1) //haCk
-			{
-				WINDOWINFO wi;
-				GetWindowInfo(m_hWnd, &wi);
-				if (wi.dwWindowStatus != WS_ACTIVECAPTION)
-					Pause(TRUE, TRUE, TRUE, "application start");
-			}
 		}
 	}
 
@@ -434,6 +423,8 @@ void CRenderDevice::on_idle()
 	mFullTransform.mul(mProject, mView);
 	mFullTransformHud.mul(mProjectHud, mView);
 	mFullTransformCam.mul(mProjectCam, mView);
+	mFullTransformCamAttached.mul(mProjectCamAttached, mView);
+	mFullTransform3DIcons.mul(mProject3DIcons, mView);
 	m_pRender->SetCacheXform(mView, mProject);
 
 	mViewHud_prev = mViewHud;
@@ -451,12 +442,14 @@ void CRenderDevice::on_idle()
 	m_pRender->SetCacheXform_prev(mView_prev, mProject_prev);
 
 	mProjectHud.build_projection(deg2rad(psHUD_FOV * 83.f), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
-	mProjectCam.build_projection(deg2rad(psCamAttachedFOV), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+	mProjectCam.build_projection(deg2rad(psCamAttachedFOV * psCAM_ATTACHED_FOV), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+	mProjectCamAttached = mProjectCam;
 	
 	mViewHud.set(mView);
 	mViewCam.set(mView);
 	mFullTransformHud.mul(mProjectHud, mViewHud);
 	mFullTransformCam.mul(mProjectCam, mViewCam);
+	mFullTransformCamAttached = mFullTransformCam;
 
 	// Save previous frame grass benders data
 	IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
