@@ -94,6 +94,8 @@ public: //	Public class members (must be encapsulated furthur)
 	} flags;
 
     u32 dwLastUsedFrame = 0; // frame index of last Apply() call — used for eviction
+    // Set by owners that copy the surface instead of applying it, eviction skips these
+    bool bNoEvict = false;
 
 	xr_delegate<void(u32)> bind;
 

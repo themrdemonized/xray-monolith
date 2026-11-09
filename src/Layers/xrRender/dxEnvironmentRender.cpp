@@ -186,6 +186,8 @@ void dxEnvDescriptorRender::OnDeviceCreate(CEnvDescriptor& owner)
 	if (owner.sky_texture_env_name.size())
 	{
 		sky_texture_env.create(owner.sky_texture_env_name.c_str());
+		// The combine pass copies this cube with surface_get and never applies it
+		sky_texture_env->bNoEvict = true;
 		if (g_pGamePersistent->Environment().m_paused)
 		{
 			mixRen.sky_r_textures_env.clear();
