@@ -18,6 +18,8 @@ struct bus_texture_slot
 	ID3DBaseTexture* applied;
 };
 
+extern xr_task_group textures_load_tasks;
+
 static xr_vector<bus_texture_slot> bus_texture_slots;
 static u32 bus_texture_serial = 0;
 
@@ -49,10 +51,18 @@ static void bus_textures_update()
 			if (!name.size())
 				continue;
 
+			const bool known = DEV->_FindTexture(name.c_str()) != nullptr;
 			bus_texture_slot slot;
 			slot.target.create(name.c_str());
 			if (!slot.target)
 				continue;
+
+			// create loads only a new texture, so one that eviction already dropped is queued here
+			if (known && !slot.target->flags.bLoaded && !slot.target->flags.bLoading)
+			{
+				ref_texture target = slot.target;
+				textures_load_tasks.run([target]() { target->Load(); });
+			}
 
 			string_path alias;
 			bus_alias(alias, sizeof(alias), id.c_str(), false, false);
@@ -68,6 +78,8 @@ static void bus_textures_update()
 	for (u32 i = 0; i < bus_texture_slots.size(); ++i)
 	{
 		bus_texture_slot& slot = bus_texture_slots[i];
+		// the lane never applies its texture, so it marks it used to keep eviction off it
+		slot.target->dwLastUsedFrame = Device.dwFrame;
 		ID3DBaseTexture* surface = slot.target->surface_get();
 		if (surface != slot.applied)
 		{
