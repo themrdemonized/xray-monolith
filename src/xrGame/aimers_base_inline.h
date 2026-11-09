@@ -61,8 +61,8 @@ inline void aimers::base::fill_bones(
 		for (; i != e; ++i)
 		{
 			VERIFY(*i < bone_count1);
-			//m_kinematics.Bone_GetAnimPos(local_bones[*i], bones_ids[*i], channel_mask, false);
-			m_kinematics.LL_GetBoneLocalTransform(bones_ids[*i], local_bones[*i]);
+			m_kinematics.Bone_GetAnimPos(local_bones[*i], bones_ids[*i], channel_mask, false);
+			//m_kinematics.LL_GetBoneLocalTransform(bones_ids[*i], local_bones[*i]);
 
 			VERIFY(_valid(local_bones[*i]));
 			VERIFY(_valid(m_start_transform));
