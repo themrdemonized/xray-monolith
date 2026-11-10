@@ -60,7 +60,10 @@ struct script_attachment_bone_cb
 		m_overwrite = overwrite;
 	}
 
-	~script_attachment_bone_cb() {}
+	~script_attachment_bone_cb()
+    {
+        xr_delete(m_func);
+    }
 };
 
 class script_attachment :
@@ -146,6 +149,7 @@ public:
 		delete_data(m_bone_callbacks);
 		xr_delete(m_userdata);
 		xr_delete(m_ph_contact_callback_func);
+        xr_delete(m_motion_end_cb);
 	}
 
 	virtual void spatial_register();
