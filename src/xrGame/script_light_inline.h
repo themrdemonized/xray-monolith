@@ -1,6 +1,6 @@
 #pragma once
-#include "stdafx.h"
 #include "../xrEngine/LightAnimLibrary.h"
+#include "../xrEngine/IGame_Persistent.h"
 
 class CLAItem;
 
@@ -25,10 +25,19 @@ public:
 
 		m_light_anim = nullptr;
 		texture = nullptr;
+		g_pGamePersistent->ScriptGlows.push_back(this);
 	}
 
 	virtual ~ScriptGlow()
 	{
+		auto it = g_pGamePersistent->ScriptGlows.begin();
+		auto it_e = g_pGamePersistent->ScriptGlows.end();
+		for (; it != it_e; ++it)
+		{
+			if (*it == this) g_pGamePersistent->ScriptGlows.erase(it);
+			break;
+		}
+
 		m_glow.destroy();
 	}
 	IC void Enable(bool state)				{ m_glow->set_active(state); }
@@ -117,12 +126,25 @@ public:
 		SetVolumetricQuality(.5f);
 
 		m_light_anim = nullptr;
-		fBrightness = 0.f;
+		fBrightness = 1.f;
 		texture = nullptr;
+
+		g_pGamePersistent->ScriptLights.push_back(this);
 	}
 
 	virtual ~ScriptLight()
 	{
+		auto it = g_pGamePersistent->ScriptLights.begin();
+		auto it_e = g_pGamePersistent->ScriptLights.end();
+		for (; it != it_e; ++it)
+		{
+			if (*it == this)
+			{
+				g_pGamePersistent->ScriptLights.erase(it);
+				break;
+			}
+		}
+
 		m_light.destroy();
 	}
 
@@ -130,14 +152,22 @@ public:
 	IC LPCSTR GetLanim() const							{ return m_light_anim != nullptr ? *m_light_anim->cName : nullptr; }
 	IC void SetPosition(Fvector pos)					{ m_light->set_position(pos); }
 	IC void SetPosition(float x, float y, float z)		{ m_light->set_position(Fvector{ x,y,z }); }
+	IC Fvector GetPosition()							{ return m_light->get_position(); }
 	IC void SetDirection(Fvector dir)					{ m_light->set_rotation(dir, Fvector().set(1, 0, 0)); }
 	IC void SetDirection(float x, float y, float z)		{ m_light->set_rotation(Fvector{ x,y,z }, Fvector().set(1, 0, 0)); }
 	IC void SetDirection(Fvector dir, Fvector right)	{ m_light->set_rotation(dir, right); }
+	IC Fvector GetDirection()							{ return m_light->get_rotation(); }
+	IC Fvector GetRight()								{ return m_light->get_right(); }
 	IC void SetCone(float angle)						{ m_light->set_cone(angle); }
+	IC float GetCone()									{ return m_light->get_cone(); }
 	IC void Enable(bool state)							{ m_light->set_active(state); }
 	IC const bool IsEnabled() const						{ return m_light->get_active(); }
 	IC void SetHudMode(bool b)							{ m_light->set_hud_mode(b); }
 	IC const bool GetHudMode() const					{ return m_light->get_hud_mode(); }
+	IC void SetOrtho(bool b)							{ m_light->set_ortho(b); }
+	IC const bool GetOrtho() const						{ return m_light->get_ortho(); }
+	IC void SetPlayerLight(bool b)						{ m_light->set_is_playerlight(b); }
+	IC const bool GetPlayerLight() const				{ return m_light->get_is_playerlight(); }
 	
 	IC void SetBrightness(float br)						{ fBrightness = br; }
 	IC const float GetBrightness() const				{ return fBrightness; }
@@ -213,6 +243,8 @@ public:
 		color = col;
 	}
 
+	IC void DummyUpdate() {};
+
 	IC void Update()
 	{
 		if (m_light_anim)
@@ -248,6 +280,7 @@ public:
 
 	IC void SetPosition(Fvector pos) { m_offset.translate_over(pos); }
 	IC void SetPosition(float x, float y, float z) { m_offset.translate_over(x, y, z); }
+	IC Fvector GetPosition() { return m_offset.c; }
 	IC void SetDirection(Fvector dir)
 	{
 		Fvector pos = m_offset.c;
@@ -261,6 +294,12 @@ public:
 		m_offset.c = pos;
 	}
 	IC void SetDirection(Fvector dir, Fvector right) { SetDirection(dir); }
+	IC Fvector GetDirection()
+	{
+		Fvector hpb;
+		m_offset.getHPB(hpb);
+		return hpb;
+	}
 	IC void SetXFORM(Fmatrix& mat)
 	{
 		mat.mulB_43(m_offset);

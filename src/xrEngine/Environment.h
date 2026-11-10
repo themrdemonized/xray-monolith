@@ -353,6 +353,7 @@ public:
 
 	void mods_load();
 	void mods_unload();
+	void mods_reload();
 
 	void OnFrame();
 	void lerp(float& current_weight);
@@ -425,6 +426,7 @@ protected:
 	void destroy_mixer();
 
 	void load_level_specific_ambients();
+	bool mods_load_ltx();
 
 public:
 	INGAME_EDITOR_VIRTUAL SThunderboltDesc* thunderbolt_description(CInifile& config, shared_str const& section);

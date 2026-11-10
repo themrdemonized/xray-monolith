@@ -141,6 +141,7 @@ public:
 	ICF ICollisionForm* CFORM() const { return collidable.model; }
 	virtual CObject* dcast_CObject() { return this; }
 	virtual IRenderable* dcast_Renderable() { return this; }
+	virtual ICollidable* dcast_Collidable() { return this; }
 
 	virtual void OnChangeVisual()
 	{

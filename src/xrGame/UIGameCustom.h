@@ -149,6 +149,7 @@ public:
 	void UpdatePda();
 	void update_fake_indicators(u8 type, float power);
 	void enable_fake_indicators(bool enable);
+	void TalkMenuSetVisible(bool vis);
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };
 

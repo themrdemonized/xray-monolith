@@ -13,3 +13,5 @@ ipch/
 *.vspx
 
 !.editorconfig
+!/.clang-format
+!/.clang-format-ignore

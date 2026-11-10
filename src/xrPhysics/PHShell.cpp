@@ -63,9 +63,6 @@ CPHShell::~CPHShell()
 
 CPHShell::CPHShell()
 {
-	//bActive=false;
-	//bActivating=false;
-    m_fScale = 1.f;
 	m_flags.assign(0);
 	m_flags.set(flActivating,FALSE);
 	m_flags.set(flActive,FALSE);
@@ -75,6 +72,7 @@ CPHShell::CPHShell()
 	m_object_in_root.identity();
 	m_active_count = 0;
 	m_pPhysicsShellAnimatorC = NULL;
+	m_fScale.set(1, 1, 1);
 }
 
 void CPHShell::EnableObject(CPHObject* obj)
@@ -450,6 +448,7 @@ CPHSynchronize* CPHShell::get_ElementSync(u16 element)
 CPhysicsElement* CPHShell::get_PhysicsParrentElement(u16 bone_id)
 {
 	VERIFY(PKinematics());
+	if (bone_id == 0 || bone_id == u16(-1)) return get_Element(u16(0));
 	CPhysicsElement* E = get_Element(bone_id);
 	u16 bid = bone_id;
 	while (!E && bid != PKinematics()->LL_GetBoneRoot())
@@ -537,6 +536,11 @@ void CPHShell::BonesCallback(CBoneInstance* B)
 
 	//}
 	E->BonesCallBack(B);
+
+	const Fvector& scale = E->PHShell()->m_fScale;
+	if (scale.x != 1.f || scale.y != 1.f || scale.z != 1.f)
+		B->mTransform.mulB_43(Fmatrix().scale(scale));
+
 	VERIFY2(_valid(B->mTransform), "CPHShell:: BonesCallback");
 }
 
@@ -1825,12 +1829,12 @@ void CPHShell::AnimatorOnFrame()
 	PPhysicsShellAnimator()->OnFrame();
 }
 
-void CPHShell::SetScale(float scale)
+void CPHShell::SetScale(Fvector scale)
 {
-    if (m_fScale == scale) return;
+    if (m_fScale.x == scale.x && m_fScale.y == scale.y && m_fScale.z == scale.z) return;
     if (!m_pKinematics) return;
 
-    float prev_scale = m_fScale;
+    Fvector prev_scale = m_fScale;
     m_fScale = scale;
 
     for (CPHElement* elem : Elements())
@@ -1852,23 +1856,23 @@ void CPHShell::SetScale(float scale)
             {
                 Fvector half_size;
                 box->get_size(half_size);
-                half_size.div(prev_scale);
-                half_size.mul(scale);
+                half_size.div(prev_scale.x, prev_scale.z, prev_scale.y);
+                half_size.mul(scale.x, scale.z, scale.y);
                 box->set_size(half_size);
             }
 
             if (sphere)
             {
-                sphere->set_radius(sphere->radius() / prev_scale);
-                sphere->set_radius(sphere->radius() * scale);
+                sphere->set_radius(sphere->radius() / fmaxf(prev_scale.x, fmaxf(prev_scale.y, prev_scale.z)));
+                sphere->set_radius(sphere->radius() * fmaxf(scale.x, fmaxf(scale.y, scale.z)));
             }
 
             if (cylinder)
             {
-                cylinder->set_radius(cylinder->radius() / prev_scale);
-                cylinder->set_radius(cylinder->radius() * scale);
-                cylinder->set_height(cylinder->height() / prev_scale);
-                cylinder->set_height(cylinder->height() * scale);
+                cylinder->set_radius(cylinder->radius() / fmaxf(prev_scale.x, prev_scale.y));
+                cylinder->set_radius(cylinder->radius() * fmaxf(scale.x, scale.y));
+                cylinder->set_height(cylinder->height() / prev_scale.z);
+                cylinder->set_height(cylinder->height() * scale.z);
             }
 
             Fvector scaled_pos = geom->local_center();

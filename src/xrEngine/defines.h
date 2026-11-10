@@ -66,6 +66,10 @@ enum
 	rsAimSway = (1 << 10),
 	rsAlwaysActive = (1 << 11),
 	rsBlendMoveAnims = (1 << 12),
+	rsDBGDrawPHShapes = ( 1 << 13),
+	rsDBGDrawPHBones = ( 1 << 14),
+	rsDBGDrawVisBoxes = ( 1 << 15),
+	rsDBGDrawAttCForms = ( 1 << 16)
 };
 
 // game path definition

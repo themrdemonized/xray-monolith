@@ -290,10 +290,11 @@ void TContactShotMark(CDB::TRI* T, dContactGeom* c)
 			if (square_cam_dist < SQUARE_SOUND_EFFECT_DIST)
 			{
 				SGameMtl* static_mtl = GMLib.GetMaterialByIdx(T->material);
+				SGameMtl* other_mtl = GMLib.GetMaterialByIdx(data->material);
 				VERIFY(static_mtl);
-				if (!static_mtl->Flags.test(SGameMtl::flPassable))
+				if (data->ph_ref_attachment || !static_mtl->Flags.test(SGameMtl::flPassable))
 				{
-					if (vel_cret > Pars::vel_cret_sound)
+					if (vel_cret > other_mtl->fCollisionSoundVel)
 					{
 						if (!mtl_pair->CollideSounds.empty() && (!data->ph_ref_object || vehicle_collide_sound(data->ph_ref_object)))
 						{

@@ -184,8 +184,6 @@ public:
 		return *this;
 	}
 
-	IC SelfRef set(const _matrix<T>& m);
-
 	// multiplies q1 * q2, and places the result in *this.
 	// no failure.  renormalization not automatic
 
@@ -477,6 +475,8 @@ public:
 		w = et * _cos(r);
 		return *this;
 	}
+
+	IC SelfRef set(const _matrix<T>& M);
 };
 
 typedef _quaternion<float> Fquaternion;

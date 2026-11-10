@@ -29,8 +29,21 @@ using namespace collide;
 ICollisionForm::ICollisionForm(CObject* _owner, ECollisionFormType tp)
 {
 	owner = _owner;
+	owner_attachment = nullptr;
 	m_type = tp;
 	bv_sphere.identity();
+	bv_box.identity();
+	dwQueryID = 0;
+}
+
+ICollisionForm::ICollisionForm(script_attachment* _owner, ECollisionFormType tp)
+{
+	owner = nullptr;
+	owner_attachment = _owner;
+	m_type = tp;
+	bv_sphere.identity();
+	bv_box.identity();
+	dwQueryID = 0;
 }
 
 ICollisionForm::~ICollisionForm()
@@ -74,7 +87,7 @@ bool CCF_Skeleton::_ElementCenter(u16 elem_id, Fvector& e_center)
 	return false;
 }
 
-IC bool RAYvsOBB(const Fmatrix& IM, const Fvector& b_hsize, const Fvector& S, const Fvector& D, float& R, BOOL bCull)
+bool RAYvsOBB(const Fmatrix& IM, const Fvector& b_hsize, const Fvector& S, const Fvector& D, float& R, BOOL bCull)
 {
 	Fbox E = {-b_hsize.x, -b_hsize.y, -b_hsize.z, b_hsize.x, b_hsize.y, b_hsize.z};
 	// XForm world-2-local
@@ -97,14 +110,14 @@ IC bool RAYvsOBB(const Fmatrix& IM, const Fvector& b_hsize, const Fvector& S, co
 	return false;
 }
 
-IC bool RAYvsSPHERE(const Fsphere& s_sphere, const Fvector& S, const Fvector& D, float& R, BOOL bCull)
+bool RAYvsSPHERE(const Fsphere& s_sphere, const Fvector& S, const Fvector& D, float& R, BOOL bCull)
 {
 	Fsphere::ERP_Result rp_res = s_sphere.intersect(S, D, R);
 	VERIFY(R >= 0.f);
 	return ((rp_res == Fsphere::rpOriginOutside) || (!bCull && (rp_res == Fsphere::rpOriginInside)));
 }
 
-IC bool RAYvsCYLINDER(const Fcylinder& c_cylinder, const Fvector& S, const Fvector& D, float& R, BOOL bCull)
+bool RAYvsCYLINDER(const Fcylinder& c_cylinder, const Fvector& S, const Fvector& D, float& R, BOOL bCull)
 {
 	// Actual test
 	Fcylinder::ERP_Result rp_res = c_cylinder.intersect(S, D, R);
@@ -116,14 +129,16 @@ CCF_Skeleton::CCF_Skeleton(CObject* O) : ICollisionForm(O, cftObject)
 {
 	//getVisData
 	IRenderVisual* pVisual = O->Visual();
-	//IKinematics* K = PKinematics(pVisual); VERIFY3(K,"Can't create skeleton without Kinematics.",*O->cNameVisual());
 	IKinematics* K = PKinematics(pVisual);
 	VERIFY3(K, "Can't create skeleton without Kinematics.", *O->cNameVisual());
-	//bv_box.set (K->vis.box);
 	bv_box.set(pVisual->getVisData().box);
 	bv_box.getsphere(bv_sphere.P, bv_sphere.R);
 	vis_mask = 0;
+	dwFrame = 0;
+	dwFrameTL = 0;
 }
+
+CCF_Skeleton::CCF_Skeleton(script_attachment* O) : ICollisionForm(O, cftObject){}
 
 void CCF_Skeleton::BuildState()
 {
