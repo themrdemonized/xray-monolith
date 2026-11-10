@@ -85,7 +85,8 @@ bool CMincer::feel_touch_contact(CObject* O)
 void CMincer::AffectPullDead(CPhysicsShellHolder* GO, const Fvector& throw_in_dir, float dist)
 {
 	// loose objects are pulled by the telekinesis; only cars it cannot take are dragged here
-	vehicle_anomaly_pull(GO, this, throw_in_dir, RelativePower(dist, Radius()));
+	// (a car is pulled from when its nose is in, not only once its middle is)
+	vehicle_anomaly_pull(GO, this, throw_in_dir, RelativePower(_max(dist - 2.f, 0.f), Radius()));
 }
 
 void CMincer::AffectThrow(SZoneObjectInfo* O, CPhysicsShellHolder* GO, const Fvector& throw_in_dir, float dist)

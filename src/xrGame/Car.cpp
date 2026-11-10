@@ -709,7 +709,7 @@ void CCar::Hit(SHit* pHDS)
 	if (HDS.hit_type != ALife::eHitTypeStrike) CDamageManager::HitScale(HDS.bone(), hitScale, woundScale);
 	HDS.power *= GetHitImmunity(HDS.hit_type) * hitScale;
 	if (m_vho.enabled)
-		HandlingHit(HDS);
+		HandlingHit(HDS, pHDS->damage());
 
 #ifdef CAR_NEW
 	if (m_on_before_hit_callback && strlen(m_on_before_hit_callback))
@@ -810,6 +810,7 @@ void CCar::detach_Actor()
 	if (!Owner()) return;
 	Owner()->setVisible(1);
 	CHolderCustom::detach_Actor();
+	HandlingSightUpdate();
 	PPhysicsShell()->remove_ObjectContactCallback(ActorObstacleCallback);
 	NeutralDrive();
 	Unclutch();
@@ -843,6 +844,7 @@ bool CCar::attach_Actor(CGameObject* actor)
 {
 	if (Owner() || CPHDestroyable::Destroyed()) return false;
 	CHolderCustom::attach_Actor(actor);
+	HandlingSightUpdate();
 
 	IKinematics* K = smart_cast<IKinematics*>(Visual());
 	CInifile* ini = K->LL_UserData();

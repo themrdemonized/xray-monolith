@@ -34,6 +34,7 @@ IC bool CCar::SWheel::applywheelCollisionParams(dxGeomUserData* ud, bool& do_col
 		if (overhaul)
 		{
 			cp.wheel->car->HandlingContact(*cp.wheel, c, material_2, !tyre_done);
+			ud->contact_fb = cp.wheel->car->HandlingTraceSlots(*cp.wheel);
 			// set by the triangle collider before the callbacks
 			if (ud->pushing_neg || ud->pushing_b_neg) cp.wheel->vho_dbg_neg = true;
 			return true;

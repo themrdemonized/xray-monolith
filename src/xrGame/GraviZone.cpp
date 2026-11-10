@@ -135,6 +135,7 @@ void CBaseGraviZone::Affect(SZoneObjectInfo* O)
 	ThrowInCenter(zone_center);
 	Fvector go_center;
 	GO->Center(go_center);
+	vehicle_zone_center(GO, go_center);
 	throw_in_dir.sub(zone_center, go_center);
 
 	float dist = throw_in_dir.magnitude();

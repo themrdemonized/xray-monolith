@@ -27,6 +27,7 @@ public:
 	BOOL val_bInvisible;
 	BOOL val_bRecordMP; // record nearest for multi-pass
 	BOOL val_bRainOccluder; // filling the rain occlusion map with a sheltering object (renderable.rain_occluder)
+	float val_fRainLift; // m that object is drawn above itself there (renderable.rain_lift)
 	// per vertex layout, the shadow element of an opaque part seen on a rain occluder (see rain_cover_element)
 	xr_vector<std::pair<ref_declaration, ref_selement>> rain_cover;
 	R_feedback* val_feedback; // feedback for geometry being rendered
@@ -140,6 +141,7 @@ public:
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
 		val_bRainOccluder = FALSE;
+		val_fRainLift = 0.f;
 		val_feedback = 0;
 		val_feedback_breakp = 0;
 		val_recorder = 0;

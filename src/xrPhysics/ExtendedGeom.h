@@ -113,6 +113,17 @@ public:
 
 class CGameObject;
 
+// Joint feedback for the contacts of one body in one collision pass. Asking for it does not change the solution
+// (tools/vho_tests/ode_experiment, E7).
+struct dxContactFeedbackSlots
+{
+	enum { MAX_CONTACTS = 32 };
+	dJointFeedback fb[MAX_CONTACTS];
+	bool first[MAX_CONTACTS]; // the body is the joint's first
+	u32 used;
+	dxContactFeedbackSlots() : used(0) {}
+};
+
 struct dxGeomUserData
 {
 	dVector3 last_pos;
@@ -120,6 +131,14 @@ struct dxGeomUserData
 	// set by a contact callback (the handling overhaul's tyres) for the contact being made: being pushed back out of
 	// a triangle it passed does not take unlimited friction, so a tyre that went under the ground still rolls out
 	bool push_keeps_mu;
+	// set by a tyre's contact callback: on a triangle whose face looks up more than this (world up, cosine), a contact takes
+	// that face's normal (dTriCyl). 0 = the collider's own answer, as for every other object and for stock cars
+	float tyre_ground;
+	// set by a contact callback for the contact being made (the handling overhaul's car against a creature): that side
+	// takes no force from it, as a wall would not. Cleared with the contact.
+	bool contact_immovable;
+	// set by a tyre's contact callback while a handling trace runs: the solver reports its force on this contact there
+	struct dxContactFeedbackSlots* contact_fb;
 	CDB::TRI *neg_tri, *b_neg_tri;
 	CPHObject* ph_object;
 	IPhysicsShellHolder* ph_ref_object;
@@ -189,6 +208,9 @@ IC void dGeomCreateUserData(dxGeom* geom)
 	(dGeomGetUserData(geom))->pushing_neg = false;
 	(dGeomGetUserData(geom))->pushing_b_neg = false;
 	(dGeomGetUserData(geom))->push_keeps_mu = false;
+	(dGeomGetUserData(geom))->tyre_ground = 0.f;
+	(dGeomGetUserData(geom))->contact_immovable = false;
+	(dGeomGetUserData(geom))->contact_fb = NULL;
 	(dGeomGetUserData(geom))->b_static_colide = true;
 
 	(dGeomGetUserData(geom))->last_pos[0] = -dInfinity;

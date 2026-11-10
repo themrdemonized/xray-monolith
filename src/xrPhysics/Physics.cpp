@@ -267,6 +267,17 @@ IC static int CollideIntoGroup(dGeomID o1, dGeomID o2, dJointGroupID jointGroup,
 
 		if (pushing_neg && !(usr_data_1 && usr_data_1->push_keeps_mu) && !(usr_data_2 && usr_data_2->push_keeps_mu))
 			surface.mu = flt_max;
+		dBodyID contact_body_1 = dGeomGetBody(g1), contact_body_2 = dGeomGetBody(g2);
+		if (usr_data_1 && usr_data_1->contact_immovable)
+		{
+			usr_data_1->contact_immovable = false;
+			contact_body_1 = 0;
+		}
+		if (usr_data_2 && usr_data_2->contact_immovable)
+		{
+			usr_data_2->contact_immovable = false;
+			contact_body_2 = 0;
+		}
 		if (do_collide && collided_contacts < MAX_CONTACTS)
 		{
 			++collided_contacts;
@@ -276,7 +287,19 @@ IC static int CollideIntoGroup(dGeomID o1, dGeomID o2, dJointGroupID jointGroup,
 #endif
 			dJointID contact_joint = dJointCreateContact(0, jointGroup, &c);
 			world->ConnectJoint(contact_joint);
-			dJointAttach(contact_joint, dGeomGetBody(g1), dGeomGetBody(g2));
+			dJointAttach(contact_joint, contact_body_1, contact_body_2);
+			for (int side = 0; side < 2; ++side)
+			{
+				dxGeomUserData* ud = side ? usr_data_2 : usr_data_1;
+				dxContactFeedbackSlots* slots = ud ? ud->contact_fb : NULL;
+				if (slots && slots->used < dxContactFeedbackSlots::MAX_CONTACTS)
+				{
+					// a null first body is swapped by dJointAttach, so the other body's force comes back in f1
+					slots->first[slots->used] = side == 0 || !contact_body_1;
+					dJointSetFeedback(contact_joint, &slots->fb[slots->used]);
+					++slots->used;
+				}
+			}
 		}
 	}
 	return collided_contacts;

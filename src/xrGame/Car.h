@@ -69,7 +69,7 @@ class CEntityAlive;
 	X(temp_thermostat, 88.f) X(temp_derate, 108.f) X(temp_damage, 115.f) X(temp_seize, 128.f) X(temp_restart, 100.f) \
 	X(drivetrain_inertia, 0.f) X(inertia_cap, 40.f) X(slip_rpm, 0.f) X(tc_stall_rpm, 0.f) X(tc_multiply, 1.f) \
 	X(auto_up_reserve, 0.25f) X(hill_shift, 0.f) X(handbrake_rise, 0.f) X(yaw_inertia, 0.f) X(park_release, 0.f) X(calm_hill, 0.f) \
-	X(contact_max_vel, 0.f) X(body_friction, 0.f) X(wheel_climb, 0.f) X(run_over_mass, 0.f) X(see_through, 0.f) \
+	X(contact_max_vel, 0.f) X(body_friction, 0.f) X(wheel_climb, 0.f) X(ground_face, 0.f) X(run_over_mass, 0.f) X(see_through, 0.f) \
 	X(dodge, 0.f) X(dodge_see, 35.f) X(dodge_hear, 18.f) X(dodge_time, 1.f) \
 	X(disable_health, 0.05f) X(min_health, 0.01f) X(damage_scale, 0.8f) X(collision_damage_scale, 0.7f) \
 	X(explosion_damage_scale, 1.f) X(explosive_only_death, 1.f) X(low_health_start, 0.3f) X(low_health_power, 0.6f) \
@@ -83,8 +83,12 @@ class CEntityAlive;
 	X(anomaly_kick, 8.f) X(anomaly_fire_damage, 0.8f) X(anomaly_push_damage, 0.15f) \
 	X(anomaly_push, 0.2f) X(creature_push, 0.f) X(heavy_push, 1.f) X(real_mass, 0.f) X(easy_enter, 0.f) X(camera_raise, 0.f) \
 	X(brake_g, 0.f) X(brake_front, 0.f) X(handbrake_lock, 0.f) X(slide_peak, 0.f) X(slide_full, 0.f) \
-	X(cornering_load, 0.f) X(steer_slip, 0.f) X(brake_calm, 1.f) \
+	X(cornering_load, 0.f) X(steer_slip, 0.f) X(steer_slip_rate, 0.f) X(spin_side_grip, 0.f) X(tyre_load_sens, 0.f) X(roll_front, 0.5f) X(brake_calm, 1.f) \
 	X(brake_build, 0.f) X(brake_bite, 0.3f) X(stall_time, 0.4f) X(idle_hold, 0.f) X(clutch_assist, 0.f) X(temp_warmup, 1.f) \
+	X(reverse_corner_g, 0.f) X(slide_drive, 1.f) X(tip_margin, 0.f) \
+	X(yaw_assist, 0.f) X(yaw_limit, 1.15f) X(yaw_assist_max, 0.35f) X(yaw_assist_fade, 30.f) X(crash_rebound, 0.f) \
+	X(anomaly_shock_damage, 0.05f) X(anomaly_acid_damage, 0.25f) X(anomaly_hit_cap, 0.3f) X(anomaly_burn_rate, 0.04f) \
+	X(rain_lift, 0.15f) X(handbrake_side_grip, 0.5f) \
 	X(debug_trace, 0.f)
 
 class CCar :
@@ -250,7 +254,16 @@ public:
 		SGameMtl* contact_mtl;
 		u32 contact_step;
 		// handling trace (debug_trace): last tyre contact and joint motor command, read by HandlingTraceRecord
-		float vho_dbg_mu, vho_dbg_slip2, vho_dbg_patch; // friction, sideways slip, contact-patch slip speed m/s
+		bool vho_driven; // the overhaul's drive reaches this wheel
+		float vho_load_k; // share of the car's weight this wheel carries standing
+		u32 vho_contacts_last; // tyre contacts of the last full collision pass (they share one tyre's stiffness)
+		float vho_dbg_slip1, vho_dbg_ny, vho_dbg_depth, vho_dbg_prev_comp, vho_dbg_arb; // along-tyre slip, contact normal against the car's up, deepest contact, anti-roll force
+		Fvector vho_dbg_vc, vho_dbg_f1, vho_dbg_n; // contact patch velocity, friction direction 1 and normal of the last contact
+		bool vho_dbg_climb; // wheel_climb tilted a contact in this pass
+		struct dxContactFeedbackSlots* vho_fb; // the solver's force on this tyre's contacts, while tracing
+		float vho_spin; // 0..1 how far this tyre has broken loose along the road, eased (spin_side_grip)
+		float vho_load; // N the tyre carries now, from its spring, preload and anti-roll bar, smoothed (tyre_load_sens); 0 = not known yet
+		float vho_dbg_mu, vho_dbg_mu2, vho_dbg_slip2, vho_dbg_patch; // friction along and across, sideways slip, contact-patch slip speed m/s
 		u32 vho_dbg_contacts; // tyre contacts generated in the last collision pass
 		bool vho_dbg_neg; // a contact pushed out of a triangle's back side (the solver gives it unlimited friction)
 		float vho_dbg_mvel, vho_dbg_mfmax; // drive joint motor: target speed rad/s, force cap N m
@@ -308,7 +321,17 @@ public:
 			vho_tyre_k = 1.f;
 			contact_mtl = NULL;
 			contact_step = 0;
-			vho_dbg_mu = vho_dbg_slip2 = vho_dbg_patch = 0.f;
+			vho_driven = false;
+			vho_contacts_last = 1;
+			vho_dbg_mu = vho_dbg_mu2 = vho_dbg_slip2 = vho_dbg_patch = 0.f;
+			vho_dbg_slip1 = vho_dbg_ny = vho_dbg_depth = vho_dbg_prev_comp = vho_dbg_arb = 0.f;
+			vho_dbg_vc.set(0.f, 0.f, 0.f);
+			vho_dbg_f1.set(0.f, 0.f, 0.f);
+			vho_dbg_n.set(0.f, 0.f, 0.f);
+			vho_dbg_climb = false;
+			vho_fb = NULL;
+			vho_spin = 0.f;
+			vho_load = 0.f;
 			vho_dbg_contacts = 0;
 			vho_dbg_neg = false;
 			vho_dbg_mvel = vho_dbg_mfmax = vho_dbg_steer = 0.f;
@@ -863,8 +886,24 @@ private:
 		float stall_timer; // s the engine has been held below stall rpm (stall_time)
 		float ground_w, shift_throttle; // filtered inputs of the automatic gearbox
 		float hand_slide; // 0..1 rear grip loss from the hand brake, fades out after release
+		float steer_open; // radians a held key has added to the limit on the wheels (steer_slip_rate)
 		Fvector prev_vel; // chassis velocity last step, for crash detection
 		float crash_dv, crash_cooldown, last_crash_speed;
+		// crash_rebound: the way the car was going into what it hit, the hardest single-step loss, and for how long
+		// more it may not come back off it
+		Fvector rebound_dir;
+		float rebound_lost, rebound_timer;
+		float spun_timer; // the car was just spun or rolling against its gear: no clutch rule may stall the engine
+		u32 zone_hit_time; // ms: an anomaly's last hit
+		float ground_mu; // mean friction under the wheels on the ground, last step (yaw_assist)
+		u32 ground_wheels; // how many are on the ground
+		float tip_mu; // tip_margin: sideways friction at most, so the car slides before it tips (0 = no limit)
+		float dbg_yaw_assist; // torque the yaw assist gave this step
+		float dbg_ya_excess, dbg_ya_limit, dbg_ya_fade;
+		u8 dbg_ya_reason;
+		u16 dbg_body_contacts; // contacts on non-wheel parts since the last trace step
+		bool test_on; // scripted test input replaces the keys
+		u32 test_keys;
 		u32 crash_count, stall_count, stall_reason; // read by scripts for messages and player damage
 		u32 collide_sound_time;
 		bool script_steer_on, locked, hold_brake, overrev, last_hit_explosive;
@@ -888,7 +927,7 @@ private:
 		bool neutral; // out of gear: left parked, or the clutch key double-tapped
 		bool fresh_spawn; // spawned new (not from a save): may be lifted clear of the ground once
 		bool apply_pending; // parameters changed: HandlingApply runs once on the next frame
-		float cog_h; // centre of gravity above the wheels' ground contact as built, m (0 = not measured)
+		float cog_h; // centre of gravity above the wheels' ground contact in the model's pose, m (0 = not measured)
 		Fvector cog_prev_v, cog_acc; // chassis velocity last step and filtered acceleration, for cog_height
 		float hand_k; // 0..1 how far the hand brake lever is pulled (handbrake_rise)
 		float chassis_inertia_k; // chassis inertia multiplier applied for yaw_inertia (0 or 1 = the model's)
@@ -973,9 +1012,11 @@ private:
 		enum { EV_STALL, EV_CRASH, EV_LOCK, EV_COUNT };
 		struct STraceWheel
 		{
-			float w, rim, comp, load_est, mvel, mfmax, diff_k, mu, slip2, patch, steer_tgt, steer_act;
+			float w, rim, comp, load_est, mvel, mfmax, diff_k, mu, mu2, slip2, patch, steer_tgt, steer_act;
+			float slip1, pv_long, pv_lat, fx, fy, fn, comp_vel, ny, depth;
+			float preload, k, c, arb, vy, perp, gap; // what acts on a wheel in the air, its world vertical speed, joint separation, height above the ground
 			s16 mtl;
-			u8 contact, contacts, neg;
+			u8 contact, contacts, neg, climb;
 		};
 		struct STraceStep
 		{
@@ -989,11 +1030,19 @@ private:
 			float rpm, shaft, ground, ratio, clutch, engage, t_engine, t_shaft, t_wheels, crash_lost, crash_dv;
 			u16 stall_count;
 			u8 gear, stall_reason, wheels, valid; // valid: 1 = sideslip, 2 = contact force
+			u8 solver, ya_reason, keys; // solver: 1 dWorldStep, 0 dWorldQuickStep; ya_reason: 0 none, 1 yaw above the limit, 2 after a crash; keys: as SetTestKeys, 64 = test input on
+			u16 island_nj, island_nb, body_contacts;
+			float px, py, pz, ya_torque, ya_excess, ya_limit, ya_fade;
 			STraceWheel wheel[TRACE_WHEELS];
 		};
 		// The ring and the latched snapshot swap buffers, so latching a trace in the physics step copies nothing
 		xr_vector<STraceStep> trace, dump;
 		u32 trace_head = 0, trace_count = 0, dump_head = 0, dump_count = 0, dump_at = 0, auto_dumps = 0;
+		u32 trace_steps = TRACE_STEPS; // ring length: longer during a scripted test
+		bool test_tracing = false; // a scripted test or the drive log owns the trace: automatic events do not latch it
+		IWriter* log_w = NULL; // drive log: the open file, written a few rows per frame so driving never hitches
+		bool log_on = false;
+		u32 log_rows = 0, log_flush = 0;
 		bool dump_pending = false;
 		shared_str dump_reason, trace_info; // trace_info: the script's description of the configuration
 		xr_string dump_events; // the event that latched the trace, and any that came while it was pending
@@ -1011,6 +1060,8 @@ private:
 	void HandlingPhUpdate(float step);
 	void HandlingPhTune(float step);
 	void HandlingUpdateCL();
+	void HandlingSightUpdate();
+	Fvector HandlingFrontAxleVel();
 	void HandlingSteer(float step);
 	bool HandlingIsRear(const SWheel& w) const { return (w.pos.z - m_vho.s.axle_mid_z) * m_vho.s.front_sign < 0.f; }
 	void HandlingSurfaceFactors(const SHandlingSurface* s, float& grip, float& rolling, float& slip) const;
@@ -1019,7 +1070,7 @@ private:
 	void HandlingHandBrakeTap();
 	bool HandlingInput(int cmd, bool pressed);
 	float HandlingEngineTorque(float rpm);
-	void HandlingHit(SHit& HDS);
+	void HandlingHit(SHit& HDS, float raw_power);
 	bool HandlingAllowFuse();
 	void HandlingContact(SWheel& wheel, dContact& c, SGameMtl* ground, bool set_surface);
 	void HandlingSound(ref_sound& snd, float base_volume);
@@ -1030,6 +1081,9 @@ private:
 	void HandlingWater(float dt);
 	void HandlingTemp(float dt);
 	void HandlingFlip(float step);
+	void HandlingYawAssist(float step);
+	float HandlingSpringRate(const SWheel& w) const;
+	float HandlingRestCog() const;
 	void HandlingMeasureCog();
 	void HandlingSizeBrakes();
 	float HandlingWheelLoad(SWheel& w, float standing);
@@ -1066,6 +1120,8 @@ public:
 	Fvector ChaseCameraPivot();
 	bool HandlingActive() const { return m_vho.enabled && !m_speed_governed; }
 	bool IsHandlingEnabled() const { return m_vho.enabled; }
+	bool HandlingDriven() { return Owner() != NULL; }
+	void HandlingMassCentre(Fvector& c) const;
 	void SetHandlingEnabled(bool val);
 	bool LoadHandling(LPCSTR section);
 	LPCSTR GetHandlingSection() { return m_vho.section.size() ? *m_vho.section : ""; }
@@ -1094,8 +1150,8 @@ public:
 	void SetNeutral(bool on) { m_vho.s.neutral = on; if (on) m_vho.s.locked = false; }
 	bool IsNeutral() { return m_vho.s.neutral; }
 	float GetCogHeight() { return m_vho.s.cog_h; } // as built; cog_height replaces it when set
-	// how much of NPC sight passes through this car's body (its windows) while someone drives it; 0 = stock
-	float VisionTransparency() { return m_vho.enabled && Owner() ? m_vho.p.see_through : 0.f; }
+	// 1 while someone sits in the car and NPCs see and aim through its body (see_through); 0 otherwise: it is cover
+	float VisionTransparency();
 	bool IsFlipped();
 	bool RecoverFlip(); // rolls a flipped, slow car toward its wheels for a moment; call again to keep going
 	float GetWaterDepth() { return m_vho.s.water_depth; }
@@ -1120,6 +1176,17 @@ public:
 	LPCSTR GetWheelDebug(); // driven wheels for the telemetry HUD: bone, km/h at the rim, * = on the ground
 	// handling trace (debug_trace); see docs/vehicles/03-vehicle-handling-overhaul.md
 	void SetHandlingTraceInfo(LPCSTR info) { m_vho.trace_info = info; }
+	// tools/vho_tests: repeatable scripted runs. Inert unless a test script calls them.
+	void HandlingTestBegin(LPCSTR name, float seconds);
+	void HandlingTestEnd();
+	void HandlingLogStart(LPCSTR name); // record every physics step to logs\vho_trace while the player drives; changes no input
+	void HandlingLogStop();
+	void HandlingLogUpdate();
+	void SetTestKeys(int mask); // 1 forward, 2 back, 4 left, 8 right, 16 hand brake, 32 sprint; negative: the player's keys again
+	void TestPlace(const Fvector& pos, float heading_deg, float speed);
+	float TestSideslip(); // degrees, + = sliding toward the car's right
+	float TestGroundSpeed(); // m/s
+	struct dxContactFeedbackSlots* HandlingTraceSlots(SWheel& w);
 	LPCSTR GetHandlingFlags(); // clutch and pedal state of the last step, for the telemetry HUD
 
 #ifdef CAR_NEW

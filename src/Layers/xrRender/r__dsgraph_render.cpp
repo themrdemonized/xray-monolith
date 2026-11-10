@@ -946,6 +946,7 @@ void R_dsgraph_structure::r_dsgraph_render_subspace(IRender_Sector* _sector, CFr
 				{
 					if (!renderable->renderable.rain_occluder) continue;
 					val_bRainOccluder = TRUE;
+					val_fRainLift = renderable->renderable.rain_lift;
 					renderable->renderable_Render();
 					val_bRainOccluder = FALSE;
 					continue;

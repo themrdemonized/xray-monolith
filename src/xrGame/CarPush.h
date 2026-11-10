@@ -26,5 +26,13 @@ void vehicle_anomaly_throw(CPhysicsShellHolder* obj, CObject* zone, const Fvecto
 // anomaly (shock_recharge), so the driver can restart and get away before the next discharge. 0 otherwise.
 int vehicle_zone_recharge(CObject* obj, ALife::EHitType hit_type);
 
+// A car with the overhaul and a driver stays a target of the zone it is in, like the living (zones stop noticing
+// non-living objects after their disable_time, 50 ms for an electric anomaly, before its first hit can land).
+bool vehicle_zone_target(CObject* obj);
+
+// Where a zone should take a car to be: its centre of mass (the model's visual centre can be metres off). Leaves c
+// as it is for anything else.
+void vehicle_zone_center(CObject* obj, Fvector& c);
+
 // Limits a car to one static-geometry impact sound per hit instead of one per contact point and physics step.
 bool vehicle_collide_sound(IPhysicsShellHolder* obj);

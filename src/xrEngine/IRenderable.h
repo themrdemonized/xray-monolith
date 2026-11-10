@@ -23,6 +23,8 @@ public:
 		ShaderBus::object_values* bus_values = nullptr;
 		// drawn into the rain occlusion map, so what is under it stays dry (vehicles: their interiors)
 		BOOL rain_occluder = FALSE;
+		// m it is drawn above itself in that map (see r_dsgraph_insert_dynamic)
+		float rain_lift = 0.15f;
 	} renderable;
 
 public:

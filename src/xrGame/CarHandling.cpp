@@ -20,12 +20,16 @@
 #include "ai_space.h"
 #include "script_engine.h"
 #include "script_game_object.h"
+#include "UIGameCustom.h"
 #include <ctime>
 
 // Vehicle Handling Overhaul. Replaces the stock velocity-motor drive with an engine -> auto clutch -> gearbox ->
 // wheels torque model, plus speed-sensitive steering, tuned suspension, tyre slip and surface grip.
 // Everything here is inactive unless m_vho.enabled; the stock code paths stay untouched otherwise.
 // Design and parameter reference: docs/vehicles/03-vehicle-handling-overhaul.md
+
+// the physics island this shell was stepped in: solver used (1 dWorldStep, 0 dWorldQuickStep), joints and bodies
+void ph_island_debug(CPhysicsShell* shell, int& exact, int& nj, int& nb);
 
 namespace
 {
@@ -37,7 +41,8 @@ const float BRAKE_UNIT = 100000.f; // stock brake torque scale (SWheelBreak::Bre
 
 // Handling trace file format. Raise it whenever a column is added, removed, renamed or changes meaning, so a
 // parser can tell traces apart.
-const u32 VHO_TRACE_SCHEMA = 2; // 2: the test input and its mode column are gone
+const u32 VHO_TRACE_SCHEMA = 4; // 2: the test input and its mode column are gone; 3: w*_mu2 (friction across the tyre), yaw_assist flag;
+                                // 4: solver and island, position, yaw assist detail, per-wheel patch velocity, solved contact force, slip1, normal
 const u32 TRACE_COOLDOWN_STEPS = 500; // per event type, after an automatic trace was latched
 const u32 TRACE_LOCK_CLEAR_STEPS = 50; // a wheel lock must clear this long before it can latch another trace
 const u32 TRACE_MAX_AUTO = 40; // automatic traces per car and session
@@ -49,11 +54,11 @@ enum
 	TF_REV_FREE = 1 << 5, TF_LUGGING = 1 << 6, TF_DECLUTCHED = 1 << 7, TF_NEUTRAL = 1 << 8, TF_PEDAL = 1 << 9,
 	TF_ENGINE_ON = 1 << 10, TF_CLUTCH_MODE = 1 << 11, TF_AUTOMATIC = 1 << 12, TF_HAND = 1 << 13,
 	TF_GROUNDED = 1 << 14, TF_LOCK_CENTRE = 1 << 15, TF_LOCK_AXLES = 1 << 16, TF_ENGAGING = 1 << 17,
-	TF_HIGH_GEAR = 1 << 18, TF_AGAINST = 1 << 19, TF_CENTRE_HELD = 1 << 20
+	TF_HIGH_GEAR = 1 << 18, TF_AGAINST = 1 << 19, TF_CENTRE_HELD = 1 << 20, TF_YAW_ASSIST = 1 << 21
 };
 const LPCSTR g_trace_flag_names[] = { "locked", "strict", "braking", "open", "shifting", "rev_free", "lugging",
 	"declutched", "neutral", "pedal", "engine_on", "clutch_mode", "automatic", "hand", "grounded", "lock_centre",
-	"lock_axles", "engaging", "high_gear", "against", "centre_held" };
+	"lock_axles", "engaging", "high_gear", "against", "centre_held", "yaw_assist" };
 
 struct SHandlingParamInfo
 {
@@ -105,7 +110,7 @@ void CCar::HandlingResetState()
 	S.rpm = b_engine_on ? m_min_rpm : 0.f;
 	S.shift_timer = S.auto_timer = S.pending_damage = S.script_steer = 0.f;
 	S.brake_hold = S.stall_timer = 0.f;
-	S.ground_w = S.shift_throttle = S.hand_slide = S.clutch_engage = 0.f;
+	S.ground_w = S.shift_throttle = S.hand_slide = S.steer_open = S.clutch_engage = 0.f;
 	S.crank_timer = S.flip_timer = S.flip_sign = S.water_depth = S.water_check = 0.f;
 	S.crank_ok = S.seized = S.start_blocked = false;
 	S.wheel_dist = 0.f;
@@ -114,6 +119,17 @@ void CCar::HandlingResetState()
 	S.prev_vel.set(0.f, 0.f, 0.f);
 	S.crash_dv = S.last_crash_speed = 0.f;
 	S.crash_cooldown = 1.f; // no crash from the first velocity sample
+	S.rebound_dir.set(0.f, 0.f, 0.f);
+	S.rebound_lost = S.rebound_timer = S.spun_timer = 0.f;
+	S.zone_hit_time = 0;
+	S.ground_mu = 1.f;
+	S.ground_wheels = 0;
+	S.dbg_yaw_assist = 0.f;
+	S.dbg_ya_excess = S.dbg_ya_limit = S.dbg_ya_fade = 0.f;
+	S.dbg_ya_reason = 0;
+	S.dbg_body_contacts = 0;
+	S.test_on = false;
+	S.test_keys = 0;
 	S.script_steer_on = S.locked = S.overrev = S.last_hit_explosive = S.declutched = false;
 	// a car nobody drives stands parked: out of gear with the hand brake on
 	S.hand_latched = !Owner() && m_vho.p.handbrake_double_tap > 0.f;
@@ -415,6 +431,7 @@ void CCar::SetHandlingEnabled(bool val)
 		m_vho.enabled = false;
 		HandlingRestore();
 	}
+	HandlingSightUpdate();
 }
 
 void CCar::HandlingApply()
@@ -459,6 +476,7 @@ void CCar::HandlingApply()
 	for (auto& it : m_wheels_map)
 	{
 		SWheel& w = it.second;
+		w.vho_driven = false;
 		if (!w.joint) continue;
 		const SWheelDrive* model = NULL;
 		for (const SWheelDrive& d : m_driving_wheels)
@@ -477,6 +495,9 @@ void CCar::HandlingApply()
 		}
 	}
 	if (m_vho.drive.empty()) m_vho.drive = m_driving_wheels;
+	for (SWheelDrive& d : m_vho.drive)
+		d.pwheel->vho_driven = true;
+	renderable.rain_lift = P.rain_lift;
 
 	// Suspension axis. Hinge2 springs act along the steering axis (the wheel bone's local X); a model with it
 	// lying flat on some wheels (buggy rear) springs those fore and aft with no vertical travel, so they get
@@ -558,6 +579,17 @@ void CCar::HandlingApply()
 		if (P.susp_level <= 0.f || it.second.vho_preload <= 0.f)
 			it.second.vho_preload = P.susp_preload * S.sprung_corner_mass * EffectiveGravity();
 	HandlingSizeBrakes();
+	// tip_margin: a tyre grips sideways at most this share of what would tip the car (half its width over the height of
+	// its centre of gravity), so on a flat road it slides on its wheels instead of rolling over. Nothing holds it up:
+	// only its weight and width do. A wheel catching a ledge, a ditch or a rock pushes through its contact, not its
+	// friction, and still tips it, as does a slope it cannot slide down.
+	{
+		float cog = P.cog_height > 0.f ? P.cog_height : HandlingRestCog();
+		float half = 0.f;
+		for (auto& it : m_wheels_map)
+			half = _max(half, _abs(it.second.pos.x - S.axle_mid_x));
+		S.tip_mu = P.tip_margin > 0.f && half > 0.15f ? P.tip_margin * half / cog : 0.f;
+	}
 	// Tyre contact stiffness in proportion to the weight each wheel carries standing (tyre_spring and tyre_damping
 	// are for a wheel carrying up to TYRE_REF_LOAD): with one stiffness for all, a bus or truck wheel pressed several
 	// times deeper into the ground than a car's, more over every bump, and could pass under it. Every tyre now gives
@@ -589,7 +621,7 @@ void CCar::HandlingApply()
 		// times their centre of gravity high): the visual's box is unreliable (the Niva's spans 9.4 m) and follows the
 		// bones once the car is simulated
 		float len = S.wheelbase * 1.7f, wid = _max(S.track, 0.8f) * 1.15f;
-		float hgt = clampr(2.5f * (P.cog_height > 0.f ? P.cog_height : S.cog_h), 1.f, 3.5f);
+		float hgt = clampr(2.5f * (P.cog_height > 0.f ? P.cog_height : HandlingRestCog()), 1.f, 3.5f);
 		float mass = m_pPhysicsShell->getMass();
 		if (P.yaw_inertia > 0.f && dm && S.wheelbase > 0.5f)
 		{
@@ -649,13 +681,16 @@ void CCar::HandlingMeasureCog()
 		m += em;
 	}
 	Fvector up = HandlingDir(S.ax_up);
+	// in the model's pose: the wheels where the bind pose has them, not where a loaded save left them
 	float ground = 0.f;
 	int n = 0;
 	for (auto& it : m_wheels_map)
 	{
 		SWheel& w = it.second;
 		if (!w.element) continue;
-		ground += w.element->XFORM().c.dotproduct(up) - w.radius;
+		Fvector rest;
+		S.chassis->XFORM().transform_tiny(rest, w.rest_local);
+		ground += rest.dotproduct(up) - w.radius;
 		++n;
 	}
 	if (m <= 0.f || !n) return;
@@ -665,6 +700,24 @@ void CCar::HandlingMeasureCog()
 		Msg("! [VHO] %s (%s): the model's centre of mass is %.2f m above the ground its wheels stand on; give the car a "
 		    "cog_height, or it hangs under its wheels like a pendulum", *cName(), *cNameSect(), h);
 	S.cog_h = _max(h, 0.01f);
+}
+
+// the height the centre of gravity rests at, m: the model's pose moved by how the suspension settles (a negative
+// ride_height sinks the body onto its wheels, and its weight with it)
+float CCar::HandlingRestCog() const
+{
+	const SHandlingParams& P = m_vho.p;
+	return _max(m_vho.s.cog_h + (P.susp_level > 0.f ? P.ride_height : 0.f), 0.05f);
+}
+
+// the spring rate a wheel has now, N/m: the model's (susp_frequency 0) or the one susp_frequency gave it; bump stops
+// not counted
+float CCar::HandlingSpringRate(const SWheel& w) const
+{
+	float k = w.stock_spring * w.vho_spring_mul * HINGE2_SPRING;
+	if (k > EPS) return k;
+	float omega = 2.f * PI * _max(m_vho.p.susp_frequency, 0.5f);
+	return m_vho.s.sprung_corner_mass * omega * omega;
 }
 
 // Load a wheel carries now, N at physics scale: its joint spring at the present compression plus the preload,
@@ -695,6 +748,8 @@ void CCar::HandlingSizeBrakes()
 	const SHandlingParams& P = m_vho.p;
 	SHandlingState& S = m_vho.s;
 	S.static_front_share = S.brake_front_share = 0.5f;
+	for (auto& it : m_wheels_map)
+		it.second.vho_load_k = 1.f / float(m_wheels_map.size());
 	if (P.brake_g <= 0.f || m_wheels_map.empty()) return;
 	float mass = m_pPhysicsShell->getMass(), g = EffectiveGravity();
 
@@ -725,7 +780,7 @@ void CCar::HandlingSizeBrakes()
 		inv.transform_tiny(cl, c.mul(1.f / m));
 		float L = _max(u_f - u_r, 0.5f);
 		float u_cg = (cl.z - S.axle_mid_z) * S.front_sign;
-		float h = P.cog_height > 0.f ? P.cog_height : S.cog_h;
+		float h = P.cog_height > 0.f ? P.cog_height : HandlingRestCog();
 		S.static_front_share = clampr((u_cg - u_r) / L, 0.25f, 0.75f);
 		S.brake_front_share = P.brake_front > 0.f ? clampr(P.brake_front, 0.f, 1.f) :
 			clampr(S.static_front_share + P.brake_g * h / L + 0.03f, 0.4f, 0.85f);
@@ -736,6 +791,7 @@ void CCar::HandlingSizeBrakes()
 		bool rear = n_f && n_r && HandlingIsRear(w);
 		float brake_k = !n_f || !n_r ? 1.f / m_wheels_map.size() : (rear ? (1.f - S.brake_front_share) / n_r : S.brake_front_share / n_f);
 		float load_k = !n_f || !n_r ? 1.f / m_wheels_map.size() : (rear ? (1.f - S.static_front_share) / n_r : S.static_front_share / n_f);
+		w.vho_load_k = load_k;
 		w.vho_brake_full = P.brake_g * g * mass * brake_k * w.radius;
 		w.vho_hand_full = P.handbrake_lock * g * mass * load_k * w.radius;
 	}
@@ -956,6 +1012,8 @@ void CCar::HandlingRestore()
 		if (!stock) d.pwheel->ApplyDriveAxisVelTorque(0.f, 0.f);
 	}
 	m_vho.drive.clear();
+	for (auto& it : m_wheels_map)
+		it.second.vho_driven = false;
 	const SHandlingStock& st = m_vho.stock;
 	m_max_power = st.max_power;
 	m_max_rpm = st.max_rpm;
@@ -1033,10 +1091,13 @@ bool CCar::SetHandlingParam(LPCSTR name, float value)
 		"handbrake_slip", "flip_speed", "spawn_lift", "bump_ramp", "drivetrain_inertia", "inertia_cap",
 		"slip_rpm", "tc_stall_rpm", "tc_multiply", "auto_up_reserve", "hill_shift", "handbrake_rise", "park_release", "calm_hill", "brake_calm", "brake_build", "brake_bite",
 		"stall_time", "idle_hold", "clutch_assist", "temp_warmup", "contact_max_vel",
-		"body_friction", "wheel_climb", "run_over_mass", "ram_mass", "ram_damage", "ram_player_damage", "shock_recharge",
+		"body_friction", "wheel_climb", "ground_face", "tyre_load_sens", "roll_front", "steer_slip", "steer_slip_rate", "run_over_mass", "ram_mass", "ram_damage", "ram_player_damage", "shock_recharge",
 		"anomaly_pull", "anomaly_lift", "anomaly_lift_height", "anomaly_kick", "anomaly_fire_damage",
 		"anomaly_push_damage", "see_through", "dodge", "dodge_see", "dodge_hear", "dodge_time",
-		"temp_thermostat", "temp_derate", "temp_damage", "temp_seize", "temp_restart", "debug_trace" };
+		"temp_thermostat", "temp_derate", "temp_damage", "temp_seize", "temp_restart", "debug_trace",
+		"reverse_corner_g", "slide_drive", "yaw_assist", "yaw_limit", "yaw_assist_max",
+		"yaw_assist_fade", "crash_rebound", "anomaly_shock_damage", "anomaly_acid_damage", "anomaly_hit_cap",
+		"anomaly_burn_rate", "handbrake_side_grip" };
 	for (LPCSTR l : live)
 		if (!xr_strcmp(l, name)) return true;
 	if (m_vho.enabled && m_pPhysicsShell) m_vho.s.apply_pending = true;
@@ -1273,8 +1334,6 @@ void CCar::HandlingPhTune(float step)
 		// wheels rest ride_height below the model's pose, so the whole travel to the bump stop stays free
 		// whatever the weight distribution. Both wheels of an axle level together, which leaves body roll alone.
 		float mg = S.sprung_corner_mass * EffectiveGravity();
-		float omega = 2.f * PI * _max(P.susp_frequency, 0.5f);
-		float k = S.sprung_corner_mass * omega * omega;
 		Fvector up = HandlingDir(S.ax_up);
 		for (auto& it : m_wheels_map)
 		{
@@ -1284,7 +1343,7 @@ void CCar::HandlingPhTune(float step)
 			{
 				float comp = w.vho_comp;
 				if (w.vho_arb && S.step_count - w.vho_arb->contact_step < 3) comp = (comp + w.vho_arb->vho_comp) * 0.5f;
-				w.vho_preload = clampr(w.vho_preload + k * (comp + P.ride_height) * step / P.susp_level, 0.f, 3.f * mg);
+				w.vho_preload = clampr(w.vho_preload + HandlingSpringRate(w) * (comp + P.ride_height) * step / P.susp_level, 0.f, 3.f * mg);
 			}
 			Fvector a;
 			w.joint->GetAxisDirDynamic(0, a);
@@ -1308,13 +1367,72 @@ void CCar::HandlingPhTune(float step)
 		if (am > 3.f * g) a.mul(3.f * g / am);
 		S.cog_acc.lerp(S.cog_acc, a, _min(1.f, step * 20.f));
 		d = HandlingDir(S.ax_up);
-		d.mul(clampr(P.cog_height - S.cog_h, -0.5f, 0.5f));
+		d.mul(clampr(P.cog_height - HandlingRestCog(), -0.5f, 0.5f));
 		ga.set(0.f, -g, 0.f).sub(S.cog_acc);
 		t.crossproduct(d, ga).mul(m_pPhysicsShell->getMass());
 		S.chassis->applyTorque(t.x, t.y, t.z);
 	}
 	HandlingBumpStops(step);
+	// tyre_load_sens: what each tyre carries now, for HandlingContact. Smoothed over about 0.05 s, so a bump does not flicker the grip
+	if (P.tyre_load_sens > 0.f)
+	{
+		float mg = m_pPhysicsShell->getMass() * EffectiveGravity();
+		for (auto& it : m_wheels_map)
+		{
+			SWheel& w = it.second;
+			if (!w.joint || !w.element) continue;
+			float load = _max(HandlingWheelLoad(w, mg * w.vho_load_k) + (P.anti_roll > 0.f && w.vho_arb ? w.vho_dbg_arb : 0.f), 0.f);
+			w.vho_load = w.vho_load > 0.f ? w.vho_load + (load - w.vho_load) * _min(1.f, step * 20.f) : load;
+		}
+	}
 	HandlingFlip(step);
+	HandlingYawAssist(step);
+}
+
+// yaw_assist: above the turning rate the tyres can carry at this speed (yaw_limit x grip x g / speed) the body is
+// slowed, up to yaw_assist_max of what the tyres can turn it with, as a driver's steering would if the tyres answered at
+// once. It stops the swing from side to side that a catch at speed turns into, and nothing else: inside the limit
+// it does nothing, the hand brake turns it off, and it fades out from yaw_assist_fade degrees of sideslip to twice that,
+// so a car already sideways stays the driver's. After a hard hit (crash_rebound) it takes the hit's spin out, three
+// times as hard and also in the air.
+void CCar::HandlingYawAssist(float step)
+{
+	const SHandlingParams& P = m_vho.p;
+	SHandlingState& S = m_vho.s;
+	S.dbg_yaw_assist = 0.f;
+	S.dbg_ya_excess = S.dbg_ya_limit = S.dbg_ya_fade = 0.f;
+	S.dbg_ya_reason = 0;
+	if (P.yaw_assist <= 0.f || !S.chassis || S.wheelbase <= 0.5f) return;
+	bool crash = S.rebound_timer > 0.f;
+	if (!crash && S.ground_wheels < 2) return;
+	Fvector v, w, up = HandlingDir(S.ax_up), fwd = HandlingDir(S.ax_fwd);
+	m_pPhysicsShell->get_LinearVel(v);
+	float along = v.dotproduct(fwd);
+	float side = v.dotproduct(HandlingDir(S.ax_right));
+	float speed = _sqrt(along * along + side * side);
+	if (speed < 3.f) return;
+	m_pPhysicsShell->get_AngularVel(w);
+	float r = w.dotproduct(up);
+	float mu = _max(S.tip_mu > 0.f ? _min(S.ground_mu, S.tip_mu) : S.ground_mu, 0.1f), g = EffectiveGravity();
+	float excess = _abs(r) - P.yaw_limit * mu * g / speed;
+	S.dbg_ya_limit = P.yaw_limit * mu * g / speed;
+	S.dbg_ya_excess = excess;
+	if (excess <= 0.f) return;
+	float fade = 1.f - S.hand_slide;
+	if (!crash)
+	{
+		float beta = rad2deg(atan2f(_abs(side), _abs(along)));
+		fade *= 1.f - smoothstep01((beta - P.yaw_assist_fade) / _max(P.yaw_assist_fade, 1.f));
+	}
+	float inertia = HandlingInertiaAbout(S.ax_up);
+	float cap = P.yaw_assist_max * mu * m_pPhysicsShell->getMass() * g * S.wheelbase * 0.5f;
+	float t = _min(inertia * excess * P.yaw_assist, cap) * fade * (crash ? 3.f : 1.f);
+	if (t <= 0.f) return;
+	float sign = r > 0.f ? -1.f : 1.f;
+	S.chassis->applyTorque(up.x * t * sign, up.y * t * sign, up.z * t * sign);
+	S.dbg_yaw_assist = t;
+	S.dbg_ya_fade = fade;
+	S.dbg_ya_reason = crash ? 2 : 1;
 }
 
 // hinge2 suspension has no travel limit, so soft springs let wheels sink into the arches over big bumps.
@@ -1330,8 +1448,6 @@ void CCar::HandlingBumpStops(float step)
 	if ((P.bump_stiffness <= 0.f && P.anti_roll <= 0.f && !valving && !progressive && P.susp_level <= 0.f) ||
 	    !S.chassis) return;
 	float m = S.sprung_corner_mass;
-	float omega = 2.f * PI * _max(P.susp_frequency, 0.5f);
-	float k_spring = m * omega * omega;
 	float f_max = 10.f * m * EffectiveGravity();
 	const Fmatrix& X = S.chassis->XFORM();
 	Fvector up = HandlingDir(S.ax_up);
@@ -1397,8 +1513,12 @@ void CCar::HandlingBumpStops(float step)
 		// can take in one physics step.
 		if (P.anti_roll > 0.f && w.vho_arb && w.vho_arb->element)
 		{
-			float k_arb = _min(k_spring * P.anti_roll, 0.25f * w.element->getMass() / (step * step));
+			// roll_front: the front bars' share of it. A real car's front bar is the stiffer one, so in a hard turn the front
+			// axle carries more of the weight moving outward (0.5 = the same bar on every axle)
+			float axle_k = 2.f * (HandlingIsRear(w) ? 1.f - clampr(P.roll_front, 0.f, 1.f) : clampr(P.roll_front, 0.f, 1.f));
+			float k_arb = _min(HandlingSpringRate(w) * P.anti_roll * axle_k, 0.25f * w.element->getMass() / (step * step));
 			float f = clampr(k_arb * (comp - w.vho_arb->vho_comp_now), -f_max, f_max);
+			w.vho_dbg_arb = f;
 			S.chassis->applyImpulseVsGF(w.element->XFORM().c, w.vho_axis, f * step);
 			w.element->applyForce(Fvector().set(w.vho_axis).invert(), f);
 		}
@@ -1515,10 +1635,12 @@ void CCar::HandlingCreatureContact(bool& do_colide, bool bo1, dContact& c, SGame
 	if (!ud1 || !ud2) return;
 	CCar* car = smart_cast<CCar*>(ud1->ph_ref_object);
 	IPhysicsShellHolder* other = ud2->ph_ref_object;
+	dxGeomUserData* own = ud1;
 	if (!car)
 	{
 		car = smart_cast<CCar*>(ud2->ph_ref_object);
 		other = ud1->ph_ref_object;
+		own = ud2;
 	}
 	if (!car || !other || !car->m_vho.enabled) return;
 	CEntityAlive* ent = smart_cast<CEntityAlive*>(other); // creatures, alive or as ragdolls (not cars)
@@ -1527,6 +1649,9 @@ void CCar::HandlingCreatureContact(bool& do_colide, bool bo1, dContact& c, SGame
 	Fvector v;
 	car->m_pPhysicsShell->get_LinearVel(v);
 	bool fast = v.square_magnitude() >= _sqr(car->m_vho.p.run_over_speed);
+	// Without this a creature's own movement force and the character controller's stiff contact (it multiplies the
+	// spring tenfold after this callback) moved even a loaded truck about: the contact pushes the creature only.
+	bool wall = ghost || car->m_vho.p.creature_push < 1.f;
 	// a moving car knocks people and other light creatures aside (HandlingRunOver) instead of riding up onto them
 	// and being thrown into the air
 	if (fast && (ghost || (car->m_vho.p.run_over_mass > 0.f && CreatureMass(ent) <= car->m_vho.p.run_over_mass)))
@@ -1552,6 +1677,7 @@ void CCar::HandlingCreatureContact(bool& do_colide, bool bo1, dContact& c, SGame
 		MulSprDmp(c.surface.soft_cfm, c.surface.soft_erp, 0.05f, 0.2f);
 		c.surface.mu = 0.f;
 		car->HandlingLimitCorrection(c);
+		own->contact_immovable = wall;
 		return;
 	}
 	if (fast && ent->g_Alive()) car->HandlingRunOver(ent, false); // too heavy to knock aside: only the blow to the car
@@ -1562,7 +1688,9 @@ void CCar::HandlingCreatureContact(bool& do_colide, bool bo1, dContact& c, SGame
 		// shove the heavy car around. (A hand-made one-sided contact here could outlive a body that died.)
 		MulSprDmp(c.surface.soft_cfm, c.surface.soft_erp, 0.01f, 0.1f);
 		c.surface.mu = 0.f;
+		own->contact_immovable = wall;
 	}
+	// (a fast car meeting a creature too heavy to knock aside stays a real collision, both ways)
 }
 
 // Car body (not the tyres) against everything but creatures: a limited push-out and no bounce, and on static
@@ -1579,6 +1707,7 @@ void CCar::HandlingBodyContact(bool& do_colide, bool bo1, dContact& c, SGameMtl*
 	if (!car || !car->HandlingActive()) return;
 	if (own->object_callbacks && own->object_callbacks->HasCallback(SWheel::WheellCollisionCallback)) return; // tyres
 	if (other && other->ph_ref_object && smart_cast<CEntityAlive*>(other->ph_ref_object)) return; // creatures
+	if (car->m_vho.p.debug_trace > 0.f && car->m_vho.s.dbg_body_contacts < 60000) ++car->m_vho.s.dbg_body_contacts;
 	car->HandlingLimitCorrection(c);
 	if ((!other || !other->ph_ref_object) && car->m_vho.p.body_friction > 0.f)
 		c.surface.mu = _min(c.surface.mu, car->m_vho.p.body_friction);
@@ -1638,9 +1767,8 @@ void CCar::HandlingRunOver(CObject* obj, bool knock)
 		r.dir.normalize_safe();
 		r.power = r.alive ? P.run_over_damage * speed * speed * _max(1.f, m_car / 1250.f) : 0.f;
 		r.impulse = r.alive ? P.run_over_impulse * speed * clampr(m_car / 1250.f, 0.6f, 3.f) : m_c * speed * 1.2f;
-		// the car loses the momentum it hands over, hardly anything for a heavy one (the living push back through
-		// their contact)
-		r.car_dv = r.alive ? 0.f : speed * m_c / (m_c + m_car);
+		// the car loses the momentum it hands over, hardly anything for a heavy one
+		r.car_dv = speed * m_c / (m_c + m_car);
 		r.shove = r.alive ? m_c * speed : 0.f;
 	}
 	else
@@ -1810,6 +1938,15 @@ void CCar::HandlingPhUpdate(float step)
 	SHandlingState& S = m_vho.s;
 	++S.step_count;
 	if (m_gear_ratious.size() < 2 || m_driving_wheels.empty()) return;
+	if (S.test_on)
+	{
+		fwp = (S.test_keys & 1) != 0;
+		bkp = (S.test_keys & 2) != 0;
+		lsp = (S.test_keys & 4) != 0;
+		rsp = (S.test_keys & 8) != 0;
+		brp = (S.test_keys & 16) != 0;
+		S.sprint = (S.test_keys & 32) != 0;
+	}
 
 	// forward is toward the steering wheels, also on a model built facing -z
 	Fvector fwd = HandlingDir(S.ax_fwd);
@@ -1821,12 +1958,45 @@ void CCar::HandlingPhUpdate(float step)
 	// crash: a sudden loss of horizontal speed (walls, trees, vehicles; bodies are too light to cause one).
 	// The speed lost over about 0.15 s is collected, then reported once to scripts and may stall the engine.
 	{
-		Fvector dv;
+		Fvector dv, before = S.prev_vel;
 		dv.sub(lin_vel, S.prev_vel);
 		dv.y = 0.f;
 		S.prev_vel = lin_vel;
 		float lost = dv.magnitude();
 		if (lost > 40.f) lost = 0.f; // teleport or level travel, not a crash
+		// crash_rebound: a car is not a ball. A hard hit (3 m/s or more in one step, against the way it was going) leaves
+		// it coming back off the obstacle at crash_rebound of the speed lost, at least 0.5 m/s so it can part from it.
+		// The solver's push-out and the springs would otherwise throw it back at a third of its speed. Being hit from
+		// behind is not this: the speed gained is not lost.
+		if (P.crash_rebound > 0.f)
+		{
+			if (lost >= 3.f)
+			{
+				Fvector into;
+				into.set(dv).mul(-1.f / lost);
+				if (before.dotproduct(into) > 2.f)
+				{
+					if (S.rebound_timer <= 0.f || lost > S.rebound_lost)
+					{
+						S.rebound_dir = into;
+						S.rebound_lost = lost;
+					}
+					S.rebound_timer = 0.4f;
+				}
+			}
+			if (S.rebound_timer > 0.f)
+			{
+				S.rebound_timer -= step;
+				float limit = _max(P.crash_rebound * S.rebound_lost, 0.5f);
+				float along = lin_vel.dotproduct(S.rebound_dir);
+				if (along < -limit)
+				{
+					m_pPhysicsShell->applyImpulse(S.rebound_dir, (-limit - along) * m_pPhysicsShell->getMass());
+					lin_vel.mad(S.rebound_dir, -limit - along);
+					S.prev_vel = lin_vel;
+				}
+			}
+		}
 		S.dbg_crash_lost = lost;
 		S.crash_dv = S.crash_dv * (1.f - _min(1.f, step * 8.f)) + lost;
 		if (S.crash_cooldown > 0.f)
@@ -2006,8 +2176,20 @@ void CCar::HandlingPhUpdate(float step)
 		// converter), the launch gears and reverse keep the forgiving clutch.
 		bool high_gear = P.lug_stall > 0.f && P.automatic <= 0.f && !reverse_gear &&
 			CurrentTransmission() > size_t(_max(P.launch_gears, 1.f));
+		// A car spun round or rolling against its gear (a slide, a spin, backwards after one) is not an engine lugging a
+		// too-high gear: nothing in it stalls the engine. The clutch lets go and the revs follow the throttle, falling
+		// only as fast as an engine's do, and the driven wheels keep their torque. It takes effect from about 24 degrees
+		// of sideslip above walking pace, and lasts 1.5 s after the car has straightened out, so the clutch bites again
+		// gently. With the clutch pedal too: losing control is not a clutch fault.
+		{
+			float side = lin_vel.dotproduct(HandlingDir(S.ax_right));
+			float along = S.speed * (ratio < 0.f ? -1.f : 1.f);
+			bool spun_now = along < -0.5f || (_abs(side) > 2.f && _abs(side) > 0.45f * _abs(S.speed));
+			S.spun_timer = spun_now ? 1.5f : _max(S.spun_timer - step, 0.f);
+		}
+		bool spun = S.spun_timer > 0.f;
 		// with the clutch pedal every gear is strict: let the clutch out too early or too slowly and it stalls
-		bool strict = clutch_mode || (high_gear && !braking);
+		bool strict = !spun && (clutch_mode || (high_gear && !braking));
 		bool can_stall = P.lug_stall > 0.f;
 		// the engine dies only after stall_time below stall_rpm (default half the idle): a wheel catching a rock
 		// or a dip in the revs while the driver reacts is survived, a gear the car cannot pull is not
@@ -2022,7 +2204,7 @@ void CCar::HandlingPhUpdate(float step)
 		slip_top = _min(slip_top, rpm_max * 0.9f);
 		float slip_target = rpm_idle + (slip_top - rpm_idle) * S.throttle;
 		bool lugging = !strict && S.throttle > 0.3f && shaft < slip_target * 0.85f;
-		if (S.locked && (open || (shaft < rpm_idle * 0.9f && !strict) || lugging)) S.locked = false;
+		if (S.locked && (open || (shaft < rpm_idle * 0.9f && !strict) || lugging || (spun && shaft < S.rpm * 0.9f))) S.locked = false;
 		if (!S.locked && !open && !lugging && shaft >= rpm_idle && shaft >= S.rpm - 50.f * RPM_TO_RAD) S.locked = true;
 		S.clutch_engage = strict && !S.locked && !open ? _min(1.f, S.clutch_engage + step / _max(P.clutch_time, 0.1f)) : 0.f;
 		tf |= (strict ? TF_STRICT : 0) | (braking ? TF_BRAKING : 0) | (lugging ? TF_LUGGING : 0) | (open ? TF_OPEN : 0) |
@@ -2165,6 +2347,8 @@ void CCar::HandlingPhUpdate(float step)
 	// ---- torques per wheel (positive drive = toward the gear's direction)
 	float dir = ratio < 0.f ? -1.f : 1.f;
 	float wheel_load = m_pPhysicsShell->getMass() * EffectiveGravity() / _max(u32(m_wheels_map.size()), u32(1));
+	float grip_sum = 0.f;
+	S.ground_wheels = 0;
 	for (auto& it : m_wheels_map)
 	{
 		SWheel& w = it.second;
@@ -2172,10 +2356,17 @@ void CCar::HandlingPhUpdate(float step)
 		const SHandlingSurface* s = (S.step_count - w.contact_step < 4) ? HandlingSurface(w.contact_mtl) : NULL;
 		float s_grip, s_rolling, s_slip;
 		HandlingSurfaceFactors(s, s_grip, s_rolling, s_slip);
+		if (S.step_count - w.contact_step < 4)
+		{
+			grip_sum += s_grip;
+			++S.ground_wheels;
+		}
 		float rolling = P.rolling_resistance * s_rolling;
 		w.vho_resist = m_axle_friction + rolling * wheel_load * w.radius;
 	}
 
+	if (S.ground_wheels)
+		S.ground_mu = (P.tyre_friction > 0.f ? P.tyre_friction : 1.f) * P.grip_scale * P.weather_grip * grip_sum / float(S.ground_wheels);
 	float t_wheels = t_shaft * abs_ratio * P.driveline_efficiency * S.mass_k / _max(float(m_vho.drive.size()), 1.f);
 	if (S.locked && t_wheels > 0.f && P.engine_inertia > 0.f && P.drivetrain_inertia <= 0.f) // else the bodies carry it
 	{
@@ -2190,7 +2381,7 @@ void CCar::HandlingPhUpdate(float step)
 	S.dbg_t_engine = t_engine;
 	S.dbg_t_shaft = t_shaft;
 	S.dbg_t_wheels = t_wheels;
-	S.dbg_flags = tf;
+	S.dbg_flags = tf | (S.dbg_yaw_assist > 0.f ? TF_YAW_ASSIST : 0);
 
 	auto brake_wheel = [&](SWheel& w, float foot, float hand_torque) {
 		w.vho_resist += BRAKE_UNIT * foot * P.brake_scale * S.mass_k * S.brake;
@@ -2295,7 +2486,9 @@ void CCar::HandlingPhUpdate(float step)
 				rel.sub(w.element->XFORM().c, m->element->XFORM().c);
 				turn.crossproduct(w_body, rel);
 				SWheel& spinning = _abs(w.vho_rim) > _abs(m->vho_rim) ? w : *m;
-				float min_k = _max(_max(0.04f, P.diff_axle_bias), hold_k(hold(spinning), _max(spinning.vho_drive, 0.f)));
+				// a self-locking differential adds its lock to what the spinning side holds, as a share of the torque coming in,
+				// which is twice one wheel's share, so the gripping wheel can break loose too
+				float min_k = clampr(hold_k(hold(spinning), _max(spinning.vho_drive, 0.f)) + 2.f * P.diff_axle_bias, 0.04f, 1.f);
 				if (&spinning != &w) k *= pass(_abs(w.vho_rim - m->vho_rim - turn.dotproduct(fwd)), min_k);
 			}
 			// quick to cut, slower to come back, so a wheel that bites again does not make the revs flutter
@@ -2410,8 +2603,8 @@ void CCar::HandlingPhUpdate(float step)
 	}
 
 	HandlingSteer(step);
-	if (P.debug_trace > 0.f) HandlingTraceRecord(step);
-	else if (!m_vho.trace.empty()) HandlingTraceFree();
+	if (P.debug_trace > 0.f && m_vho.log_on) HandlingTraceRecord(step); // only the car being driven, and no other trace files
+	else if (!m_vho.log_on && !m_vho.trace.empty()) HandlingTraceFree(); // a log still on is ended by HandlingLogUpdate, which writes its last rows
 }
 
 void CCar::HandlingSteer(float step)
@@ -2448,41 +2641,55 @@ void CCar::HandlingSteer(float step)
 	float pivot = S.rear_u * (1.f - rear_k);
 	float L_ref = S.front_u - pivot;
 
-	// reference: centre-line angle at the frontmost axle, from the tightest joint limit there
-	float lim_ref = flt_max;
+	// reference: centre-line angle at the frontmost axle. The limit is where the inner wheel stops, as on a real car, so
+	// the centre line stops short of it and Ackermann holds at full lock instead of the inner wheel being clipped
+	float lim_ref = flt_max, half_track = 0.f;
 	for (SWheelSteer& sw : m_steering_wheels)
 		if ((sw.pwheel->pos.z - S.axle_mid_z) * S.front_sign > S.front_u - 0.3f)
+		{
 			lim_ref = _min(lim_ref, max_angle > 0.f ? max_angle : _min(_abs(sw.lo_limit), _abs(sw.hi_limit)));
+			half_track = _max(half_track, _abs(sw.pwheel->pos.x - S.axle_mid_x));
+		}
 	if (lim_ref == flt_max) lim_ref = 0.f;
+	else if (L_ref > 0.3f && lim_ref > EPS_L)
+		lim_ref = atanf(1.f / (1.f / tanf(lim_ref) + clampr(P.ackermann, 0.f, 1.f) * half_track / L_ref));
+
+	// a held key keeps widening the limits below, the slower the faster the car goes, until the wheels reach full lock
+	S.steer_open = approach(S.steer_open, target * S.steer > 0.f ? 1.5f * lim_ref : 0.f,
+		deg2rad(P.steer_slip_rate) * 10.f / _max(_abs(S.speed), 10.f), P.steer_return_rate * lim_ref, step);
 
 	float s = S.steer * k; // right positive
-	// steer_slip: above walking pace the front wheels turn at most steer_slip degrees past the way the front axle
-	// actually travels, the slip angle where a tyre grips best. More lock only scrubs the tyres (understeer), and
-	// with the rear sliding it steers the car deeper into the spin. The range moves with the front axle's
-	// direction, so in a slide the wheels can always point where the car is going (the catch), and full lock on
-	// the keys is the most the tyres can turn the car, as a driver's hands would find it.
-	if (P.steer_slip > 0.f && lim_ref > 0.f && S.speed > P.steer_low_speed * 0.5f)
+	// steer_slip: above walking pace a held key turns the front wheels at once only as far as a tyre grips best: steer_slip
+	// degrees, and when the front axle already travels toward that side (a turn under way, or a slide being caught) that
+	// far past the way it travels. Holding the key opens it further (steer_open), up to full lock. The limit is on the held
+	// key's side only: with no key the wheels go straight, and they never turn by themselves or the other way than asked.
+	// The hand brake lifts handbrake_steer_lock of the limit at once, for drifting on purpose.
+	if (P.steer_slip > 0.f && lim_ref > 0.f)
 	{
-		Fvector v = {0.f, 0.f, 0.f}, fwd = HandlingDir(S.ax_fwd), right = HandlingDir(S.ax_right);
+		Fvector v = HandlingFrontAxleVel(), fwd = HandlingDir(S.ax_fwd), right = HandlingDir(S.ax_right);
 		fwd.mul(S.front_sign);
 		right.mul(S.front_sign);
-		for (SWheelSteer& sw : m_steering_wheels)
-			if (sw.pwheel->element && (sw.pwheel->pos.z - S.axle_mid_z) * S.front_sign > S.front_u - 0.3f)
-			{
-				Fvector wv;
-				sw.pwheel->element->get_LinearVel(wv);
-				v.add(wv);
-			}
-		float along = v.dotproduct(fwd);
+		float along = v.dotproduct(fwd), across = v.dotproduct(right);
 		if (along > EPS)
 		{
-			float travel = atan2f(v.dotproduct(right), along); // right positive, like s
-			float slip = deg2rad(P.steer_slip);
-			float limited = clampr(s, (travel - slip) / lim_ref, (travel + slip) / lim_ref);
-			// eased in from half of steer_low_speed to one and a half times it, so pulling away stays smooth
-			float fade = clampr((S.speed - P.steer_low_speed * 0.5f) / _max(P.steer_low_speed, 0.5f), 0.f, 1.f);
+			float travel = atan2f(across, along); // right positive, like s
+			float sg = s >= 0.f ? 1.f : -1.f;
+			float most = (deg2rad(P.steer_slip) + _max(sg * travel, 0.f) + S.steer_open) / lim_ref;
+			float limited = sg * _min(_abs(s), most);
+			limited += (s - limited) * P.handbrake_steer_lock * S.hand_slide;
+			// by ground speed, so a car going sideways still has it. Eased in from half of steer_low_speed to one and a
+			// half times it: parking and pulling away are plain wheel angles
+			float ground_v = _sqrt(along * along + across * across);
+			float fade = clampr((ground_v - P.steer_low_speed * 0.5f) / _max(P.steer_low_speed, 0.5f), 0.f, 1.f);
 			s += (limited - s) * fade;
 			clamp(s, -1.f, 1.f);
+		}
+		// rolling backwards the rear leads and nothing steadies the car, so full input asks for this much cornering at
+		// most; full lock stays for parking speeds
+		else if (along < -EPS && P.reverse_corner_g > 0.f && L_ref > 0.3f)
+		{
+			float most = (atanf(P.reverse_corner_g * EffectiveGravity() * L_ref / (along * along)) + S.steer_open) / lim_ref;
+			clamp(s, -most, most);
 		}
 	}
 	S.dbg_steer_k = _abs(S.steer) > 0.01f ? s / S.steer : k;
@@ -2525,6 +2732,10 @@ void CCar::HandlingSteer(float step)
 
 void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_surface)
 {
+	// the triangle collider gives this tyre a ground triangle's own face (ground_face), from its next pass on
+	dxGeomUserData* tyre = PHRetrieveGeomUserData(c.geom.g1);
+	if (!tyre || tyre->callback_data != &w.collision_params) tyre = PHRetrieveGeomUserData(c.geom.g2);
+	if (tyre && tyre->callback_data == &w.collision_params) tyre->tyre_ground = m_vho.p.ground_face;
 	if (!set_surface)
 	{
 		// two overhaul cars wheel to wheel: the other tyre has set this contact up already (setting it up twice
@@ -2534,6 +2745,19 @@ void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_su
 		return;
 	}
 	const SHandlingParams& P = m_vho.p;
+	const bool new_pass = w.contact_step != m_vho.s.step_count;
+	// one collision pass per physics step; the first contact of a new pass starts the count again. A tyre touching at
+	// two points is still one tyre: both share its sideways stiffness (below)
+	if (w.contact_step != m_vho.s.step_count)
+	{
+		w.vho_contacts_last = _max(w.vho_dbg_contacts, u32(1));
+		w.vho_dbg_contacts = 0;
+		w.vho_dbg_neg = false;
+		w.vho_dbg_climb = false;
+		w.vho_dbg_depth = 0.f;
+		if (w.vho_fb) w.vho_fb->used = 0;
+	}
+	++w.vho_dbg_contacts;
 	const SHandlingSurface* s = HandlingSurface(ground);
 	const SHandlingState& S = m_vho.s;
 	dSurfaceParameters& sp = c.surface;
@@ -2551,6 +2775,7 @@ void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_su
 		float nu = n.dotproduct(up);
 		if (d.dotproduct(up) > 0.25f * w.radius && nu < 0.8f && nu > -0.2f && _abs(n.dotproduct(axle)) < 0.5f)
 		{
+			w.vho_dbg_climb = true;
 			n.lerp(n, up, clampr(P.wheel_climb, 0.f, 1.f));
 			n.normalize_safe();
 			n.mul(sign);
@@ -2562,19 +2787,34 @@ void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_su
 	float grip, rolling, slip;
 	HandlingSurfaceFactors(s, grip, rolling, slip);
 	grip *= P.grip_scale * P.weather_grip;
+	// tyre_load_sens: a tyre's friction coefficient falls as its load rises, as rubber's does: grip x (load / standing
+	// load)^-tyre_load_sens. Two tyres sharing a load evenly hold more than one carrying most of it, so the axle with the
+	// stiffer anti-roll bar (roll_front) gives way first in a hard turn and the car pushes wide instead of spinning; and a
+	// tall vehicle leaning on its outer tyres slides a little before it would go over. Nothing steers or holds the car.
+	if (P.tyre_load_sens > 0.f && w.vho_load > 0.f)
+	{
+		float standing = m_pPhysicsShell->getMass() * EffectiveGravity() * w.vho_load_k;
+		if (standing > 1.f) grip *= powf(clampr(w.vho_load / standing, 0.25f, 3.f), -clampr(P.tyre_load_sens, 0.f, 0.5f));
+	}
 	// tyre_friction: one tyre-on-road coefficient for every model, so the surface table alone decides traction
 	// (the stock value multiplies game material frictions and per-model factors that vary a lot)
 	if (P.tyre_friction > 0.f) sp.mu = P.tyre_friction * grip;
 	else sp.mu *= w.collision_params.mu_factor * grip;
+	float hand_mu = 1.f, hand_side = 1.f;
 	if (S.hand_slide > 0.f && (P.handbrake_rear_only <= 0.f || HandlingIsRear(w)))
 	{
 		float k = S.hand_slide * smoothstep01((_abs(S.speed) - 1.5f) / 3.f);
 		float loss = _max(1.f - P.handbrake_grip, 0.f);
-		sp.mu *= 1.f - loss * k;
+		hand_mu = _max(1.f - loss * k, 0.01f);
+		sp.mu *= hand_mu;
 		slip *= 1.f + P.handbrake_slip * loss * k; // none at handbrake_grip 1 (heavy vehicles)
+		// ODE's friction along and across a tyre are independent, so a locked wheel would keep all its sideways grip;
+		// a real one spends it sliding along the road, which is what lets the tail come round
+		hand_side = 1.f - (1.f - P.handbrake_side_grip) * k;
 	}
 	bool tracing = P.debug_trace > 0.f;
-	if ((P.slide_grip < 1.f || tracing) && w.element)
+	Fvector patch_v = {0.f, 0.f, 0.f}, tyre_v = {0.f, 0.f, 0.f};
+	if ((P.slide_grip < 1.f || P.spin_side_grip > 0.f || tracing) && w.element)
 	{
 		// A sliding tyre holds less than a gripping one: past slide_speed m/s of slip at the contact patch the
 		// friction is down to slide_grip of its peak. A car thrown sideways slides instead of tripping over its
@@ -2586,7 +2826,13 @@ void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_su
 		vc.crossproduct(av, r).add(v);
 		n.set(c.geom.normal[0], c.geom.normal[1], c.geom.normal[2]);
 		vc.mad(n, -vc.dotproduct(n));
-		if (tracing) w.vho_dbg_patch = vc.magnitude();
+		patch_v = vc;
+		tyre_v.set(v).mad(n, -v.dotproduct(n));
+		if (tracing)
+		{
+			w.vho_dbg_patch = vc.magnitude();
+			w.vho_dbg_vc = vc;
+		}
 		if (P.slide_grip < 1.f)
 		{
 			float k;
@@ -2623,26 +2869,63 @@ void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_su
 			c.fdir1[0] = roll.x;
 			c.fdir1[1] = roll.y;
 			c.fdir1[2] = roll.z;
-			sp.mode |= dContactFDir1 | dContactSlip2;
-			// cornering_load: stiffness in proportion to the load a wheel carries (per radian, x its share of the
-			// weight), so a truck tyre is as stiff for its load as a car's; else cornering_stiffness N/rad per wheel
+			sp.mode |= dContactFDir1 | dContactSlip2 | dContactMu2;
+			// Friction across the tyre (mu2) and along it (mu) separately: tip_margin caps it where the car would tip.
+			// the cap goes on the tyre's own grip and the hand brake's loss comes after it: the other way round, on a car
+			// capped low, the rear lost nothing to the hand brake that the front had not lost to the cap
+			float mu_free = sp.mu / hand_mu;
+			sp.mu2 = (S.tip_mu > 0.f ? _min(mu_free, S.tip_mu) : mu_free) * hand_side;
+			// spin_side_grip: ODE's limits along and across a tyre are independent, so one spinning under power or locked by
+			// the hand brake would keep all its side grip. A real tyre's force points against its slip, so once it has broken
+			// loose along the road only the sideways part of its slip grips sideways. Eased in, so a touch does little and
+			// holding lets the tail go. A tyre that has not broken loose, and the foot brake, are left alone.
+			if (P.spin_side_grip > 0.f)
+			{
+				float spin = 0.f, share = 1.f;
+				if (P.slide_full > P.slide_peak && (hand_mu < 1.f || (w.vho_driven && S.throttle > 0.05f && S.brake < 0.05f)))
+				{
+					float along = _abs(patch_v.dotproduct(roll));
+					float across = _sqrt(_max(patch_v.dotproduct(patch_v) - along * along, 0.f));
+					spin = smoothstep01((along / _max(tyre_v.magnitude(), _max(P.slide_speed, 0.1f)) - P.slide_peak) / (P.slide_full - P.slide_peak));
+					share = across / _max(_sqrt(along * along + across * across), EPS);
+				}
+				if (new_pass) w.vho_spin = approach(w.vho_spin, spin, 5.f, 5.f, fixed_step);
+				sp.mu2 *= 1.f - clampr(P.spin_side_grip, 0.f, 1.f) * w.vho_spin * (1.f - share);
+			}
+			// slide_drive: a driven wheel under throttle that slides sideways or backwards keeps turning. The ground moves
+			// across or against it and spends its friction that way, so it holds only this share of its grip along the
+			// tyre: the wheels and the revs stay up through a spin instead of being stopped dead. The more throttle, the
+			// further sideways it still pulls the car where it points: to about 45 degrees at full, to 15 with none.
+			if (P.slide_drive < 1.f && w.vho_driven && S.throttle > 0.05f && S.brake < 0.05f && w.element)
+			{
+				Fvector vw;
+				w.element->get_LinearVel(vw);
+				float across = _abs(vw.dotproduct(axle)) / _max(vw.magnitude(), _max(P.slide_speed, 0.1f));
+				float backward = -vw.dotproduct(HandlingDir(S.ax_fwd)) * S.front_sign * (m_current_gear_ratio < 0.f ? -1.f : 1.f);
+				float pull = smoothstep01((S.throttle - 0.3f) / 0.4f);
+				float from = 0.25f + 0.45f * pull, to = 0.5f + 0.4f * pull;
+				float k = _max(smoothstep01((across - from) / (to - from)), smoothstep01((backward - 0.5f) / 1.5f));
+				sp.mu *= 1.f - (1.f - clampr(P.slide_drive, 0.f, 1.f)) * k;
+			}
+			// cornering_load: stiffness in proportion to the load this wheel carries standing, so a truck tyre is as
+			// stiff for its load as a car's and neither axle gains from where a model has its weight; else
+			// cornering_stiffness N/rad per wheel
 			float c_k = P.cornering_load > 0.f ?
-				P.cornering_load * m_pPhysicsShell->getMass() * EffectiveGravity() / _max(float(m_wheels_map.size()), 1.f) :
+				P.cornering_load * m_pPhysicsShell->getMass() * EffectiveGravity() * w.vho_load_k :
 				P.cornering_stiffness * S.mass_k;
-			sp.slip2 = _max(_abs(S.speed), 1.f) * slip / _max(c_k, 1.f);
+			sp.slip2 = _max(_abs(S.speed), 1.f) * slip / _max(c_k, 1.f) * float(w.vho_contacts_last);
 		}
 	}
 	if (tracing)
 	{
-		// one collision pass per physics step; the first contact of a new pass starts the count again
-		if (w.contact_step != m_vho.s.step_count)
-		{
-			w.vho_dbg_contacts = 0;
-			w.vho_dbg_neg = false;
-		}
-		++w.vho_dbg_contacts;
 		w.vho_dbg_mu = sp.mu;
+		w.vho_dbg_mu2 = (sp.mode & dContactMu2) ? sp.mu2 : sp.mu;
 		w.vho_dbg_slip2 = (sp.mode & dContactSlip2) ? sp.slip2 : 0.f;
+		w.vho_dbg_slip1 = (sp.mode & dContactSlip1) ? sp.slip1 : 0.f;
+		w.vho_dbg_n.set(c.geom.normal[0], c.geom.normal[1], c.geom.normal[2]);
+		w.vho_dbg_f1.set(c.fdir1[0], c.fdir1[1], c.fdir1[2]);
+		w.vho_dbg_ny = _abs(w.vho_dbg_n.dotproduct(HandlingDir(m_vho.s.ax_up)));
+		w.vho_dbg_depth = _max(w.vho_dbg_depth, float(c.geom.depth));
 	}
 	w.contact_mtl = ground;
 	w.contact_step = m_vho.s.step_count;
@@ -2651,18 +2934,35 @@ void CCar::HandlingContact(SWheel& w, dContact& c, SGameMtl* ground, bool set_su
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // damage
 
-void CCar::HandlingHit(SHit& HDS)
+// raw_power: the hit as it came, before the model's immunities. An anomaly's damage is sized here from that alone: the
+// models' immunities differ wildly (the ZoneCars cars take a thousandth of shock and strike and nothing of acid), which
+// left most anomalies harmless to them.
+void CCar::HandlingHit(SHit& HDS, float raw_power)
 {
 	const SHandlingParams& P = m_vho.p;
 	bool explosive = HDS.hit_type == ALife::eHitTypeExplosion;
 	m_vho.s.last_hit_explosive = explosive;
 	bool zone = !!smart_cast<CCustomZone*>(HDS.who);
 	bool fire = HDS.hit_type == ALife::eHitTypeBurn || HDS.hit_type == ALife::eHitTypeLightBurn;
-	if (zone && fire) HDS.power *= P.anomaly_fire_damage; // burners, campfires
-	else if (zone && HDS.hit_type == ALife::eHitTypeStrike) HDS.power *= P.anomaly_push_damage; // gravitational
+	float zone_power = raw_power * P.damage_scale; // the model's immunities were not set with anomalies in mind
+	if (zone && fire) HDS.power = zone_power * P.anomaly_fire_damage; // burners, campfires
+	else if (zone && HDS.hit_type == ALife::eHitTypeStrike) HDS.power = zone_power * P.anomaly_push_damage; // gravitational
+	else if (zone && HDS.hit_type == ALife::eHitTypeShock) HDS.power = zone_power * P.anomaly_shock_damage; // electric
+	else if (zone && HDS.hit_type == ALife::eHitTypeChemicalBurn) HDS.power = zone_power * P.anomaly_acid_damage; // acid
 	else if (explosive) HDS.power *= P.explosion_damage_scale;
 	else if (HDS.hit_type == ALife::eHitTypeStrike) HDS.power *= P.collision_damage_scale;
 	else HDS.power *= P.damage_scale;
+
+	// A burner or acid pool also hits on every frame of a burst of several seconds, which was 40 % a second at 60 fps
+	// and more at higher rates: what follows another anomaly hit within half a second counts by time instead.
+	if (zone && !explosive)
+	{
+		u32 now = Device.dwTimeGlobal;
+		float since = float(now - m_vho.s.zone_hit_time) * 0.001f;
+		m_vho.s.zone_hit_time = now;
+		float most = since < 0.5f ? P.anomaly_burn_rate * since : P.anomaly_hit_cap;
+		HDS.power = _min(HDS.power, most * P.damage_scale);
+	}
 
 	if (!explosive && P.explosive_only_death > 0.f)
 	{
@@ -2676,17 +2976,81 @@ bool CCar::HandlingAllowFuse()
 	return !m_vho.enabled || m_vho.p.explosive_only_death <= 0.f || m_vho.s.last_hit_explosive;
 }
 
+// How the front axle moves, from the body's motion: the wheels' own velocities shake with the suspension on rough ground,
+// and the steering follows this all the time
+Fvector CCar::HandlingFrontAxleVel()
+{
+	SHandlingState& S = m_vho.s;
+	Fvector v, spin, at = {0.f, 0.f, 0.f};
+	int n = 0;
+	for (auto& it : m_wheels_map)
+	{
+		SWheel& w = it.second;
+		if (w.element && (w.pos.z - S.axle_mid_z) * S.front_sign > S.front_u - 0.3f)
+		{
+			at.add(w.element->XFORM().c);
+			++n;
+		}
+	}
+	if (!S.chassis || !n)
+	{
+		m_pPhysicsShell->get_LinearVel(v);
+		return v;
+	}
+	S.chassis->get_LinearVel(v);
+	S.chassis->get_AngularVel(spin);
+	at.mul(1.f / float(n));
+	at.sub(S.chassis->mass_Center());
+	v.add(Fvector().crossproduct(spin, at));
+	return v;
+}
+
+float CCar::VisionTransparency()
+{
+	if (!m_vho.enabled || !Owner() || m_vho.p.see_through <= 0.f) return 0.f;
+#ifdef CAR_NEW
+	if (m_remote_control) return 0.f; // driven from afar: nobody is inside
+#endif
+	return 1.f;
+}
+
+// The car's collision shapes have no window holes, and a ray through any of them hid its driver from NPC vision
+// whatever the material said. This flag has vision skip the car (as for a mounted gun) only while it is occupied,
+// so an empty car remains cover for someone behind it.
+void CCar::HandlingSightUpdate()
+{
+#ifdef SPATIAL_CHANGE
+	ISpatial* self = smart_cast<ISpatial*>(this);
+	if (!self) return;
+	if (VisionTransparency() > 0.f) self->spatial.type |= STYPE_FEELVISIONIGNORE;
+	else self->spatial.type &= ~STYPE_FEELVISIONIGNORE;
+#endif
+}
+
 void CCar::HandlingUpdateCL()
 {
 	const SHandlingParams& P = m_vho.p;
 	SHandlingState& S = m_vho.s;
 	if (S.apply_pending && m_pPhysicsShell) HandlingApply();
+	HandlingSightUpdate();
+	HandlingLogUpdate();
 	if (m_vho.dump_count) HandlingTraceWrite();
 	// sprint (full throttle) follows the key as it is held: its press can be taken by another handler on the way
 	if (OwnerActor() && OwnerActor() == Level().CurrentControlEntity() && pInput)
 	{
 		int k0 = get_action_dik(kSPRINT_TOGGLE, 0), k1 = get_action_dik(kSPRINT_TOGGLE, 1);
 		S.sprint = (k0 && pInput->iGetAsyncKeyState(k0)) || (k1 && pInput->iGetAsyncKeyState(k1));
+		// and so does the hand brake: another mod may hold its press or release back to make it a latch (Zone Cars),
+		// which left the rear wheels locked and the clutch open at speed. A quick double pull still leaves it on here.
+		k0 = get_action_dik(kJUMP, 0);
+		k1 = get_action_dik(kJUMP, 1);
+		bool menu = CurrentGameUI() && CurrentGameUI()->TopInputReceiver();
+		bool down = !menu && ((k0 && pInput->iGetAsyncKeyState(k0)) || (k1 && pInput->iGetAsyncKeyState(k1)));
+		if (down != brp)
+		{
+			brp = down;
+			if (down) HandlingHandBrakeTap();
+		}
 	}
 	if (S.pending_damage > 0.f)
 	{
@@ -3059,6 +3423,23 @@ void vehicle_anomaly_throw(CPhysicsShellHolder* obj, CObject* zone, const Fvecto
 	obj->PPhysicsShell()->applyImpulse(kick, k * car->HandlingParams().anomaly_kick * _min(power, 1.f) * obj->GetMass());
 }
 
+void CCar::HandlingMassCentre(Fvector& c) const
+{
+	if (m_vho.s.chassis) c = m_vho.s.chassis->mass_Center();
+}
+
+bool vehicle_zone_target(CObject* obj)
+{
+	CCar* car = smart_cast<CCar*>(obj);
+	return car && car->IsHandlingEnabled() && car->HandlingDriven();
+}
+
+void vehicle_zone_center(CObject* obj, Fvector& c)
+{
+	CCar* car = smart_cast<CCar*>(obj);
+	if (car && car->IsHandlingEnabled()) car->HandlingMassCentre(c);
+}
+
 int vehicle_zone_recharge(CObject* obj, ALife::EHitType hit_type)
 {
 	CCar* car = smart_cast<CCar*>(obj);
@@ -3125,6 +3506,184 @@ void CCar::HandlingTraceFree()
 	if (!H.dump_count) xr_vector<SHandling::STraceStep>().swap(H.dump); // else HandlingTraceWrite frees it
 	H.trace_head = H.trace_count = 0;
 	H.dump_pending = false;
+	H.test_tracing = false;
+	H.trace_steps = SHandling::TRACE_STEPS;
+	if (H.log_w) FS.w_close(H.log_w);
+	H.log_w = NULL;
+	H.log_on = false;
+	for (auto& it : m_wheels_map)
+	{
+		xr_delete(it.second.vho_fb);
+	}
+}
+
+// where the solver writes its force on this tyre's contacts; NULL unless a trace is on, so nothing asks for it otherwise
+dxContactFeedbackSlots* CCar::HandlingTraceSlots(SWheel& w)
+{
+	if (m_vho.p.debug_trace <= 0.f) return NULL;
+	if (!w.vho_fb) w.vho_fb = xr_new<dxContactFeedbackSlots>();
+	return w.vho_fb;
+}
+
+// A scripted test takes over the trace: the ring holds the whole run, HandlingTestEnd writes it
+void CCar::HandlingTestBegin(LPCSTR name, float seconds)
+{
+	SHandling& H = m_vho;
+	H.trace_steps = clampr(iCeil(seconds / fixed_step) + 8, int(SHandling::TRACE_STEPS), 12000);
+	H.trace.clear();
+	H.dump.clear();
+	H.trace.resize(H.trace_steps);
+	H.dump.resize(H.trace_steps);
+	H.trace_head = H.trace_count = H.dump_count = 0;
+	H.dump_pending = false;
+	H.test_tracing = true;
+	H.dump_reason = name;
+}
+
+void CCar::HandlingTestEnd()
+{
+	SHandling& H = m_vho;
+	if (!H.test_tracing || H.trace.empty()) return;
+	H.dump_events = *H.dump_reason;
+	H.dump_at = H.s.step_count;
+	H.dump_pending = true;
+	H.test_tracing = false;
+}
+
+// The drive log: the same rows as any trace, but streamed. Each frame hands over the steps since the last frame, so the
+// formatting is spread out and driving never hitches; a new file every 30000 steps (5 min).
+void CCar::HandlingLogStart(LPCSTR name)
+{
+	SHandling& H = m_vho;
+	if (H.log_on) return;
+	H.trace_steps = SHandling::TRACE_STEPS;
+	H.trace.clear();
+	H.dump.clear();
+	H.trace.resize(H.trace_steps);
+	H.dump.resize(H.trace_steps);
+	H.trace_head = H.trace_count = H.dump_count = 0;
+	H.dump_pending = false;
+	H.test_tracing = true;
+	H.dump_reason = name;
+	H.log_on = true;
+	H.log_rows = H.log_flush = 0;
+}
+
+void CCar::HandlingLogUpdate()
+{
+	SHandling& H = m_vho;
+	// records while the player drives and MCM's Record driving log is on (debug_trace)
+	if (H.p.debug_trace > 0.f && OwnerActor() && OwnerActor() == Level().CurrentControlEntity())
+	{
+		if (!H.log_on) HandlingLogStart("S4__drive");
+	}
+	else if (H.log_on)
+		HandlingLogStop();
+	if (!H.log_on || H.dump_count || !H.trace_count) return;
+	if (H.log_w && H.log_rows >= 30000)
+	{
+		FS.w_close(H.log_w);
+		H.log_w = NULL;
+		H.log_rows = 0;
+	}
+	HandlingTraceSnapshot();
+}
+
+void CCar::HandlingLogStop()
+{
+	SHandling& H = m_vho;
+	if (!H.log_on) return;
+	if (H.dump_count) HandlingTraceWrite();
+	if (H.trace_count) HandlingTraceSnapshot();
+	if (H.dump_count) HandlingTraceWrite();
+	if (H.log_w) FS.w_close(H.log_w);
+	H.log_w = NULL;
+	H.log_on = false;
+	H.test_tracing = false;
+}
+
+void CCar::SetTestKeys(int mask)
+{
+	SHandlingState& S = m_vho.s;
+	if (mask < 0)
+	{
+		S.test_on = false;
+		fwp = bkp = lsp = rsp = brp = false;
+		S.sprint = false;
+		return;
+	}
+	S.test_on = true;
+	S.test_keys = u32(mask);
+	S.hand_latched = S.hold_brake = false; // a spawned car stands with its parking brake on
+	m_pPhysicsShell->Enable();
+}
+
+// Puts the car level at a ground point, facing heading_deg (from +z toward +x), rolling forward at speed
+void CCar::TestPlace(const Fvector& pos, float heading_deg, float speed)
+{
+	SHandlingState& S = m_vho.s;
+	if (!m_pPhysicsShell || !S.chassis) return;
+	m_pPhysicsShell->Enable();
+	Fvector fwd = HandlingDir(S.ax_fwd), up = HandlingDir(S.ax_up), right;
+	fwd.mul(S.front_sign);
+	right.crossproduct(up, fwd).normalize_safe();
+	const Fvector& at = S.chassis->XFORM().c;
+	float lowest = flt_max;
+	for (auto& it : m_wheels_map)
+		if (it.second.element) lowest = _min(lowest, (it.second.element->XFORM().c.y - it.second.radius));
+	float above = lowest == flt_max ? 1.f : at.y - lowest;
+	Fmatrix cur, tgt, inv, d;
+	cur.identity();
+	cur.i.set(right);
+	cur.j.set(up);
+	cur.k.set(fwd);
+	cur.c.set(at);
+	float h = deg2rad(heading_deg);
+	Fvector nf, nu, nr;
+	nf.set(_sin(h), 0.f, _cos(h));
+	nu.set(0.f, 1.f, 0.f);
+	nr.crossproduct(nu, nf).normalize_safe();
+	tgt.identity();
+	tgt.i.set(nr);
+	tgt.j.set(nu);
+	tgt.k.set(nf);
+	tgt.c.set(pos.x, pos.y + above + 0.03f, pos.z);
+	inv.invert(cur);
+	d.mul_43(tgt, inv);
+	m_pPhysicsShell->TransformPosition(d, mh_clear);
+	Fvector v;
+	v.set(nf).mul(speed);
+	m_pPhysicsShell->set_LinearVel(v);
+	m_pPhysicsShell->set_AngularVel(Fvector().set(0.f, 0.f, 0.f));
+	Fvector spin;
+	spin.crossproduct(nu, nf);
+	for (auto& it : m_wheels_map)
+		if (it.second.element && it.second.radius > EPS)
+			it.second.element->set_AngularVel(Fvector().set(spin).mul(speed / it.second.radius));
+	m_pPhysicsShell->GetGlobalTransformDynamic(&XFORM());
+	S.prev_vel = v;
+	S.crash_cooldown = 1.f;
+	S.crash_dv = S.last_crash_speed = 0.f;
+	S.rebound_timer = 0.f;
+	S.cog_prev_v = v;
+	S.dbg_prev_step = 0;
+}
+
+float CCar::TestSideslip()
+{
+	SHandlingState& S = m_vho.s;
+	Fvector v, fwd = HandlingDir(S.ax_fwd), right = HandlingDir(S.ax_right);
+	fwd.mul(S.front_sign);
+	right.mul(S.front_sign);
+	m_pPhysicsShell->get_LinearVel(v);
+	return rad2deg(atan2f(v.dotproduct(right), _abs(v.dotproduct(fwd))));
+}
+
+float CCar::TestGroundSpeed()
+{
+	Fvector v;
+	m_pPhysicsShell->get_LinearVel(v);
+	return _sqrt(v.x * v.x + v.z * v.z);
 }
 
 // An event latches one trace: the ring keeps the steps before it, post_steps more are recorded, then the trace is
@@ -3134,7 +3693,7 @@ void CCar::HandlingTraceEvent(u32 type, LPCSTR reason, u32 post_steps)
 {
 	SHandling& H = m_vho;
 	SHandlingState& S = H.s;
-	if (H.p.debug_trace <= 0.f || H.trace.empty() || type >= SHandling::EV_COUNT) return;
+	if (H.p.debug_trace <= 0.f || H.trace.empty() || type >= SHandling::EV_COUNT || H.test_tracing) return;
 	bool busy = H.dump_pending; // a latched trace still to be written does not block the next one
 	// the latch, whether this event starts a trace or is only listed in the pending one
 	if (!S.dbg_armed[type] || S.step_count < S.dbg_block_until[type]) return;
@@ -3178,7 +3737,7 @@ void CCar::HandlingTraceRecord(float step)
 {
 	SHandling& H = m_vho;
 	SHandlingState& S = H.s;
-	const u32 N = SHandling::TRACE_STEPS;
+	const u32 N = H.trace_steps;
 	if (H.trace.size() != N)
 	{
 		H.trace.resize(N);
@@ -3288,6 +3847,25 @@ void CCar::HandlingTraceRecord(float step)
 	r.stall_count = u16(S.stall_count);
 	r.gear = u8(CurrentTransmission());
 	r.stall_reason = u8(S.stall_reason);
+	r.keys = u8((fwp ? 1 : 0) | (bkp ? 2 : 0) | (lsp ? 4 : 0) | (rsp ? 8 : 0) | (brp ? 16 : 0) | (S.sprint ? 32 : 0) | (S.test_on ? 64 : 0));
+	{
+		int exact = -1, nj = 0, nb = 0;
+		ph_island_debug(m_pPhysicsShell, exact, nj, nb);
+		r.solver = u8(exact);
+		r.island_nj = u16(_max(nj, 0));
+		r.island_nb = u16(_max(nb, 0));
+		r.body_contacts = S.dbg_body_contacts;
+		S.dbg_body_contacts = 0;
+		const Fvector& at = S.chassis ? S.chassis->XFORM().c : XFORM().c;
+		r.px = at.x;
+		r.py = at.y;
+		r.pz = at.z;
+		r.ya_torque = S.dbg_yaw_assist;
+		r.ya_excess = S.dbg_ya_excess;
+		r.ya_limit = S.dbg_ya_limit;
+		r.ya_fade = S.dbg_ya_fade;
+		r.ya_reason = S.dbg_ya_reason;
+	}
 
 	u32 i = 0;
 	bool locking = false;
@@ -3328,6 +3906,7 @@ void CCar::HandlingTraceRecord(float step)
 		tw.mfmax = w.vho_dbg_mfmax;
 		tw.diff_k = w.vho_diff_k;
 		tw.mu = w.vho_dbg_mu;
+		tw.mu2 = w.vho_dbg_mu2;
 		tw.slip2 = w.vho_dbg_slip2;
 		tw.patch = w.vho_dbg_patch;
 		tw.steer_tgt = w.vho_dbg_steer;
@@ -3336,6 +3915,61 @@ void CCar::HandlingTraceRecord(float step)
 		tw.contact = u8(_min(age, 255u));
 		tw.contacts = u8(_min(w.vho_dbg_contacts, 255u));
 		tw.neg = w.vho_dbg_neg ? 1 : 0;
+		tw.climb = w.vho_dbg_climb ? 1 : 0;
+		tw.slip1 = w.vho_dbg_slip1;
+		tw.ny = w.vho_dbg_ny;
+		tw.depth = w.vho_dbg_depth;
+		tw.comp_vel = step > 0.f ? (comp - w.vho_dbg_prev_comp) / step : 0.f;
+		w.vho_dbg_prev_comp = comp;
+		// along the suspension axis, a wheel in the air has: -(k comp + preload + arb) / c = comp_vel, if nothing else acts
+		tw.preload = w.vho_preload;
+		tw.k = cs * HINGE2_SPRING;
+		tw.c = cd * HINGE2_DAMPING;
+		tw.arb = w.vho_dbg_arb;
+		tw.vy = tw.perp = 0.f;
+		tw.gap = -9.f; // not measured: only for a wheel off the ground during a scripted test
+		if (w.joint && w.element && S.chassis)
+		{
+			Fvector a, rest, d, wv;
+			w.joint->GetAxisDirDynamic(0, a);
+			S.chassis->XFORM().transform_tiny(rest, w.rest_local);
+			d.sub(w.element->XFORM().c, rest);
+			d.mad(a, -d.dotproduct(a));
+			tw.perp = d.magnitude();
+			w.element->get_LinearVel(wv);
+			tw.vy = wv.y;
+			if (H.test_tracing && age > 1)
+			{
+				collide::rq_result R;
+				Fvector from = w.element->XFORM().c;
+				from.y += 1.f;
+				if (Level().ObjectSpace.RayPick(from, Fvector().set(0.f, -1.f, 0.f), 6.f, collide::rqtStatic, R, this))
+					tw.gap = R.range - 1.f - w.radius;
+			}
+		}
+		// patch velocity and force in the tyre's own friction directions: along = fdir1, across = normal x fdir1
+		tw.pv_long = tw.pv_lat = tw.fx = tw.fy = tw.fn = 0.f;
+		if (contact)
+		{
+			Fvector f2;
+			f2.crossproduct(w.vho_dbg_n, w.vho_dbg_f1);
+			tw.pv_long = w.vho_dbg_vc.dotproduct(w.vho_dbg_f1);
+			tw.pv_lat = w.vho_dbg_vc.dotproduct(f2);
+			if (w.vho_fb)
+			{
+				Fvector f = {0.f, 0.f, 0.f};
+				for (u32 c = 0; c < w.vho_fb->used; ++c)
+				{
+					const dReal* a = w.vho_fb->first[c] ? w.vho_fb->fb[c].f1 : w.vho_fb->fb[c].f2;
+					f.x += a[0];
+					f.y += a[1];
+					f.z += a[2];
+				}
+				tw.fx = f.dotproduct(w.vho_dbg_f1);
+				tw.fy = f.dotproduct(f2);
+				tw.fn = f.dotproduct(w.vho_dbg_n);
+			}
+		}
 		if (contact && _abs(S.speed) > 3.f && S.brake > 0.05f && _abs(tw.rim) < 0.2f * _abs(S.speed)) locking = true;
 	}
 	r.wheels = u8(i);
@@ -3360,7 +3994,7 @@ void CCar::HandlingTraceWrite()
 	SHandling& H = m_vho;
 	const SHandlingParams& P = H.p;
 	const SHandlingState& S = H.s;
-	const u32 N = SHandling::TRACE_STEPS;
+	const u32 N = H.trace_steps;
 	auto row = [&](u32 k) -> const SHandling::STraceStep& { return H.dump[(H.dump_head + N - H.dump_count + k) % N]; };
 	string64 stamp;
 	time_t now = time(NULL);
@@ -3370,7 +4004,8 @@ void CCar::HandlingTraceWrite()
 	static u32 seq = 0; // shared by every car, so two traces in the same second never share a name
 	string_path fname;
 	xr_sprintf(fname, "vho_trace\\%s_%s_%u_%s.csv", stamp, *cNameSect(), ++seq, *H.latched_reason);
-	IWriter* W = FS.w_open("$logs$", fname);
+	const bool head = !H.log_w; // the drive log's later rows go on in the open file, without the header
+	IWriter* W = H.log_w ? H.log_w : FS.w_open("$logs$", fname);
 	if (!W || !W->valid())
 	{
 		Msg("! [VHO] cannot write the handling trace %s", fname);
@@ -3382,6 +4017,8 @@ void CCar::HandlingTraceWrite()
 	xr_string l;
 	auto line = [&]() { W->w_string(l.c_str()); l.clear(); };
 
+	if (head)
+	{
 	// identity: format, build, parameter list
 	trace_cat(l, "# vho_trace_schema=%u", VHO_TRACE_SCHEMA); line();
 	{
@@ -3547,21 +4184,34 @@ void CCar::HandlingTraceWrite()
 	    "(the solver may override mu where w*_neg = 1), not what it used.";
 	line();
 	l = "# wheels: w rad/s forward, rim m/s, comp m (+ = into the body), mvel/mfmax joint motor target rad/s (joint "
-	    "sign) and force cap N m, diff_k, mu and slip2 ((m/s)/N) of the last contact, patch m/s contact-patch slip, "
+	    "sign) and force cap N m, diff_k, mu (along the tyre), mu2 (across it) and slip2 ((m/s)/N) of the last contact, patch m/s contact-patch slip, "
 	    "steer target/actual rad, mtl id, contact = steps since the last contact (1 = this step), n = contacts in "
 	    "that pass, neg = pushed out of a triangle's back side (the solver gives that contact unlimited friction)";
+	line();
+	l = "# schema 4: solver 1 dWorldStep, 0 dWorldQuickStep, island_nj joints including contacts, body_contacts on non-wheel parts this step; "
+	    "pos_* m world; ya_torque N m, ya_excess and ya_limit rad/s, ya_reason 0 none, 1 yaw above the limit, 2 after a crash; "
+	    "w*_pv_long/lat m/s contact patch velocity along fdir1 and along normal x fdir1; w*_fx/fy/fn N: SOLVED force on the wheel from its contacts in "
+	    "those directions and along the normal, valid only where solver = 1 (dWorldQuickStep's joint feedback is not per joint); "
+	    "w*_ny |normal . car up|, w*_depth m deepest contact, w*_comp_vel m/s, w*_climb 1 = wheel_climb tilted a contact; "
+	    "keys: 1 forward, 2 back, 4 left, 8 right, 16 hand brake, 32 sprint, 64 test input on; w*_preload N, w*_k N/m, w*_c N s/m the joint's spring and "
+	    "damping now, w*_arb N anti-roll force, w*_vy m/s world vertical, w*_perp m joint separation across its axis, w*_gap m wheel bottom above the "
+	    "static ground straight below it, measured only off the ground in a scripted test or the drive log (-9 = not measured)";
 	line();
 
 	u32 nw = row(0).wheels;
 	l = "step,time_ms,h,flags,valid,gear,ratio,v_long,v_lat,v_vert,a_long,a_lat,a_vert,yaw_rate,roll_rate,"
 	    "pitch_rate,roll,pitch,heading,vel_heading,sideslip,fc_long,fc_lat,fc_norm,thr_in,thr,brk_in,brk,hand_k,"
 	    "hand_slide,steer,steer_k,rpm,shaft,ground,clutch,engage,t_engine,t_shaft,t_wheels,crash_lost,crash_dv,stalls,"
-	    "stall_reason";
+	    "stall_reason,solver,island_nj,island_nb,body_contacts,pos_x,pos_y,pos_z,ya_torque,ya_excess,ya_limit,ya_fade,ya_reason,keys";
 	for (u32 i = 0; i < nw; ++i)
-		trace_cat(l, ",w%u_w,w%u_rim,w%u_comp,w%u_load_est_N,w%u_mvel,w%u_mfmax,w%u_diff_k,w%u_mu,w%u_slip2,w%u_patch,"
+		trace_cat(l, ",w%u_w,w%u_rim,w%u_comp,w%u_load_est_N,w%u_mvel,w%u_mfmax,w%u_diff_k,w%u_mu,w%u_mu2,w%u_slip2,w%u_patch,"
 		          "w%u_steer_tgt,w%u_steer_act,w%u_mtl,w%u_contact,w%u_n,w%u_neg",
-		          i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i);
+		          i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i),
+		trace_cat(l, ",w%u_slip1,w%u_pv_long,w%u_pv_lat,w%u_fx,w%u_fy,w%u_fn,w%u_comp_vel,w%u_ny,w%u_depth,w%u_climb", i, i, i, i, i, i, i, i, i, i),
+		trace_cat(l, ",w%u_preload,w%u_k,w%u_c,w%u_arb,w%u_vy,w%u_perp,w%u_gap", i, i, i, i, i, i, i);
 	line();
+	}
+	const u32 nw = row(0).wheels;
 	for (u32 k = 0; k < H.dump_count; ++k)
 	{
 		const SHandling::STraceStep& r = row(k);
@@ -3573,14 +4223,30 @@ void CCar::HandlingTraceWrite()
 		          r.fc_long, r.fc_lat, r.fc_norm, r.thr_in, r.thr, r.brk_in, r.brk, r.hand_k, r.hand_slide, r.steer, r.steer_k,
 		          r.rpm, r.shaft, r.ground, r.clutch, r.engage, r.t_engine, r.t_shaft, r.t_wheels, r.crash_lost, r.crash_dv,
 		          r.stall_count, r.stall_reason);
+		trace_cat(l, ",%d,%u,%u,%u,%.3f,%.3f,%.3f,%.0f,%.4f,%.4f,%.3f,%u,%u", int(s8(r.solver)), r.island_nj, r.island_nb, r.body_contacts, r.px, r.py,
+		          r.pz, r.ya_torque, r.ya_excess, r.ya_limit, r.ya_fade, r.ya_reason, r.keys);
 		for (u32 i = 0; i < nw && i < r.wheels; ++i)
 		{
 			const SHandling::STraceWheel& w = r.wheel[i];
-			trace_cat(l, ",%.3f,%.3f,%.4f,%.0f,%.3f,%.1f,%.3f,%.3f,%.3g,%.3f,%.4f,%.4f,%d,%u,%u,%u", w.w, w.rim, w.comp,
-			          w.load_est, w.mvel, w.mfmax, w.diff_k, w.mu, w.slip2, w.patch, w.steer_tgt, w.steer_act, w.mtl,
+			trace_cat(l, ",%.3f,%.3f,%.4f,%.0f,%.3f,%.1f,%.3f,%.3f,%.3f,%.3g,%.3f,%.4f,%.4f,%d,%u,%u,%u", w.w, w.rim, w.comp,
+			          w.load_est, w.mvel, w.mfmax, w.diff_k, w.mu, w.mu2, w.slip2, w.patch, w.steer_tgt, w.steer_act, w.mtl,
 			          w.contact, w.contacts, w.neg);
+			trace_cat(l, ",%.3g,%.3f,%.3f,%.0f,%.0f,%.0f,%.3f,%.3f,%.4f,%u", w.slip1, w.pv_long, w.pv_lat, w.fx, w.fy, w.fn, w.comp_vel, w.ny, w.depth, w.climb);
+			trace_cat(l, ",%.0f,%.0f,%.0f,%.0f,%.3f,%.4f,%.3f", w.preload, w.k, w.c, w.arb, w.vy, w.perp, w.gap);
 		}
 		line();
+	}
+	if (H.log_on)
+	{
+		H.log_w = W;
+		H.log_rows += H.dump_count;
+		H.dump_count = 0;
+		if (++H.log_flush >= 60)
+		{
+			H.log_flush = 0;
+			W->flush();
+		}
+		return;
 	}
 	FS.w_close(W);
 	Msg("[VHO] handling trace written: logs\\%s (%u steps; %s)", fname, H.dump_count, H.latched_events.c_str());

@@ -619,7 +619,12 @@ void CCustomZone::shedule_Update(u32 dt)
 				))
 			{
 				if (!pEntityAlive || !pEntityAlive->g_Alive())
-					info.zone_ignore = true;
+				{
+					if (!vehicle_zone_target(pObject))
+						info.zone_ignore = true;
+					else if (!m_zone_flags.test(eIgnoreNonAlive))
+						info.zone_ignore = false;
+				}
 			}
 			if (m_iDisableIdleTime != -1 && (int)info.dw_time_in_zone > m_iDisableIdleTime)
 			{

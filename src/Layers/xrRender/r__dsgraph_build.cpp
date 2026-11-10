@@ -93,9 +93,11 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 	// The rain test lifts every surface by its depth bias (-0.0001 of the 3000 m rain map range, 0.3 m in
-	// draw_rain), so whatever is less than that under a cover reads as uncovered. A sheltering object is drawn that
-	// much higher less 3 cm: under its roof and glass everything stays dry, its own outside still gets wet.
-	if (val_bRainOccluder) item.Matrix.c.y += 0.27f;
+	// draw_rain), so whatever is less than that under a cover reads as uncovered. A sheltering object is drawn
+	// val_fRainLift higher, which leaves 0.3 m less that: what lies further than this under its roof and glass stays
+	// dry, and its own outside, this much under the copy, still gets wet. Leave room for the map's coarse texels on
+	// sloped panels (0.27 left 3 cm, and the whole outside of a car read as covered).
+	if (val_bRainOccluder) item.Matrix.c.y += val_fRainLift;
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	
