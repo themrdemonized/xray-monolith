@@ -162,6 +162,12 @@ void XRay::Engine::GameThread()
 		Device.seqParallel.clear();
 	}
 
+	// Physics contact callbacks in seqFrameMT can enter Lua. Do before GC
+	{
+		PROF_EVENT("seqFrameMT");
+		Device.seqFrameMT.Process(rp_Frame);
+	}
+
     // demonized: While Renderer prepares frame and GPU renders it, use time opportunity to repeatedly call Lua GC with small step value
     // Reduces stutters since less work will be done in main GC step or no work at all
     static auto LuaGC = []()
@@ -181,9 +187,4 @@ void XRay::Engine::GameThread()
     };
     if (psLua_ParallelGC && Device.LuaGC)
         Device.secondary_tasks.run(LuaGC);
-
-	{
-		PROF_EVENT("seqFrameMT");
-		Device.seqFrameMT.Process(rp_Frame);
-	}
 }
