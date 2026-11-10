@@ -22,6 +22,7 @@
 #include "ui\UIProgressBar.h"
 #include "ui\UIHint.h"
 #include "ui\UIHelper.h"
+#include "UI3dStatic.h"
 
 using namespace luabind;
 
@@ -68,6 +69,14 @@ void XMLLuaCallback(CXml &m_xml, LPCSTR xml_string) {
 void CScriptXmlInit::ParseFile(LPCSTR xml_file)
 {
 	m_xml.Load(CONFIG_PATH, UI_PATH, xml_file);
+}
+
+CUI3dStatic* CScriptXmlInit::Init3dStatic(LPCSTR path, CUIWindow* parent)
+{
+	CUI3dStatic* pWnd = xr_new<CUI3dStatic>();
+	CUIXmlInit::Init3dStatic(m_xml, path, 0, pWnd);
+	_attach_child(pWnd, parent);
+	return pWnd;
 }
 
 //------------------------------------------------------------
@@ -382,6 +391,7 @@ void CScriptXmlInit::script_register(lua_State* L)
 		.def("InitFrameLine", &CScriptXmlInit::InitFrameLine)
 		.def("InitEditBox", &CScriptXmlInit::InitEditBox)
 		.def("InitStatic", &CScriptXmlInit::InitStatic)
+		.def("Init3dStatic", &CScriptXmlInit::Init3dStatic)
 		.def("InitTextWnd", &CScriptXmlInit::InitTextWnd)
 		.def("InitAnimStatic", &CScriptXmlInit::InitAnimStatic)
 		.def("InitSleepStatic", &CScriptXmlInit::InitSleepStatic)

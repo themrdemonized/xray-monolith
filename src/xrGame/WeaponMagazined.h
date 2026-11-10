@@ -96,6 +96,11 @@ public:
 		return this;
 	}
 
+	void SetShootSound(LPCSTR s)
+	{
+		m_sSndShotCurrent = s;
+	}
+
 	virtual void SetDefaults();
 	virtual void FireStart();
 	virtual void FireEnd();
@@ -106,7 +111,7 @@ public:
 	virtual void net_Export(NET_Packet& P);
 	virtual void net_Import(NET_Packet& P);
 
-	virtual void OnMotionMark(u32 state, const motion_marks& M);
+	virtual void OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end);
 	virtual int     CheckAmmoBeforeReload(u8& v_ammoType);
 
 	virtual void OnH_A_Chield();
@@ -197,6 +202,29 @@ public:
 		else
 			return 1;
 	};
+
+    virtual int GetCurrentFireModeIndex()
+    {
+        return m_iCurFireMode;
+    }
+
+    virtual luabind::object GetFireModes_script()
+    {
+        ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+        if (HasFireModes())
+        {
+            int idx = 1;
+            for (auto& mode : m_aFireModes)
+            {
+                table[idx] = mode;
+                idx++;
+            }
+        }
+        else
+            table[1] = 1;
+
+        return table;
+    }
 
 	virtual void SetFireMode(int mode)
 	{

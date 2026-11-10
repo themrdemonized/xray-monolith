@@ -8,6 +8,7 @@
 
 #include "FBasicVisual.h"
 
+extern ENGINE_API float psCamAttachedFOV;
 using namespace R_dsgraph;
 
 extern float r_ssaDISCARD;
@@ -48,6 +49,9 @@ IC bool cmp_matrix_items(const _MatrixItem& N1, const _MatrixItem& N2)
 	return (N1.ssa > N2.ssa);
 }
 
+static Fmatrix FTold;
+static Fmatrix FPold;
+
 void __fastcall mapMatrix_Render(mapMatrixItems& N)
 {
 	// *** DIRECT ***
@@ -57,6 +61,19 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 	{
 		_MatrixItem& Ni = *I;
 		RCache.set_xform_world(Ni.Matrix);
+
+		if (Ni.fov != 0.f)
+		{
+			FTold = Device.mFullTransform;
+			FPold = Device.mProject;
+
+			::Render->rmNear();
+			Fmatrix proj;
+			proj.build_projection(deg2rad(Ni.fov), Device.fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+			Device.mFullTransform.mul(proj, Device.mView);
+			RCache.set_xform_project(proj);
+		}
+
 		RImplementation.apply_object(Ni.pObject);
 		RImplementation.apply_lmaterial();
 
@@ -65,6 +82,13 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 		RCache.LOD.set_LOD(LOD);
 #endif
 		Ni.pVisual->Render(LOD);
+
+		if (Ni.fov != 0.f)
+		{
+			::Render->rmNormal();
+			Device.mFullTransform.set(FTold);
+			RCache.set_xform_project(FPold);
+		}
 	}
 	N.clear();
 }
@@ -77,9 +101,45 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 	VERIFY(V && V->shader._get());
 	RCache.set_Element(N->val.se);
 	RCache.set_xform_world(N->val.Matrix);
+
+	if (N->val.fov != 0.f)
+	{
+		FTold = Device.mFullTransform;
+		FPold = Device.mProject;
+
+		Fmatrix proj;
+		proj.build_projection(deg2rad(N->val.fov), Device.fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+		Device.mFullTransform.mul(proj, Device.mView);
+		RCache.set_xform_project(proj);
+	}
+    
 	RImplementation.apply_object(N->val.pObject);
 	RImplementation.apply_lmaterial();
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
+
+	if (N->val.fov != 0.f)
+	{
+		Device.mFullTransform.set(FTold);
+		RCache.set_xform_project(FPold);
+	}
+}
+
+void __fastcall sorted_UI3D(mapSorted_Node* N)
+{
+	VERIFY(N);
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V && V->shader._get());
+	// The icon material must use the same vertex layout and bone weights as the mesh.
+	R_ASSERT(V->skinning >= -1 && V->skinning <= 4);
+	RCache.set_Shader(RImplementation.Target->s_ui_icons[V->skinning + 1]);
+	// Shader variants are shared across icons; textures still belong to the original material.
+	RCache.set_Textures(V->shader._get()->E[0]->passes[0]->T);
+	RCache.set_xform_world(N->val.Matrix);
+#if RENDER == R_R4
+	RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_lmaterial();
+#endif
+	V->Render(0.f);
 }
 
 void __fastcall water_node_ssr(mapSorted_Node* N)
@@ -580,7 +640,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	//PIX_EVENT(r_dsgraph_render_hud);
 
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
+	FTold = Device.mFullTransform;
 
 	Device.mFullTransform = Device.mFullTransformHud;
 	RCache.set_xform_project(Device.mProjectHud);
@@ -596,6 +656,18 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 		mapHUD.traverseLR(sorted_L1);
 		mapHUD.clear();
 
+		mapCustomFOV.traverseLR(sorted_L1);
+		mapCustomFOV.clear();
+
+        if (mapCamAttached.size())
+        {
+            Device.mFullTransform = Device.mFullTransformCamAttached;
+            RCache.set_xform_project(Device.mProjectCamAttached);
+
+            mapCamAttached.traverseLR(sorted_L1);
+            mapCamAttached.clear();
+        }
+
 		rmNormal();
 		
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
@@ -603,8 +675,19 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 		if (scope_3D_fake_enabled)
 		{
 			RCache.set_RT(RImplementation.Target->rt_ssfx_temp->pRT, 3); // Render scope_3D to any buffer
-			
+
+            Device.mFullTransform = Device.mFullTransformHud;
+            RCache.set_xform_project(Device.mProjectHud);
+
 			mapScopeHUD.traverseLR(sorted_L1);
+
+            if (mapScopeCamAttached.size())
+            {
+                Device.mFullTransform = Device.mFullTransformCamAttached;
+                RCache.set_xform_project(Device.mProjectCamAttached);
+
+                mapScopeCamAttached.traverseLR(sorted_L1);
+            }
 
 			if (!RImplementation.o.ssfx_motionvectors)
 				RCache.set_RT(NULL, 3);
@@ -612,56 +695,9 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 				RCache.set_RT(RImplementation.Target->rt_ssfx_motion_vectors->pRT, 3);
 		}
 		mapScopeHUD.clear();
+        mapScopeCamAttached.clear();
 #endif
-
-		if (mapCamAttached.size())
-		{
-			rmNear();
-
-			// Change projection
-			Fmatrix camproj;
-			camproj.build_projection(
-				deg2rad(83.f),
-				Device.fASPECT, R_VIEWPORT_NEAR,
-				g_pGamePersistent->Environment().CurrentEnv->far_plane);
-
-			Device.mFullTransform.mul(camproj, Device.mView);
-			RCache.set_xform_project(camproj);
-
-			// Rendering
-			mapCamAttached.traverseLR(sorted_L1);
-			mapCamAttached.clear();
-
-			rmNormal();
 		}
-	}
-	/*else
-	{
-		HUDMask.traverseLR(hud_node);
-		HUDMask.clear();
-
-		if (HUDMaskCamAttached.size())
-		{
-			rmNear();
-
-			// Change projection
-			Fmatrix camproj;
-			camproj.build_projection(
-				deg2rad(83.f),
-				Device.fASPECT, R_VIEWPORT_NEAR,
-				g_pGamePersistent->Environment().CurrentEnv->far_plane);
-
-			Device.mFullTransform.mul(camproj, Device.mView);
-			RCache.set_xform_project(camproj);
-
-			// Rendering
-			HUDMaskCamAttached.traverseLR(hud_node);
-			HUDMaskCamAttached.clear();
-		}
-
-		rmNormal();
-	}*/
-
 
 	// Restore projection
 	Device.mFullTransform = FTold;
@@ -674,7 +710,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 {
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
+	FTold = Device.mFullTransform;
 
 	Device.mFullTransform = Device.mFullTransformHud;
 	RCache.set_xform_project(Device.mProjectHud);
@@ -691,16 +727,9 @@ void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 {
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
-
-	Fmatrix camproj;
-	camproj.build_projection(
-		deg2rad(83.f),
-		Device.fASPECT, R_VIEWPORT_NEAR,
-		g_pGamePersistent->Environment().CurrentEnv->far_plane);
-
-	Device.mFullTransform.mul(camproj, Device.mView);
-	RCache.set_xform_project(camproj);
+	FTold = Device.mFullTransform;
+	Device.mFullTransform = Device.mFullTransformCamAttached;
+	RCache.set_xform_project(Device.mProjectCamAttached);
 
 	// Rendering
 	rmNear();
@@ -713,6 +742,42 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 }
 
 //////////////////////////////////////////////////////////////////////////
+// UI render
+void R_dsgraph_structure::r_dsgraph_render_ui_3d()
+{
+	const Fmatrix saved_world = RCache.get_xform_world();
+	const Fmatrix saved_view = RCache.get_xform_view();
+	const Fmatrix saved_project = RCache.get_xform_project();
+	const Fmatrix saved_full_transform = Device.mFullTransform;
+	RCache.set_xform_view(Device.mView);
+	// Change projection
+	Device.mFullTransform = Device.mFullTransform3DIcons;
+	RCache.set_xform_project(Device.mProject3DIcons);
+
+	// Rendering
+	mapUI3D.traverseLR(sorted_UI3D);
+	mapUI3D.clear();
+
+#if	RENDER!=R_R1
+	mapUI3DEmissive.traverseLR(sorted_UI3D);
+	mapUI3DEmissive.clear();
+#endif
+
+#if RENDER == R_R4
+	mapUI3DSorted.traverseLR(sorted_L1);
+#else
+	// Match the direct icon material for sorted meshes too, drawing far to near.
+	mapUI3DSorted.traverseRL(sorted_UI3D);
+#endif
+	mapUI3DSorted.clear();
+
+	Device.mFullTransform = saved_full_transform;
+	RCache.set_xform_world(saved_world);
+	RCache.set_xform_view(saved_view);
+	RCache.set_xform_project(saved_project);
+}
+
+//////////////////////////////////////////////////////////////////////////
 // strict-sorted render
 void R_dsgraph_structure::r_dsgraph_render_sorted()
 {
@@ -720,8 +785,11 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	mapSorted.traverseRL(sorted_L1);
 	mapSorted.clear();
 
+	mapCustomFOVSorted.traverseRL(sorted_L1);
+	mapCustomFOVSorted.clear();
+
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
+	FTold = Device.mFullTransform;
 
 	Device.mFullTransform = Device.mFullTransformHud;
 	RCache.set_xform_project(Device.mProjectHud);
@@ -735,14 +803,8 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	if (mapCamAttachedSorted.size())
 	{
 		// Change projection
-		Fmatrix camproj;
-		camproj.build_projection(
-			deg2rad(83.f),
-			Device.fASPECT, R_VIEWPORT_NEAR,
-			g_pGamePersistent->Environment().CurrentEnv->far_plane);
-
-		Device.mFullTransform.mul(camproj, Device.mView);
-		RCache.set_xform_project(camproj);
+		Device.mFullTransform = Device.mFullTransformCamAttached;
+		RCache.set_xform_project(Device.mProjectCamAttached);
 
 		// Rendering
 		mapCamAttachedSorted.traverseRL(sorted_L1);
@@ -762,7 +824,7 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	
 {
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
+	FTold = Device.mFullTransform;
 
 	Device.mFullTransform = Device.mFullTransformHud;
 	RCache.set_xform_project(Device.mProjectHud);
@@ -771,6 +833,19 @@ void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D 
 	rmNear();
 	mapScopeHUDSorted.traverseRL(sorted_L1);
 	mapScopeHUDSorted.clear();
+
+    // Camera Script Attachments
+    if (mapScopeCamAttachedSorted.size())
+    {
+        // Change projection
+        Device.mFullTransform = Device.mFullTransformCamAttached;
+        RCache.set_xform_project(Device.mProjectCamAttached);
+
+        // Rendering
+        mapScopeCamAttachedSorted.traverseLR(sorted_L1);
+        mapScopeCamAttachedSorted.clear();
+    }
+
 	rmNormal();
 
 	// Restore projection
@@ -789,8 +864,12 @@ void R_dsgraph_structure::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 	if (clear)
 		mapEmissive.clear();
 
+	mapCustomFOVEmissive.traverseLR(sorted_L1);
+	if (clear)
+		mapCustomFOVEmissive.clear();
+
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
+	FTold = Device.mFullTransform;
 	
 	Device.mFullTransform = Device.mFullTransformHud;
 	RCache.set_xform_project(Device.mProjectHud);
@@ -844,8 +923,11 @@ void R_dsgraph_structure::r_dsgraph_render_distort()
 	mapDistort.traverseRL(sorted_L1);
 	mapDistort.clear();
 
+	mapCustomFOVDistort.traverseRL(sorted_L1);
+	mapCustomFOVDistort.clear();
+
 	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
+	FTold = Device.mFullTransform;
 	Device.mFullTransform = Device.mFullTransformHud;
 	RCache.set_xform_project(Device.mProjectHud);
 

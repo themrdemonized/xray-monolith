@@ -158,7 +158,14 @@ IC bool CSDijkstra::step(_PathManager& path_manager)
 	// iterating on the best node neighbours
 	_PathManager::const_iterator i;
 	_PathManager::const_iterator e;
-	path_manager.begin(best.index(), i, e);
+	// path_manager.begin() keeps a pointer to the index it is given (CPathManagerGeneric::best_node_index)
+	// and get_value() reads it on every neighbour. With CVertexManagerFixed, index() returns by value, so
+	// passing best.index() straight in left that pointer on a temporary that died at the end of the
+	// statement (ASAN stack-use-after-scope in get_value). A named const reference keeps the temporary
+	// alive for the whole function; where index() returns a reference (CVertexManagerHashFixed, the
+	// solver) it binds to the vertex itself, as before.
+	const _index_type& best_index = best.index();
+	path_manager.begin(best_index, i, e);
 	for (; i != e; ++i)
 	{
 		const _index_type& neighbour_index = path_manager.get_value(i);

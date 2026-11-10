@@ -422,6 +422,8 @@ void CODEGeom::destroy()
 CBoxGeom::CBoxGeom(const Fobb& box)
 {
 	m_box = box;
+	def_half_size = box.m_halfsize;
+	def_translate = box.m_translate;
 }
 
 void CBoxGeom::get_mass(dMass& m)
@@ -616,6 +618,8 @@ void CBoxGeom::set_build_position(const Fvector& ref_point)
 CSphereGeom::CSphereGeom(const Fsphere& sphere)
 {
 	m_sphere = sphere;
+	def_radius = sphere.R;
+	def_translate = sphere.P;
 }
 
 void CSphereGeom::get_mass(dMass& m)
@@ -687,6 +691,9 @@ void CSphereGeom::set_build_position(const Fvector& ref_point)
 CCylinderGeom::CCylinderGeom(const Fcylinder& cyl)
 {
 	m_cylinder = cyl;
+	m_def_radius = cyl.m_radius;
+	m_def_height = cyl.m_height;
+	def_translate = cyl.m_center;
 }
 
 void CCylinderGeom::get_mass(dMass& m)

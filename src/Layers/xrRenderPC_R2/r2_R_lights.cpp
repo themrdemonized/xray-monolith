@@ -7,40 +7,10 @@ IC bool pred_area(light* _1, light* _2)
 	return a0 > a1; // reverse -> descending
 }
 
-IC void hud_light_apply(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, xr_vector<light*>& source)
-{
-	for (u32 it = 0; it < source.size(); it++)
-	{
-		light* L = source[it];
-		if (!L->get_hud_mode()) continue;
-
-		saved_pos.emplace(L, mk_pair(L->position, L->direction));
-
-		Device.hud_to_world(L->position);
-		Device.hud_to_world_dir(L->direction);
-	}
-}
-
-IC void hud_light_restore(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, xr_vector<light*>& source)
-{
-	for (const auto& saved : saved_pos)
-	{
-		light* L = saved.first;
-		if (!L->get_hud_mode()) continue;
-
-		L->position = saved.second.first;
-		L->direction = saved.second.second;
-	}
-}
-
 void CRender::render_lights(light_Package& LP)
 {
 	xr_map<light*, std::pair<Fvector, Fvector>> saved_pos;
 	//////////////////////////////////////////////////////////////////////////
-	// 0. apply hud_mode projection if necessary
-	hud_light_apply(saved_pos, LP.v_shadowed);
-	hud_light_apply(saved_pos, LP.v_point);
-	hud_light_apply(saved_pos, LP.v_spot);
 	// Refactor order based on ability to pack shadow-maps
 	// 1. calculate area + sort in descending order
 	// const	u16		smap_unassigned		= u16(-1);
@@ -241,11 +211,6 @@ void CRender::render_lights(light_Package& LP)
 		}
 		Lvec.clear();
 	}
-
-	// restore world projection if necessary
-	hud_light_restore(saved_pos, LP.v_shadowed);
-	hud_light_restore(saved_pos, LP.v_point);
-	hud_light_restore(saved_pos, LP.v_spot);
 }
 
 void CRender::render_indirect(light* L)

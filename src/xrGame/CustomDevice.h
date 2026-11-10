@@ -39,6 +39,7 @@ public:
 
 	virtual void OnMoveToRuck(const SInvItemPlace& prev);
 	virtual void on_a_hud_attach();
+	virtual void on_b_hud_detach();
 
 	virtual void OnActiveItem();
 	virtual void OnHiddenItem();

@@ -536,9 +536,9 @@ void CMissile::setup_throw_params()
 	m_throw_direction.set(trans.k);
 }
 
-void CMissile::OnMotionMark(u32 state, const motion_marks& M)
+void CMissile::OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end)
 {
-	inherited::OnMotionMark(state, M);
+	inherited::OnMotionMark(state, M, mark_start, mark_end);
 	if (state == eThrow && !m_throw)
 	{
 		if (H_Parent())
@@ -563,7 +563,7 @@ void CMissile::Throw()
 	CInventoryOwner* inventory_owner = smart_cast<CInventoryOwner*>(H_Parent());
 	VERIFY(inventory_owner);
 	if (inventory_owner->use_default_throw_force())
-		m_fake_missile->m_fThrowForce = m_constpower ? m_fConstForce : m_fThrowForce;
+		m_fake_missile->m_fThrowForce = inventory_owner->default_missile_throw_force(this);
 	else
 		m_fake_missile->m_fThrowForce = inventory_owner->missile_throw_force();
 

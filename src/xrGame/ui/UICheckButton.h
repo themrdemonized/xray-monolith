@@ -37,10 +37,23 @@ public:
 		SetButtonState(ch ? BUTTON_PUSHED : BUTTON_NORMAL);
 	}
 
+	// Set visual state directly
+	// state: -1=Automatic, 0=Enabled, 1=Disabled, 2=Highlighted, 3=Touched
+	IC void SetVisualState(int state)
+	{
+		if (state < -1 || state > S_Touched) return;
+		m_manual_visual_state = state;
+		if (m_background && state >= 0)
+		{
+			m_background->SetCurrentState((IBState)state);
+		}
+	}
+
 	void SetDependControl(CUIWindow* pWnd);
 
 private:
 	bool m_opt_backup_value;
+	int m_manual_visual_state;
 	void InitTexture2(LPCSTR texture_name);
 	CUIWindow* m_pDependControl;
 };

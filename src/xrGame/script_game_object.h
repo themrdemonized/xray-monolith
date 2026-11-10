@@ -238,6 +238,7 @@ public:
 	_DECLARE_FUNCTION11(SetDeviceEnabled, void, bool);
 
 	// CEntity
+	xrTime GameDeathTime();
 	_DECLARE_FUNCTION10(DeathTime, u32);
 	_DECLARE_FUNCTION10(MaxHealth, float);
 	_DECLARE_FUNCTION10(Accuracy, float);
@@ -303,6 +304,7 @@ public:
 	void SetActorDirection(float dir, float pitch);
 	void SetActorDirection(float dir, float pitch, float roll);
 	void SetActorDirection(const Fvector& dir);
+	Fvector GetActorDirection();
 	void SetNpcPosition(Fvector pos);
 	void DisableHitMarks(bool disable);
 	bool DisableHitMarks() const;
@@ -572,6 +574,7 @@ public:
 	Fvector memory_position(const CScriptGameObject& lua_game_object);
 	CScriptGameObject* best_weapon();
 	void explode(u32 level_time);
+	void set_initiator(u16 id);
 	CScriptGameObject* GetEnemy() const;
 	CScriptGameObject* GetCorpse() const;
 	CScriptSoundInfo GetSoundInfo();
@@ -868,6 +871,8 @@ public:
 	                             float max_distance);
 	void set_bloodsucker_vis_timing(float min_delay_ms);
 	void set_monster_turn_factor(float factor);
+	void set_monster_dest(const Fvector& position);
+	void clear_monster_dest();
 	bool can_kill_enemy();
 	bool can_kill_member();
 	bool fire_make_sense();
@@ -1122,6 +1127,9 @@ public:
 	u32 PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f);
 	void SwitchState(u32 state);
 	u32 GetState();
+	::luabind::object GetCurrentMotion();
+	bool IsPending();
+	void SetPending(bool pending = false);
 	Fvector hud_fire_point();
 	Fvector hud_fire_point2();
 	Fvector hud_fire_point_silencer();
@@ -1158,10 +1166,12 @@ public:
 	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud) { set_bone_visible(bone_id(bone_name, bHud), bVisibility, bRecursive, bHud); }
 	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive) { set_bone_visible(bone_id(bone_name), bVisibility, bRecursive, false); }
 
-	Fmatrix bone_transform(u16 bone_id, bool bHud);
-	Fmatrix bone_transform(u16 bone_id) { return bone_transform(bone_id, false); }
-	Fmatrix bone_transform(LPCSTR bone_name, bool bHud) { return bone_transform(bone_id(bone_name, bHud), bHud); }
-	Fmatrix bone_transform(LPCSTR bone_name) { return bone_transform(bone_id(bone_name), false); }
+	Fmatrix bone_transform(u16 bone_id, bool bHud, bool bPrev);
+	Fmatrix bone_transform(u16 bone_id, bool bHud) { return bone_transform(bone_id, bHud, false); }
+	Fmatrix bone_transform(u16 bone_id) { return bone_transform(bone_id, false, false); }
+	Fmatrix bone_transform(LPCSTR bone_name, bool bHud, bool bPrev) { return bone_transform(bone_id(bone_name, bHud), bHud, bPrev); }
+	Fmatrix bone_transform(LPCSTR bone_name, bool bHud) { return bone_transform(bone_id(bone_name, bHud), bHud, false); }
+	Fmatrix bone_transform(LPCSTR bone_name) { return bone_transform(bone_id(bone_name), false, false); }
 
 	Fvector bone_position(u16 bone_id, bool bHud);
 	Fvector bone_position(u16 bone_id) { return bone_position(bone_id, false); }
@@ -1289,6 +1299,7 @@ public:
 	// demonized: get and set scope UI
 	::luabind::object get_scope_ui();
 	void set_scope_ui(LPCSTR scope_texture);
+	void reset_scope_ui();
 #endif
 	//-Alundaio
 

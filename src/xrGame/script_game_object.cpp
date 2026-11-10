@@ -49,6 +49,7 @@
 #include "player_hud.h"
 #include "script_attachment_manager.h"
 #include "CustomDevice.h"
+#include "CharacterPhysicsSupport.h"
 
 class CScriptBinderObject;
 
@@ -579,12 +580,12 @@ u16 CScriptGameObject::bone_id(LPCSTR bone_name, bool bHud)
 	return bone_id;
 }
 
-Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud)
+Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud, bool bPrev)
 {
 	//if (bone_id == BI_NONE) return Fvector().set(0, 0, 0);
 
 	IKinematics* k = nullptr;
-	Fmatrix* xform = nullptr;
+	const Fmatrix* xform = nullptr;
 
 	if (bHud)
 	{
@@ -593,14 +594,15 @@ Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud)
 		if (itm)
 		{
 			k = itm->HudItemData()->m_model;
-			xform = &itm->HudItemData()->m_item_transform;
+			xform = bPrev ? &itm->HudItemData()->m_item_transform_prev : &itm->HudItemData()->m_item_transform;
 		} else if (act)
 		{
 			k = (bone_id > 20) ? g_player_hud->m_model->dcast_PKinematics() : g_player_hud->m_model_2->dcast_PKinematics();
-			xform = (bone_id > 20) ? &g_player_hud->m_transform : &g_player_hud->m_transform_2;
+			xform = (bone_id > 20) ? (bPrev ? &g_player_hud->m_transform_prev : &g_player_hud->m_transform) : (bPrev ? &g_player_hud->m_transform_2_prev : &g_player_hud->m_transform_2);
 		}
 	} else {
 		k = object().Visual()->dcast_PKinematics();
+		// Previous transforms are available for HUD models only.
 		xform = &object().XFORM();
 	}
 
@@ -701,7 +703,22 @@ void CScriptGameObject::set_bone_visible(u16 bone_id, bool bVisibility, bool bRe
 		return;
 
 	if (bVisibility != !!k->LL_GetBoneVisible(bone_id))
+	{
 		k->LL_SetBoneVisible(bone_id, bVisibility, bRecursive);
+
+		CPhysicsShellHolder* holder = object().cast_physics_shell_holder();
+		if (!holder) return;
+
+		CCharacterPhysicsSupport* phys = holder->character_physics_support();
+
+		if (phys)
+			phys->RecreateSkeleton();
+		else if (holder->m_pPhysicsShell && holder->m_pPhysicsShell->isActive())
+		{
+			holder->deactivate_physics_shell();
+			holder->activate_physic_shell();
+		}
+	}
 }
 
 bool CScriptGameObject::is_bone_visible(u16 bone_id, bool bHud)
@@ -1449,6 +1466,8 @@ CGameObject& CScriptGameObject::object() const
 		return table;
 	}
 
+    if (children)
+    {
 	for (auto* child : *children)
 	{
 		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
@@ -1456,13 +1475,17 @@ CGameObject& CScriptGameObject::object() const
 		subtable["texture"] = child->getDebugTexture();
 		table[child->getID()] = subtable;
 	}
-
+    }
+	
+    if (children_invisible)
+    {
 	for (auto* child : *children_invisible)
 	{
 		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
 		subtable["shader"] = child->getDebugShader();
 		subtable["texture"] = child->getDebugTexture();
 		table[child->getID()] = subtable;
+        }
 	}
 
 	return table;
@@ -1533,6 +1556,8 @@ CGameObject& CScriptGameObject::object() const
 		return table;
 	}
 
+    if (children)
+    {
 	for (auto* child : *children)
 	{
 		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
@@ -1540,13 +1565,17 @@ CGameObject& CScriptGameObject::object() const
 		subtable["texture"] = child->getDebugTextureDef();
 		table[child->getID()] = subtable;
 	}
+    }
 
+    if (children_invisible)
+    {
 	for (auto* child : *children_invisible)
 	{
 		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
 		subtable["shader"] = child->getDebugShaderDef();
 		subtable["texture"] = child->getDebugTextureDef();
 		table[child->getID()] = subtable;
+        }
 	}
 
 	return table;
@@ -1565,28 +1594,42 @@ void set_shader_tex(IRenderVisual* vis, int id, LPCSTR shader, LPCSTR texture)
 
 	if (id < 1)
 	{
+        if (children)
+        {
 		for (auto* child : *children)
 		{
 			child->SetShaderTexture(shader, texture);
 		}
+        }
+
+        if (children_invisible)
+        {
 		for (auto* child : *children_invisible)
 		{
 			child->SetShaderTexture(shader, texture);
 		}
+        }
 		return;
 	}
 
+    if (children)
+    {
 	for (auto* child : *children)
 	{
 		if (child->getID() != id) continue;
 		child->SetShaderTexture(shader, texture);
 		return;
 	}
+    }
+
+    if (children_invisible)
+    {
 	for (auto* child : *children_invisible)
 	{
 		if (child->getID() != id) continue;
 		child->SetShaderTexture(shader, texture);
 		return;
+        }
 	}
 }
 
@@ -1603,28 +1646,42 @@ void reset_shader_tex(IRenderVisual* vis, int id)
 
 	if (id < 1)
 	{
+        if (children)
+        {
 		for (auto* child : *children)
 		{
 			child->ResetShaderTexture();
 		}
+        }
+
+        if (children_invisible)
+        {
 		for (auto* child : *children_invisible)
 		{
 			child->ResetShaderTexture();
 		}
+        }
 		return;
 	}
 
+    if (children)
+    {
 	for (auto* child : *children)
 	{
 		if (child->getID() != id) continue;
 		child->ResetShaderTexture();
 		return;
 	}
+    }
+
+    if (children_invisible)
+    {
 	for (auto* child : *children_invisible)
 	{
 		if (child->getID() != id) continue;
 		child->ResetShaderTexture();
 		return;
+        }
 	}
 }
 
@@ -1767,4 +1824,20 @@ void CScriptGameObject::ResetLegsShader(int id)
 
 	if (act->m_legs_controller.is_active())
 		reset_shader_tex(act->m_legs_controller.model()->dcast_RenderVisual(), id);
+}
+
+bool CScriptGameObject::IsPending()
+{
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (!itm) return false;
+
+	return itm->IsPending();
+}
+
+void CScriptGameObject::SetPending(bool pending)
+{
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (!itm) return;
+
+	itm->SetPending(pending);
 }

@@ -23,7 +23,9 @@ public:
 	IRenderable* val_pObject;
 	Fmatrix* val_pTransform;
 	BOOL val_bHUD;
+	BOOL val_bUI3D;
 	BOOL val_bCamAttached;
+	float val_fCustomFOV;
 	BOOL val_bInvisible;
 	BOOL val_bRecordMP; // record nearest for multi-pass
 	R_feedback* val_feedback; // feedback for geometry being rendered
@@ -40,19 +42,27 @@ public:
 	//R_dsgraph::mapMatrix_T										mapMatrix	[2]		;
 	R_dsgraph::mapMatrixPasses_T mapMatrixPasses [2];
 	R_dsgraph::mapSorted_T mapSorted;
-	R_dsgraph::mapHUD_T mapHUD;
-	R_dsgraph::mapHUD_T mapCamAttached;
-	R_dsgraph::mapLOD_T mapLOD;
-	R_dsgraph::mapSorted_T mapDistort;
 	R_dsgraph::mapHUD_T mapHUDSorted;
 	R_dsgraph::mapHUD_T mapCamAttachedSorted;
+	R_dsgraph::mapHUD_T mapCustomFOVSorted;
+	R_dsgraph::mapHUD_T mapHUD;
+	R_dsgraph::mapHUD_T mapCamAttached;
+	R_dsgraph::mapHUD_T mapCustomFOV;
+	R_dsgraph::mapLOD_T mapLOD;
+	R_dsgraph::mapSorted_T mapDistort;
+	R_dsgraph::mapSorted_T mapHUDDistort;
+	R_dsgraph::mapSorted_T mapCustomFOVDistort;
+	R_dsgraph::mapHUD_T mapUI3D;
+	R_dsgraph::mapHUD_T mapUI3DSorted;
 #if defined(USE_DX11)
 	R_dsgraph::mapScopeHUD_T mapScopeHUD;	//  Redotix99: for 3D Shader Based Scopes
+	R_dsgraph::mapScopeHUD_T mapScopeCamAttached;
 	R_dsgraph::mapScopeHUD_T mapScopeHUDSorted;
+	R_dsgraph::mapScopeHUD_T mapScopeCamAttachedSorted;
 #endif
 	R_dsgraph::mapLandscape_T mapLandscape;
 	//R_dsgraph::HUDMask_T HUDMask; // SSS 23: Deprecated
-	R_dsgraph::HUDMask_T HUDMaskCamAttached;
+	//R_dsgraph::HUDMask_T HUDMaskCamAttached;
 	R_dsgraph::mapWater_T mapWater;
 
 #if RENDER!=R_R1
@@ -60,8 +70,9 @@ public:
 	R_dsgraph::mapSorted_T										mapEmissive;
 	R_dsgraph::mapSorted_T										mapHUDEmissive;
 	R_dsgraph::mapSorted_T										mapCamAttachedEmissive;
+	R_dsgraph::mapSorted_T										mapCustomFOVEmissive;
+	R_dsgraph::mapSorted_T										mapUI3DEmissive;
 #endif
-	R_dsgraph::mapSorted_T										mapHUDDistort;
 
 	// Runtime structures 
 	xr_vector<R_dsgraph::mapNormalVS::TNode*,render_alloc<R_dsgraph::mapNormalVS::TNode*>> nrmVS;
@@ -104,8 +115,12 @@ public:
 
 	virtual void set_HUD(BOOL V) { val_bHUD = V; }
 	virtual BOOL get_HUD() { return val_bHUD; }
+	virtual void set_UI3D(BOOL V) { val_bUI3D = V; }
+	virtual BOOL get_UI3D() { return val_bUI3D; }
 	virtual void set_CamAttached(BOOL V) { val_bCamAttached = V; }
 	virtual BOOL get_CamAttached() { return val_bCamAttached; }
+	virtual void set_CustomFOV(float V) { val_fCustomFOV = V; }
+	virtual float get_CustomFOV() { return val_fCustomFOV; }
 	virtual void set_Invisible(BOOL V) { val_bInvisible = V; }
 
 	void set_Feedback(R_feedback* V, u32 id)
@@ -133,9 +148,11 @@ public:
 		val_pObject = NULL;
 		val_pTransform = NULL;
 		val_bHUD = FALSE;
+		val_bUI3D = FALSE;
 		val_bCamAttached = FALSE;
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
+		val_fCustomFOV = 0.f;
 		val_feedback = 0;
 		val_feedback_breakp = 0;
 		val_recorder = 0;
@@ -181,6 +198,8 @@ public:
 		}
 		mapSorted.destroy();
 		mapHUD.destroy();
+		mapUI3D.destroy();
+		mapUI3DSorted.destroy();
 		mapCamAttached.destroy();
 		mapLOD.destroy();
 		mapDistort.destroy();
@@ -189,13 +208,18 @@ public:
 		mapCamAttachedSorted.destroy();
 		mapLandscape.destroy();
 		//HUDMask.destroy(); // SSS 23: Deprecated
-		HUDMaskCamAttached.destroy();
+		//HUDMaskCamAttached.destroy();
+		mapCustomFOV.destroy();
+		mapCustomFOVDistort.destroy();
+		mapCustomFOVSorted.destroy();
 		mapWater.destroy();
 
 #if RENDER!=R_R1
 		mapWmark.destroy();
 		mapEmissive.destroy();
 		mapHUDEmissive.destroy();
+		mapUI3DEmissive.destroy();
+		mapCustomFOVEmissive.destroy();
 		mapCamAttachedEmissive.destroy();
 #endif
 	}
@@ -213,6 +237,7 @@ public:
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();
+	void r_dsgraph_render_ui_3d();
 	void r_dsgraph_render_cam_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted();
