@@ -6,6 +6,9 @@ UseTab: Never
 IndentWidth: 4
 TabWidth: 4
 ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+NamespaceIndentation: All
 InsertNewlineAtEOF: true
 
 BreakBeforeBraces: Custom
