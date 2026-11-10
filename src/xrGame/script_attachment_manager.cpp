@@ -523,8 +523,9 @@ void script_attachment::Update()
 
         if (m_motion_end_cb)
         {
-            (*m_motion_end_cb)();
-            m_motion_end_cb = nullptr;
+            auto cb = std::exchange(m_motion_end_cb, nullptr);
+            (*cb)();
+            xr_delete(cb);
         }
         else
 		PlayMotion("idle");
@@ -1095,6 +1096,7 @@ void script_attachment::SetPHContactCallback(LPCSTR func)
 		return;
 	}
 
+    xr_delete(m_ph_contact_callback_func);
 	m_ph_contact_callback_func = xr_new<::luabind::functor<bool>>();
 	if (ai().script_engine().functor(func, *m_ph_contact_callback_func))
 	{
@@ -1299,7 +1301,10 @@ u32 script_attachment::PlayMotionCB(LPCSTR name, bool mixin, float speed, const 
 {
     u32 length = PlayMotion(name, mixin, speed);
     if (length != 0 && motion_end_cb)
+    {
+        xr_delete(m_motion_end_cb);
         m_motion_end_cb = xr_new<::luabind::functor<void>>(motion_end_cb);
+    }   
 
     return length;
 }
@@ -1309,6 +1314,7 @@ u32 script_attachment::PlayMotionCB(LPCSTR name, bool mixin, float speed, LPCSTR
     u32 length = PlayMotion(name, mixin, speed);
     if (length != 0 && motion_end_cb != 0 && xr_strlen(motion_end_cb) != 0)
     {
+        xr_delete(m_motion_end_cb);
         m_motion_end_cb = xr_new<::luabind::functor<void>>();
         if (!ai().script_engine().functor(motion_end_cb, *m_motion_end_cb))
             xr_delete(m_motion_end_cb);
