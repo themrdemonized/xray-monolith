@@ -16,6 +16,7 @@
 #include "restriction_space.h"
 #include "alife_graph_registry.h"
 #include "alife_spawn_registry.h"
+#include "alife_schedule_registry.h"
 #include "alife_registry_container.h"
 #include "xrServer.h"
 #include "level.h"
@@ -494,6 +495,11 @@ void set_objects_per_update(CALifeSimulator* self, u32 count)
 	self->objects_per_update(count);
 }
 
+u32 get_objects_per_update(CALifeSimulator* self)
+{
+	return self->scheduled().objects_per_update();
+}
+
 void set_process_time(CALifeSimulator* self, int micro)
 {
 	self->set_process_time(micro);
@@ -695,6 +701,7 @@ void CALifeSimulator::script_register(lua_State* L)
 		.def("clone_weapon", &try_to_clone_object)
 		.def("register", &reprocess_spawn)
 		.def("set_objects_per_update", &set_objects_per_update)
+		.def("objects_per_update", &get_objects_per_update)
 		.def("set_process_time", &set_process_time)
 		.def("force_update", &force_update)
 		.def("get_children", &get_children, return_stl_iterator)
