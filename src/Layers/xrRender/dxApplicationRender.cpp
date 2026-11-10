@@ -329,6 +329,53 @@ void draw_multiline_text(CGameFont* F, float fTargetWidth, LPCSTR pszText)
 	if (!pszText || xr_strlen(pszText) == 0)
 		return;
 
+	if (F->IsMultibyte())
+	{
+		// CGameFont queues at most 1023 bytes per line. Keep UTF-8 characters intact.
+		const auto out_line = [F](LPCSTR text, size_t length)
+		{
+			do
+			{
+				size_t count = _min(length, sizeof(string1024) - 1);
+				if (count < length)
+				{
+					while (count > 1 && (static_cast<u8>(text[count]) & 0xc0) == 0x80)
+						--count;
+				}
+				F->OutNext("%.*s", static_cast<int>(count), text);
+				text += count;
+				length -= count;
+			} while (length);
+		};
+
+		u16 markers[MAX_MB_CHARS];
+		LPCSTR begin = pszText;
+		for (LPCSTR end = pszText; ; ++end)
+		{
+			const bool escaped_newline = end[0] == '\\' && end[1] == 'n';
+			if (*end && *end != '\n' && *end != '\r' && !escaped_newline)
+				continue;
+
+			// Reuse the multibyte wrapping and kinsoku rules used by CUILines.
+			const xr_string paragraph(begin, end - begin);
+			const u16 count = F->SplitByWidth(markers, MAX_MB_CHARS, fTargetWidth, paragraph.c_str());
+			size_t from = 0;
+			for (u16 i = 0; i < count; ++i)
+			{
+				out_line(paragraph.c_str() + from, markers[i] - from);
+				from = markers[i];
+			}
+			out_line(paragraph.c_str() + from, paragraph.size() - from);
+
+			if (!*end)
+				break;
+			if (escaped_newline || (*end == '\r' && end[1] == '\n'))
+				++end;
+			begin = end + 1;
+		}
+		return;
+	}
+
 	LPCSTR ch = pszText;
 	float curr_word_len = 0.0f;
 	LPCSTR next_word = NULL;
