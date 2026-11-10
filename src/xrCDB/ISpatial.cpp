@@ -24,6 +24,11 @@ Fvector c_spatial_offset [8] =
 	{1, 1, 1}
 };
 
+ICollidable* ISpatial::dcast_Collidable()
+{
+	return RawOwner ? RawOwner->dcast_Collidable() : nullptr;
+}
+
 CObject* ISpatial::dcast_CObject()
 {
 	return RawOwner ? RawOwner->dcast_CObject() : nullptr;

@@ -976,9 +976,20 @@ public:
 		return *this;
 	}
 
+	IC SelfRef cam_to_world()
+	{
+		Device.cam_to_world(*this);
+		return *this;
+	}
 	IC SelfRef world_to_hud()
 	{
 		Device.world_to_hud(*this);
+		return *this;
+	}
+
+	IC SelfRef custom_to_world(Self& proj)
+	{
+		Device.hud_to_world(*this, proj);
 		return *this;
 	}
 };

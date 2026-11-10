@@ -81,6 +81,7 @@ extern u64 g_qwEStartGameTime;
 
 ENGINE_API
 extern float psHUD_FOV_def;
+extern float psCAM_ATTACHED_FOV;
 extern float psSqueezeVelocity;
 extern float g_step_sound_distance;
 extern float g_step_particle_distance;
@@ -144,7 +145,6 @@ extern BOOL disableActorBodyRotationDelay; //leer
 
 extern BOOL pseudogiantDodgeWhileFalling; // Verdatim
 extern BOOL AllowAccelDuringLookOut; // Verdatim
-extern BOOL scale_hud_motion_marks_by_speed; // Verdatim
 extern BOOL npc_dont_drop_weapons_on_death; // Verdatim
 
 //demonized: new console vars
@@ -174,6 +174,7 @@ extern BOOL useNewZoomDeltaAlgorithm;
 extern BOOL g_aimmode_remember;
 extern BOOL g_freelook_while_reloading;
 extern BOOL useSeparateUBGLKeybind;
+extern int ps_hud_ik_compensation;
 extern int g_nearwall;
 extern int g_nearwall_trace;
 extern BOOL drawPickupItemNames;
@@ -306,7 +307,12 @@ extern float movement_manager_move_along_path_query_pos_threshold_sqr;
 ENGINE_API extern float g_console_sensitive;
 
 extern BOOL g_auto_reload;
+extern BOOL g_fire_reloads_ubgl;
+extern BOOL g_launcher_dynamic_range;
 BOOL g_launcher_dynamic_range_zoom = TRUE;
+extern BOOL g_launcher_dynamic_range_mode;
+extern float g_launcher_dynamic_range_max;
+
 u32 g_dead_body_collision = 1;
 
 extern int RESTRICTION_REBUILD_SMOOTH_FRAMES;
@@ -2694,6 +2700,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "hud_weapon", &psHUD_Flags, HUD_WEAPON);
 	CMD3(CCC_Mask, "hud_info", &psHUD_Flags, HUD_INFO);
 	CMD3(CCC_Mask, "hud_draw", &psHUD_Flags, HUD_DRAW);
+	CMD4(CCC_Integer, "hud_ik_compensation", &ps_hud_ik_compensation, 0, 1);
 
 	// hud
 	psHUD_Flags.set(HUD_CROSSHAIR, true);
@@ -2706,6 +2713,7 @@ void CCC_RegisterCommands()
 
 	//#ifdef DEBUG
 	CMD4(CCC_Float, "hud_fov", &psHUD_FOV_def, 0.1f, 1.0f);
+	CMD4(CCC_Float, "cam_attached_fov", &psCAM_ATTACHED_FOV, 0.1f, 1.0f);
 	CMD4(CCC_Float, "fov", &g_fov, 5.0f, 180.0f);
 	CMD4(CCC_Float, "viewport_near", &Device.ViewportNear, 0.0f, 1.0f);
     CMD4(CCC_Float, "step_sound_distance", &g_step_sound_distance, 10.0f, 100.0f);
@@ -3255,7 +3263,6 @@ void CCC_RegisterCommands()
 
     CMD4(CCC_Integer, "allow_accel_during_lookout", &AllowAccelDuringLookOut, 0, 1); // Verdatim
 
-    CMD4(CCC_Integer, "scale_hud_motion_marks_by_speed", &scale_hud_motion_marks_by_speed, 0, 1); // Verdatim
 
 
     CMD4(CCC_Integer, "npc_dont_drop_weapons_on_death", &npc_dont_drop_weapons_on_death, 0, 1); // Verdatim

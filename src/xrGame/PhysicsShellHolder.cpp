@@ -20,6 +20,7 @@
 #include "physics_shell_animated.h"
 #include "phcollisiondamagereceiver.h"
 #include "../xrEngine/iphysicsshell.h"
+#include "script_attachment_manager.h"
 #ifdef	DEBUG
 #include "../xrengine/objectdump.h"
 #endif
@@ -289,6 +290,14 @@ void CPhysicsShellHolder::activate_physic_shell()
 	CPhysicsShellHolder* P = smart_cast<CPhysicsShellHolder*>(H_Parent());
 	if (P)
 		P->on_child_shell_activate(this);
+
+	if (!character_physics_support())
+	{
+		for (auto& pair : *GetAttachments())
+		{
+			pair.second->OnParentCreatePhysicsShell();
+		}
+	}
 }
 
 void CPhysicsShellHolder::setup_physic_shell()
@@ -302,10 +311,26 @@ void CPhysicsShellHolder::setup_physic_shell()
 	ApplySpawnIniToPhysicShell(spawn_ini(), PPhysicsShell(), false);
 	correct_spawn_pos();
 	m_pPhysicsShell->GetGlobalTransformDynamic(&XFORM());
+
+	if (!character_physics_support())
+	{
+		for (auto& pair : *GetAttachments())
+		{
+			pair.second->OnParentCreatePhysicsShell();
+		}
+	}
 }
 
 void CPhysicsShellHolder::deactivate_physics_shell()
 {
+	if (!character_physics_support())
+	{
+		for (auto& pair : *GetAttachments())
+		{
+			pair.second->OnParentDestroyPhysicsShell();
+		}
+	}
+
 	destroy_physics_shell(m_pPhysicsShell);
 }
 

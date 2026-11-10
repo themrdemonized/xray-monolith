@@ -26,8 +26,8 @@ void DamageReceiverCollisionCallback(bool& do_colide, bool bo1, dContact& c, SGa
 	u16 source_id = o_damager ? o_damager->ObjectID() : u16(-1);
 
 	//CPHCollisionDamageReceiver	*dr	= static_cast<CPhysicsShellHolder*>( o_self )->PHCollisionDamageReceiver();
-	ICollisionDamageReceiver* dr = o_self ? (o_self)->ObjectPhCollisionDamageReceiver() : nullptr;
-	VERIFY2(dr, "wrong callback");
+	ICollisionDamageReceiver* dr = o_self ? o_self->ObjectPhCollisionDamageReceiver() : nullptr;
+	if (!dr) return;
 
 	float damager_material_factor = material_damager->fBounceDamageFactor;
 

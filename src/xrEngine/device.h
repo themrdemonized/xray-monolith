@@ -20,6 +20,14 @@
 #define VIEWPORT_NEAR  Device.ViewportNear //0.2f
 #define R_VIEWPORT_NEAR 0.005f
 
+// Shared projection volume for 3D UI icons. X/Y placement and model fitting
+// use the same height, so the value defines a coordinate system rather than
+// the final on-screen size.
+constexpr float UI_3D_ICON_ORTHO_HEIGHT = 2.f;
+constexpr float UI_3D_ICON_NEAR_PLANE = 0.01f;
+constexpr float UI_3D_ICON_FAR_PLANE = 100.f;
+constexpr float UI_3D_ICON_DISTANCE = 10.f;
+
 #define DEVICE_RESET_PRECACHE_FRAME_COUNT 10
 
 // demonized: toggle bone optimization
@@ -81,6 +89,10 @@ public:
 	Fmatrix mFullTransform;
 	Fmatrix mFullTransformHud;
 	Fmatrix mFullTransformCam;
+	Fmatrix mProjectCamAttached;
+	Fmatrix mProject3DIcons;
+	Fmatrix mFullTransformCamAttached;
+	Fmatrix mFullTransform3DIcons;
 
 	Fmatrix mView_prev;
 	Fmatrix mViewHud_prev;
@@ -402,6 +414,10 @@ public:
 		return hud_to_world(m, mProjectHud);
 	}
 
+	Fmatrix& cam_to_world(Fmatrix& m)
+	{
+		return hud_to_world(m, mProjectCamAttached);
+	}
 	Fvector& world_to_hud(Fvector& v, const Fmatrix& p)
 	{
 		mInvView.transform_tiny(v);

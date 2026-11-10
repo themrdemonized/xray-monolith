@@ -30,6 +30,7 @@ public:
 	IRender_ObjectSpecific* renderable_ROS();
 	BENCH_SEC_SCRAMBLEVTBL2
 	virtual void renderable_Render(IDSGraphManager* DM) = 0;
+	virtual void renderable_RenderUI() {}
 	virtual BOOL renderable_ShadowGenerate() { return FALSE; };
 	virtual BOOL renderable_ShadowReceive() { return FALSE; };
 

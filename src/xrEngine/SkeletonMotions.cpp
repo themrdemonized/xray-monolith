@@ -22,15 +22,26 @@ u16 CPartition::part_id(const shared_str& name) const
 	return u16(-1);
 }
 
+extern bool force_hands_bone_parts;
+
 void CPartition::load(IKinematics* V, LPCSTR model_name)
 {
 	string_path fn, fn_full;
-	xr_strcpy(fn, sizeof(fn), model_name);
-	if (strext(fn))
-		*strext(fn) = 0;
-	xr_strcat(fn, sizeof(fn), ".ltx");
 
-	FS.update_path(fn_full, "$game_meshes$", fn);
+	// Force engine to load anomaly hands bone_parts.ltx instead of individual wpn_hand_xx.ltx to enable 5 partitions for all hand meshes
+	if (force_hands_bone_parts)
+	{
+		FS.update_path(fn_full, "$game_meshes$", "anomaly_weapons\\hands\\bone_parts.ltx");
+	}
+	else
+	{
+		xr_strcpy(fn, sizeof(fn), model_name);
+		if (strext(fn))
+			*strext(fn) = 0;
+		xr_strcat(fn, sizeof(fn), ".ltx");
+
+		FS.update_path(fn_full, "$game_meshes$", fn);
+	}
 
 	CInifile ini(fn_full, TRUE, TRUE, FALSE);
 
@@ -40,6 +51,8 @@ void CPartition::load(IKinematics* V, LPCSTR model_name)
 	{
 		string64 buff;
 		xr_sprintf(buff, sizeof(buff), "part_%d", i);
+
+		if (!ini.section_exist(buff)) continue; // Older models can have fewer partitions.
 
 		CInifile::Sect S = ini.r_section(buff);
 		CInifile::SectCIt it = S.Data.begin();

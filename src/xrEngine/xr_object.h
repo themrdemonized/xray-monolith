@@ -195,6 +195,7 @@ public:
 	virtual CObject* dcast_CObject() override { return this; }
 	virtual IRenderable* dcast_Renderable() override { return this; }
 	virtual Feel::Sound* dcast_FeelSound() override { return nullptr; }
+	virtual ICollidable* dcast_Collidable() override { return this; }
 
     virtual void OnChangeVisual();
 

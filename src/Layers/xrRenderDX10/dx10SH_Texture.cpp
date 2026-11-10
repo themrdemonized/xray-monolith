@@ -3,6 +3,8 @@
 
 #include "../xrRender/ResourceManager.h"
 
+void fix_texture_name(LPSTR fn);
+
 #ifndef _EDITOR
 #include "../../xrEngine/render.h"
 #endif
@@ -633,12 +635,35 @@ void CTexture::Load()
 		u32 fps = atoi(buffer);
 		seqMSPF = 1000 / fps;
 
+		// Resolved name of each seqDATA entry. A frame file that repeats is loaded once:
+		// later entries share its surface and view, each holding its own reference, so
+		// Unload() still releases every entry once. MemoryUsage counts it once.
+		xr_vector<shared_str> seq_names;
 		while (!_fs->eof())
 		{
 			_fs->r_string(buffer, sizeof(buffer));
 			_Trim(buffer);
 			if (buffer[0])
 			{
+				string_path resolved;
+				xr_strcpy(resolved, buffer);
+				fix_texture_name(resolved);
+				xr_strlwr(resolved);
+				const shared_str name = resolved;
+
+				const auto it = std::find(seq_names.begin(), seq_names.end(), name);
+				if (it != seq_names.end())
+				{
+					const size_t first = it - seq_names.begin();
+					seqDATA.push_back(seqDATA[first]);
+					seqDATA.back()->AddRef();
+					m_seqSRView.push_back(m_seqSRView[first]);
+					if (m_seqSRView.back())
+						m_seqSRView.back()->AddRef();
+					seq_names.push_back(name);
+					continue;
+				}
+
 				// Load another texture
 				u32 mem = 0;
 				pSurface = ::RImplementation.texture_load(buffer, mem);
@@ -649,6 +674,7 @@ void CTexture::Load()
 					m_seqSRView.push_back(0);
 					HW.pDevice->CreateShaderResourceView(seqDATA.back(), NULL, &m_seqSRView.back());
 					flags.MemoryUsage += mem;
+					seq_names.push_back(name);
 				}
 			}
 		}

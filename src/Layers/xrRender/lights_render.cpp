@@ -23,44 +23,13 @@ bool check_grass_shadow(light* L, CFrustum VB)
 	return true;
 }
 
-IC void hud_light_apply(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, xr_vector<light*>& source)
-{
-	for (u32 it = 0; it < source.size(); it++)
-	{
-		light* L = source[it];
-		if (!L->get_hud_mode()) continue;
-
-		saved_pos.emplace(L, mk_pair(L->position, L->direction));
-
-		Device.hud_to_world(L->position);
-		Device.hud_to_world_dir(L->direction);
-	}
-}
-
-IC void hud_light_restore(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, xr_vector<light*>& source)
-{
-	for (const auto& saved : saved_pos)
-	{
-		light* L = saved.first;
-		if (!L->get_hud_mode()) continue;
-
-		L->position = saved.second.first;
-		L->direction = saved.second.second;
-	}
-}
-
 void CRender::render_lights(light_Package& LP)
 {
-	xr_map<light*, std::pair<Fvector, Fvector>> saved_pos;
 	stats.ls_shadowed_in += (u32)LP.v_shadowed.size();
 	stats.ls_unshadowed_point_in += (u32)LP.v_point.size();
 	stats.ls_unshadowed_spot_in += (u32)LP.v_spot.size();
 	stats.ls_shadowed_peak_in = _max(stats.ls_shadowed_peak_in, (u32)LP.v_shadowed.size());
 	//////////////////////////////////////////////////////////////////////////
-	// 0. apply hud_mode projection if necessary
-	hud_light_apply(saved_pos, LP.v_shadowed);
-	hud_light_apply(saved_pos, LP.v_point);
-	hud_light_apply(saved_pos, LP.v_spot);
 
 	{
 #if defined(USE_DX10) || defined(USE_DX11)
@@ -320,14 +289,7 @@ void CRender::render_lights(light_Package& LP)
 		}
 	}
 
-	// restore world projection if necessary
-    {
-        PROF_EVENT("hud_light_restore");
-        hud_light_restore(saved_pos, LP.v_shadowed);
-        hud_light_restore(saved_pos, LP.v_point);
-        hud_light_restore(saved_pos, LP.v_spot);
-    }
-	
+
 }
 
 void CRender::render_indirect(light* L)

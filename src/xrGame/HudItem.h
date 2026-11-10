@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 class CSE_Abstract;
 class CPhysicItem;
@@ -18,6 +18,7 @@ class CMissile;
 class CBolt;
 class CGrenade;
 class CPhysicsShellHolder;
+class CBlend;
 class CUIWindow;
 
 #include "actor_defs.h"
@@ -35,9 +36,6 @@ class CUIWindow;
 // Пределы смещения при инерции (лево / право / верх / низ)
 #define ORIGIN_OFFSET        0.04f,  0.04f,  0.04f, 0.02f
 #define ORIGIN_OFFSET_AIM    0.015f, 0.015f, 0.01f, 0.005f
-
-// Lucy: Uncomment if there ever is a use for correct visbox on HUD models
-// #define ATTACHMENT_HUD_VISBOX
 
 struct attachable_hud_item;
 class motion_marks;
@@ -111,18 +109,6 @@ protected:
 		fl_inertion_allow = (1 << 3),
 	};
 
-	struct
-	{
-		const CMotionDef* m_current_motion_def;
-		shared_str m_current_motion;
-		u32 m_dwMotionCurrTm;
-		u32 m_dwMotionStartTm;
-		u32 m_dwMotionEndTm;
-		u32 m_startedMotionState;
-		u8 m_started_rnd_anim_idx;
-		bool m_bStopAtEndAnimIsRunning;
-	};
-
 	attachable_hud_item* m_attachable;
 
 	float m_fLR_CameraFactor; // Фактор бокового наклона худа при ходьбе [-1; +1]
@@ -137,6 +123,20 @@ protected:
 	Fmatrix script_ui_matrix;
 
 public:
+
+	struct
+	{
+		const CMotionDef* m_current_motion_def;
+		shared_str m_current_motion;
+		u32 m_startedMotionState;
+		u8 m_started_rnd_anim_idx;
+		bool m_bStopAtEndAnimIsRunning;
+		float m_fPreviousMotionTime;
+		float m_fCurrentMotionTime;
+		float m_fCurrentMotionLength;
+		float m_fCurrentMotionSpeed;
+	};
+
 	virtual void Load(LPCSTR section);
 	virtual BOOL net_Spawn(CSE_Abstract* DC) { return TRUE; };
 
@@ -161,6 +161,9 @@ public:
 	BOOL GetHUDmode();
 	void PlayBlendAnm(LPCSTR name, float speed = 1.f, float power = 1.f, bool stop_old = true);
 	IC bool IsPending() const { return !!m_huditem_flags.test(fl_pending); }
+	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
+
+    IC float MotionTimeLeft() const { return m_fCurrentMotionSpeed > 0.f ? _max(m_fCurrentMotionLength - m_fCurrentMotionTime, 0.f) / m_fCurrentMotionSpeed : 0.f; }
 
 	virtual void DeleteHudItemData();
 
@@ -187,7 +190,7 @@ public:
 
 	virtual void OnAnimationEnd(u32 state);
 
-	virtual void OnMotionMark(u32 state, const motion_marks& M);
+	virtual void OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end);
 
 	virtual void PlayAnimIdle();
 	virtual bool TryPlayAnimBore();
@@ -201,7 +204,7 @@ public:
 
 	virtual void UpdateCL();
 	virtual void renderable_Render(IDSGraphManager* DM);
-
+	script_attachment* m_instance_holder_hud;
 
 	virtual void UpdateHudAdditional(Fmatrix& trans);
 
@@ -209,7 +212,7 @@ public:
 	virtual void UpdateXForm() = 0;
 
 	u32 PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed = 1.f, float end = 0.f, bool bMixIn2 = true);
-	u32 PlayHUDMotion_noCB(const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true);
+	bool PlayHUDMotion_noCB(const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true);
 	void StopCurrentAnimWithoutCallback();
 
 	IC void RenderHud(BOOL B) { m_huditem_flags.set(fl_renderhud, B); }
@@ -243,7 +246,6 @@ public:
 	virtual bool CheckCompatibility(CHudItem*) { return true; }
 protected:
 
-	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 	shared_str hud_sect;
 
 	//êàäðû ìîìåíòà ïåðåñ÷åòà XFORM è FirePos
@@ -334,7 +336,6 @@ public:
 	collide::rq_result& GetRQ() { return GetPick().result; };
 	float GetRQVis() { return PP.power; };
 
-#ifdef ATTACHMENT_HUD_VISBOX
 	typedef void __stdcall hud_visual_callback(IKinematics*);
 	typedef svector<hud_visual_callback*, 6> HUD_CALLBACK_VECTOR;
 	typedef HUD_CALLBACK_VECTOR::iterator HUD_CALLBACK_VECTOR_IT;
@@ -349,7 +350,6 @@ public:
 	{
 		return (m_visual_callback);
 	}
-#endif
 };
 
 class CAnonHudItem : public CHudItem

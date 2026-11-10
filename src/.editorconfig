@@ -13,12 +13,16 @@ indent_style = space
 indent_size = 4
 tab_width = 4
 
+# Scope indentation
+cpp_indent_access_specifiers = false
+cpp_indent_namespace_contents = true
+
 # Braces on next line
 cpp_indent_braces = false
-cpp_new_line_before_open_brace_block = all
-cpp_new_line_before_open_brace_function = all
-cpp_new_line_before_open_brace_type = all
-cpp_new_line_before_open_brace_lambda = all
+cpp_new_line_before_open_brace_block = new_line
+cpp_new_line_before_open_brace_function = new_line
+cpp_new_line_before_open_brace_type = new_line
+cpp_new_line_before_open_brace_lambda = new_line
 cpp_new_line_before_catch = true
 cpp_new_line_before_else = true
 cpp_new_line_before_finally = true

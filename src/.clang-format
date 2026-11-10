@@ -1,0 +1,48 @@
+# Match the C/C++ formatting rules in .editorconfig.
+# Encoding conversion, header guards and analyzer rules require separate tools.
+BasedOnStyle: Microsoft
+
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+NamespaceIndentation: All
+InsertNewlineAtEOF: true
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterExternBlock: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: true
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+
+AllowShortBlocksOnASingleLine: Never
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+
+# .editorconfig specifies no line length or line-ending convention.
+ColumnLimit: 0
+LineEnding: DeriveLF
+
+# Preserve include order, declarations, string literals and comment text.
+SortIncludes: Never
+SortUsingDeclarations: Never
+BreakStringLiterals: false
+ReflowComments: false
+FixNamespaceComments: false

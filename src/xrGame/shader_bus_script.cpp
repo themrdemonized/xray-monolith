@@ -5,6 +5,7 @@
 #include "../xrEngine/xr_ioc_cmd.h"
 #include "script_game_object.h"
 #include "GameObject.h"
+#include "script_attachment_manager.h"
 
 using namespace luabind;
 
@@ -167,6 +168,30 @@ static bool bus_get_object(LPCSTR id, CScriptGameObject* obj, float& x, float& y
 	return found;
 }
 
+static bool bus_set_attachment(u32 token, script_attachment* obj, float x, float y, float z, float w)
+{
+	return ShaderBus::set_object(token, obj, x, y, z, w);
+}
+
+static bool bus_clear_attachment(u32 token, script_attachment* obj)
+{
+	return ShaderBus::clear_object(token, obj);
+}
+
+static bool bus_get_attachment(LPCSTR id, script_attachment* obj, float& x, float& y, float& z, float& w)
+{
+	Fvector4 v;
+	const bool found = ShaderBus::get_object(id, obj, v);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	x = v.x;
+	y = v.y;
+	z = v.z;
+	w = v.w;
+	return found;
+}
+
 // rows {owner, x, y, z, w}, one per token of a shared lane that set a value
 static ::luabind::object bus_writer_rows(lua_State* L, LPCSTR id, const IRenderable* object)
 {
@@ -196,6 +221,13 @@ static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, CScriptGame
 	if (!obj)
 		return ::luabind::newtable(L);
 	return bus_writer_rows(L, id, bus_renderable(obj));
+}
+
+static ::luabind::object bus_writers_attachment(lua_State* L, LPCSTR id, script_attachment* obj)
+{
+	if (!obj)
+		return ::luabind::newtable(L);
+	return bus_writer_rows(L, id, obj);
 }
 
 static bool bus_set_texture(u32 token, LPCSTR name)
@@ -419,8 +451,13 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("clear_object", &bus_clear_object),
 		def("get_object", &bus_get_object,
 		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("set_attachment", &bus_set_attachment),
+		def("clear_attachment", &bus_clear_attachment),
+		def("get_attachment", &bus_get_attachment,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
 		def("writers", &bus_writers, raw<1>()),
 		def("writers", &bus_writers_object, raw<1>()),
+		def("writers", &bus_writers_attachment, raw<1>()),
 		def("set_texture", &bus_set_texture),
 		def("get_texture", &bus_get_texture),
 		def("has", &bus_has),

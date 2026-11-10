@@ -1237,7 +1237,7 @@ void CActor::UpdateCL()
 			g_pGamePersistent->m_pGShaderConstants->hud_params.w = Device.m_SecondViewport.IsSVPFrame();
 
 			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.x = pWeapon->CurrentZoomFactor();
-			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y = pWeapon->GetMinScopeZoomFactor();
+			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y = pWeapon->GetEffectiveMinScopeZoomFactor();
 		}
 	}
 #ifdef STATIONARYMGUN_NEW
@@ -2185,19 +2185,21 @@ void CActor::RenderCamAttached(IDSGraphManager* DM)
 	{
 		if (GetAttachments()->size())
 		{
+			Fmatrix cam;
+			Cameras().camera_Matrix(cam);
 			DM->set_HUD(TRUE);
 			DM->set_CamAttached(TRUE);
 			DM->set_Object(this);
-
-			Fmatrix cam = Fidentity;
-			Cameras().camera_Matrix(cam);
 
 			for (auto& pair : m_script_attachments)
 			{
 				script_attachment* att = pair.second;
 
 				if (att->GetType() == eSA_CamAttached)
-					att->Render(nullptr, &cam, DM);
+				{
+					att->UpdateXFORM(nullptr, &cam);
+					att->renderable_Render(DM);
+				}
 			}
 
 			DM->set_CamAttached(FALSE);
@@ -2384,6 +2386,23 @@ bool CActor::use_default_throw_force()
 		return false;
 
 	return true;
+}
+
+float CActor::default_missile_throw_force(CMissile* missile)
+{
+	float force = CInventoryOwner::default_missile_throw_force(missile);
+
+	::luabind::functor<float> funct;
+	if (ai().script_engine().functor("_G.CActor__GetMissileThrowForce", funct))
+	{
+		float result = funct(missile->lua_game_object(), force);
+		if (_valid(result) && result > 0.f)
+			force = result;
+		else
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CActor: _G.CActor__GetMissileThrowForce returned invalid value %f (must be > 0), ignoring", result);
+	}
+
+	return force;
 }
 
 float CActor::missile_throw_force()

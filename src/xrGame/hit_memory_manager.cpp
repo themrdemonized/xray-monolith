@@ -60,7 +60,9 @@ CHitMemoryManager::~CHitMemoryManager()
 
 const CHitObject* CHitMemoryManager::hit(const CEntityAlive* object) const
 {
-	VERIFY(m_hits);
+	if (!m_hits)
+		return nullptr;
+
 	HITS::const_iterator I = std::find_if(m_hits->begin(), m_hits->end(), CHitObjectPredicate(object));
 	if (m_hits->end() != I)
 		return (&*I);
@@ -212,16 +214,19 @@ void CHitMemoryManager::update()
 	START_PROFILE("Memory Manager/hits::update")
 		clear_delayed_objects();
 
-		VERIFY(m_hits);
-		m_hits->erase(
-			std::remove_if(
-				m_hits->begin(),
-				m_hits->end(),
-				CRemoveOfflinePredicate()
-			),
-			m_hits->end()
-		);
+    if (m_hits)
+    {
+        m_hits->erase(
+            std::remove_if(
+                m_hits->begin(),
+                m_hits->end(),
+                CRemoveOfflinePredicate()
+            ),
+            m_hits->end()
+        );
 
+    }
+		
 #ifdef USE_SELECTED_HIT
 	xr_delete					(m_selected_hit);
 	u32							level_time = 0;

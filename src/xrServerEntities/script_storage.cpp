@@ -1129,10 +1129,13 @@ bool CScriptStorage::object(LPCSTR identifier, int type)
    	{
    		lua_pushstring(lua(), identifier);
    		lua_rawget(lua(), -2);
-   		const bool found = (lua_type(lua(), -1) == type);
-   		lua_pop(lua(), 2);
-   		VERIFY(lua_gettop(lua()) == start - 1);
-   		return (found);
+        if (type != LUA_TNIL && lua_type(lua(), -1) == type)
+        {
+            lua_pop(lua(), 2);
+            VERIFY(lua_gettop(lua()) == start - 1);
+            return true;
+        }
+        lua_pop(lua(), 1);
    	}    
 
     //Original behavior

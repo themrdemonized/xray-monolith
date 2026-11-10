@@ -1,0 +1,17 @@
+# Preserve upstream formatting for third-party dependencies.
+# The first pattern is recursive in newer clang-format versions.
+# Version 19 needs explicit patterns for each existing directory depth.
+3rd party/**
+3rd party/*/*
+3rd party/*/*/*
+3rd party/*/*/*/*
+3rd party/*/*/*/*/*
+3rd party/*/*/*/*/*/*
+3rd party/*/*/*/*/*/*/*
+3rd party/*/*/*/*/*/*/*/*
+3rd party/*/*/*/*/*/*/*/*/*
+
+# These LZO portability headers trigger excessive memory use in clang-format 19.
+# See https://github.com/llvm/llvm-project/issues/142426.
+xrCore/rt_lzodefs.h
+xrCore/rt_miniacc.h

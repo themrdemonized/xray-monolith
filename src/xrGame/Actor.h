@@ -214,6 +214,7 @@ public:
 	virtual void g_PerformDrop();
 
 	virtual bool use_default_throw_force();
+	virtual float default_missile_throw_force(CMissile* missile);
 	virtual float missile_throw_force();
 
 	virtual bool unlimited_ammo();

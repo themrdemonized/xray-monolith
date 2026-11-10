@@ -51,6 +51,10 @@ void CControlPathBuilderBase::reset()
 	m_reset_actuality = false;
 	m_game_graph_target_vertex = u32(-1);
 
+	m_dest_override_active = false;
+	m_dest_override_point.set(0.f, 0.f, 0.f);
+	m_dest_override_node = u32(-1);
+
 	prepare_builder();
 
 	m_path_end = false;

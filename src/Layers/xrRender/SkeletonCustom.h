@@ -271,12 +271,15 @@ public:
 
 		Fbox Box;
 		Box.invalidate();
+		bool has_geometry = false;
 		for (u32 b = 0; b < bones->size(); b++)
 		{
 			if (!LL_GetBoneVisible(u16(b)))
 				continue;
 
 			Fobb& obb = (*bones)[b]->obb;
+			if (fis_zero(obb.m_halfsize.square_magnitude())) continue;
+			has_geometry = true;
 			Fmatrix& Mbone = LL_GetBoneInstance((u16)b).mTransform;
 			Fmatrix Mbox;
 			obb.xform_get(Mbox);
@@ -295,7 +298,7 @@ public:
 			A.set(S.x, S.y, -S.z); X.transform_tiny(P, A); Box.modify(P);
 		}
 
-		if (bones->size())
+		if (has_geometry)
 		{
 			vis.box.min = (Box.min);
 			vis.box.max = (Box.max);

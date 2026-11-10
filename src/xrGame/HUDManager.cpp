@@ -22,6 +22,7 @@
 #include "map_manager.h"
 #include "player_hud.h"
 #include "script_attachment_manager.h"
+#include "UI3dStatic.h"
 
 #include "GametaskManager.h"
 
@@ -226,7 +227,7 @@ void CHUDManager::Render_Last(IDSGraphManager* DM)
 void CHUDManager::Render_R1_Attachment_UI()
 {
 	for (auto att : g_pGamePersistent->AttachmentUIsToRender)
-		att->RenderUI();
+		att->RenderUI(false);
 
 	g_pGamePersistent->AttachmentUIsToRender.clear_not_free();
 }
@@ -287,6 +288,7 @@ void CHUDManager::RenderUI()
 
 	if (true /*|| psHUD_Flags.is(HUD_DRAW | HUD_DRAW_RT)*/)
 	{
+		CUI3dStatic::PrepareAtlas();
 		HitMarker.Render();
 		if (pUIGame)
 		{

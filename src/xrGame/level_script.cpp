@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "pch_script.h"
+#include "../xrEngine/LightAnimLibrary.h"
 #include "level.h"
 #include "actor.h"
 #include "script_game_object.h"
@@ -382,6 +383,12 @@ float rain_factor()
 float rain_wetness()
 {
 	return (g_pGamePersistent->Environment().wetness_factor);
+}
+
+void set_rain_wetness(float val)
+{
+	clamp(val, 0.f, 1.f);
+	g_pGamePersistent->Environment().wetness_factor = val;
 }
 
 float rain_hemi()
@@ -1067,6 +1074,11 @@ void remove_hud_motion_cam_effectors()
 		actor->Cameras().RemoveHudMotionEffectors();
 }
 
+bool is_demo_record()
+{
+    return g_pGameLevel->Cameras().GetCamEffector(ECamEffectorType::cefDemo);
+}
+
 float get_snd_volume()
 {
 	return psSoundVFactor;
@@ -1703,6 +1715,23 @@ void hud_adj_offs(int off, int idx, float x, float y, float z)
 		g_player_hud->m_adjust_offset[off][idx].set(x, y, z);
 }
 
+void set_hud_offset(int type, int idx, float x, float y, float z)
+{
+	attachable_hud_item * hi = g_player_hud->attached_item(0);
+	if (hi)
+		hi->m_measures.m_hands_offset[type][idx].set(x, y, z);
+}
+
+void set_hud_offset(int type, int idx, const Fvector& offs)
+{
+    set_hud_offset(type, idx, offs.x, offs.y, offs.z);
+}
+
+Fmatrix get_hud_transform()
+{
+	return g_player_hud->m_transform_2;
+}
+
 #include "Inventory.h"
 #include "Weapon.h"
 
@@ -2268,6 +2297,11 @@ void prefetch_model(LPCSTR name)
 {
 	::Render->models_PrefetchOne(name);
 }
+
+bool model_prefetched(LPCSTR name)
+{
+    return ::Render->models_Exists(name, true);
+}
 #endif
 //-Alundaio
 
@@ -2491,6 +2525,9 @@ DBG_ScriptObject* add_object(LPCSTR s, DebugRenderType type)
 	case eDBGLine:
 		dbg_obj = xr_new<DBG_ScriptLine>();
 		break;
+    case eDBGCylinder:
+        dbg_obj = xr_new<DBG_ScriptCylinder>();
+        break;
 	default:
 		R_ASSERT2(false, "Wrong debug object type used!");
 	}
@@ -2504,6 +2541,50 @@ DBG_ScriptObject* add_object(u32 id, DebugRenderType type)
 {
 	auto s = std::to_string(id);
 	return add_object(s.c_str(), type);
+}
+
+void dbg_draw_line(Fvector& a, Fvector& b, Fcolor& color, bool hud)
+{
+    DBG_ScriptLine* dbg_obj = xr_new<DBG_ScriptLine>();
+    dbg_obj->m_point_a = a;
+    dbg_obj->m_point_b = b;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
+}
+
+void dbg_draw_box(Fmatrix& mat, Fvector& halfsize, Fcolor& color, bool hud)
+{
+    DBG_ScriptBox* dbg_obj = xr_new<DBG_ScriptBox>();
+    dbg_obj->m_mat = mat;
+    dbg_obj->m_size = halfsize;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
+}
+
+void dbg_draw_sphere(Fmatrix& mat, Fcolor& color, bool hud)
+{
+    DBG_ScriptSphere* dbg_obj = xr_new<DBG_ScriptSphere>();
+    dbg_obj->m_mat = mat;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
+}
+
+void dbg_draw_cylinder(Fmatrix& mat, float length, float radius, Fcolor& color, bool hud)
+{
+    DBG_ScriptCylinder* dbg_obj = xr_new<DBG_ScriptCylinder>();
+    dbg_obj->m_mat = mat;
+    dbg_obj->m_length = length;
+    dbg_obj->m_radius = radius;
+    dbg_obj->m_color = color;
+    dbg_obj->m_hud = hud;
+
+    Level().getImmediateScriptRenderQueue()->push_back(dbg_obj->cast_dbg_obj());
 }
 
 u32 get_flags()
@@ -2597,10 +2678,214 @@ void take_screenshot(LPCSTR path, Fvector2 dimensions, IRender_interface::DxEnco
 	Render->TakeScreenshot(path, dimensions, dx_encoding);
 }
 
+bool TopInputReceiver()
+{
+	return CurrentGameUI() && CurrentGameUI()->TopInputReceiver();
+}
 
 #pragma optimize("s",on)
 
 extern void open_originals_link();
+
+// 0 = right hand, 1 = left hand, 2 = both
+void set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm, float accrue = 0.f, float falloff = 0.f)
+{
+	g_player_hud->set_hand_pose(hand, sect, anm, accrue, falloff);
+}
+
+void force_set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm)
+{
+	g_player_hud->set_hand_pose(hand, sect, anm, 1, 1, false);
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void clear_hand_pose(u8 hand, float accrue = 0.f, float falloff = 0.f)
+{
+	g_player_hud->clear_hand_pose(hand, accrue, falloff);
+}
+
+::luabind::object list_hand_motions(LPCSTR section)
+{
+	const player_hud_motion_container* motions = g_player_hud->get_hand_motions(section);
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+	if (!motions) return table;
+
+	for (const player_hud_motion& motion : motions->m_anims)
+	{
+		::luabind::object motion_table = ::luabind::newtable(ai().script_engine().lua());
+		motion_table["base"] = *motion.m_base_name;
+		motion_table["item"] = *motion.m_additional_name;
+        motion_table["speed"] = motion.m_anim_speed;
+
+        CMotionDef* md = g_player_hud->m_model->LL_GetMotionDef(motion.m_animations.front().mid);
+		motion_table["base_speed"] = md->Dequantize(md->speed);
+
+		table[*motion.m_alias_name] = motion_table;
+	}
+
+	return table;
+}
+
+::luabind::object get_hand_motion_marks(LPCSTR name)
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	MotionID mid = g_player_hud->m_model->ID_Cycle_Safe(name);
+
+	if (!mid)
+	{
+		Msg("[get_hand_motion_marks] animation %s does not exist!", name);
+		return table;
+	}
+
+	CMotionDef* md = g_player_hud->m_model->LL_GetMotionDef(mid);
+	const xr_vector<motion_marks>* anm_marks = &md->marks;
+
+	if (!anm_marks || anm_marks->empty()) return table;
+
+	xr_vector<motion_marks>::const_iterator it = anm_marks->begin();
+	xr_vector<motion_marks>::const_iterator it_e = anm_marks->end();
+	for (; it != it_e; ++it)
+	{
+		const motion_marks& M = (*it);
+		if (M.is_empty())
+			continue;
+
+		::luabind::object mark_table = ::luabind::newtable(ai().script_engine().lua());
+		const auto intervals = M.get_intervals();
+
+		int i = 1;
+		for (const motion_marks::interval& interval : intervals)
+		{
+			::luabind::object interval_table = ::luabind::newtable(ai().script_engine().lua());
+			interval_table["begin"] = interval.first;
+			interval_table["end"] = interval.second;
+			mark_table[i] = interval_table;
+			++i;
+		}
+
+		table[*M.name] = mark_table;
+	}
+
+	return table;
+}
+
+void set_hand_motion_marks(LPCSTR name, ::luabind::object table)
+{
+	if (table.type() != LUA_TTABLE) return;
+
+	MotionID mid = g_player_hud->m_model->ID_Cycle_Safe(name);
+
+	if (!mid)
+	{
+		Msg("[set_hand_motion_marks] animation %s does not exist!", name);
+		return;
+	}
+
+	CMotionDef* md = g_player_hud->m_model->LL_GetMotionDef(mid);
+	xr_vector<motion_marks>* anm_marks = &md->marks;
+
+	if (!anm_marks) return;
+
+	anm_marks->clear();
+
+	for (auto i = table.begin(); i != table.end(); ++i)
+	{
+		::luabind::object mark_table = *i;
+		if (mark_table.type() != LUA_TTABLE) continue;
+
+		motion_marks mark;
+		mark.name = ::luabind::object_cast<LPCSTR>(i.key());
+
+		for (auto k = mark_table.begin(); k != mark_table.end(); ++k)
+		{
+			::luabind::object interval_table = *k;
+			if (interval_table.type() != LUA_TTABLE) continue;
+
+			mark.intervals.push_back(motion_marks::interval(::luabind::object_cast<float>(interval_table["begin"]), ::luabind::object_cast<float>(interval_table["end"])));
+		}
+
+		if (mark.intervals.size()) anm_marks->push_back(mark);
+	}
+}
+
+void set_part_cycle_time(u8 part, float time, float set_time)
+{
+	g_player_hud->set_part_cycle_time(part, time, set_time);
+}
+
+// lucy: getters and setters for first person hands IK
+// Bone IDs 0-20 use the left-hand skeleton; higher IDs use the right-hand skeleton.
+Fmatrix hands_bone_anim_pos(u16 bone_id)
+{
+	Fmatrix res;
+	res.identity();
+	if (!g_player_hud) return res;
+
+	IKinematicsAnimated* model = bone_id > 20 ? g_player_hud->m_model : g_player_hud->m_model_2;
+	if (model)
+	{
+		IKinematics* skeleton = model->dcast_PKinematics();
+		if (skeleton && bone_id < skeleton->LL_BoneCount())
+			skeleton->Bone_GetAnimPos(res, bone_id, u8(-1), true);
+	}
+
+	return res;
+}
+
+// 0 = right hand, 1 = left hand
+void set_hand_target_transform(u8 hand, Fmatrix transform)
+{
+	if (!g_player_hud || hand > 1) return;
+	const u8 ik_id = hand == 0 ? 7 : 3;
+
+	g_player_hud->m_ik_transforms[ik_id].first = transform;
+	g_player_hud->m_ik_transforms[ik_id].second = true;
+}
+
+// 0 = right hand, 1 = left hand
+void set_hand_target_enabled(u8 hand, bool state)
+{
+	if (!g_player_hud || hand > 1) return;
+	const u8 ik_id = hand == 0 ? 7 : 3;
+
+	g_player_hud->m_ik_transforms[ik_id].second = state;
+}
+
+// 0 = right hand, 1 = left hand
+bool get_hand_target_enabled(u8 hand)
+{
+	if (!g_player_hud || hand > 1) return false;
+	const u8 ik_id = hand == 0 ? 7 : 3;
+
+	return g_player_hud->m_ik_transforms[ik_id].second;
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void set_arm_ik_enabled(u8 hand, bool enabled)
+{
+	if (g_player_hud) g_player_hud->set_arm_ik_enabled(hand, enabled);
+}
+
+// 0 = right hand, 1 = left hand
+bool get_arm_ik_enabled(u8 hand)
+{
+	return g_player_hud && hand < 2 && g_player_hud->m_arm_ik[1 - hand].enabled;
+}
+
+::luabind::object list_lanims()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	int i = 1;
+	for (auto& item : LALib.Items)
+	{
+		table[i] = *item->cName;
+		++i;
+	}
+
+	return table;
+}
 
 void CLevel::script_register(lua_State* L)
 {
@@ -2618,10 +2903,12 @@ void CLevel::script_register(lua_State* L)
 		[
 			value("line", (int)DebugRenderType::eDBGLine),
 			value("sphere", (int)DebugRenderType::eDBGSphere),
-			value("box", (int)DebugRenderType::eDBGBox)
+			value("box", (int)DebugRenderType::eDBGBox),
+			value("cylinder", (int)DebugRenderType::eDBGCylinder)
 		]
 	.def("cast_dbg_sphere", &DBG_ScriptObject::cast_dbg_sphere)
 		.def("cast_dbg_box", &DBG_ScriptObject::cast_dbg_box)
+		.def("cast_dbg_cylinder", &DBG_ScriptObject::cast_dbg_cyl)
 		.def("cast_dbg_line", &DBG_ScriptObject::cast_dbg_line)
 		.def_readwrite("color", &DBG_ScriptObject::m_color)
 		.def_readwrite("hud", &DBG_ScriptObject::m_hud)
@@ -2633,6 +2920,11 @@ void CLevel::script_register(lua_State* L)
 		class_<DBG_ScriptBox, DBG_ScriptObject>("DBG_ScriptBox")
 		.def_readwrite("matrix", &DBG_ScriptBox::m_mat)
 		.def_readwrite("size", &DBG_ScriptBox::m_size),
+
+		class_<DBG_ScriptCylinder, DBG_ScriptObject>("DBG_ScriptCylinder")
+		.def_readwrite("matrix", &DBG_ScriptCylinder::m_mat)
+		.def_readwrite("length", &DBG_ScriptCylinder::m_length)
+		.def_readwrite("radius", &DBG_ScriptCylinder::m_radius),
 
 		class_<DBG_ScriptLine, DBG_ScriptObject>("DBG_ScriptLine")
 		.def_readwrite("point_a", &DBG_ScriptLine::m_point_a)
@@ -2648,7 +2940,11 @@ void CLevel::script_register(lua_State* L)
 			def("get_object", ((DBG_ScriptObject * (*)(u32)) & get_object)),
 			def("get_object", ((DBG_ScriptObject * (*)(LPCSTR)) & get_object)),
 			def("get_flags", get_flags),
-			def("set_flags", set_flags)
+			def("set_flags", set_flags),
+			def("draw_line", dbg_draw_line),
+			def("draw_box", dbg_draw_box),
+			def("draw_sphere", dbg_draw_sphere),
+			def("draw_cylinder", dbg_draw_cylinder)
 		];
 
 	module(L)
@@ -2760,6 +3056,7 @@ void CLevel::script_register(lua_State* L)
 			def("vertex_in_direction", vertex_in_direction),
 			def("rain_factor", rain_factor),
 			def("rain_wetness", rain_wetness),
+			def("set_rain_wetness", set_rain_wetness),
 			def("rain_hemi", rain_hemi),
 			def("patrol_path_exists", patrol_path_exists),
 			def("vertex_position", vertex_position),
@@ -2846,6 +3143,7 @@ void CLevel::script_register(lua_State* L)
             def("get_pp_effector_factor", &get_pp_effector_factor),
             def("get_pp_effector_length", &get_pp_effector_length),
             def("check_pp_effector", &check_pp_effector),
+			def("is_demo_record", &is_demo_record),
 
 			def("add_complex_effector", &add_complex_effector),
 			def("remove_complex_effector", &remove_complex_effector),
@@ -2967,7 +3265,16 @@ void CLevel::script_register(lua_State* L)
 		def("enabled", hud_adj_state),
 		def("set_vector", hud_adj_offs),
 		def("set_value", hud_adj_value),
-		def("remove_hud_model", remove_hud_model)
+		def("remove_hud_model", remove_hud_model),
+		def("hands_bone_anim_pos", hands_bone_anim_pos),
+		def("set_hand_target_transform", set_hand_target_transform),
+		def("set_hand_target_enabled", set_hand_target_enabled),
+		def("get_hand_target_enabled", get_hand_target_enabled),
+		def("set_arm_ik_enabled", set_arm_ik_enabled),
+		def("get_arm_ik_enabled", get_arm_ik_enabled),
+		def("set_hud_offset", (void (*)(int, int, float, float, float))(set_hud_offset)),
+		def("set_hud_offset", (void (*)(int, int, const Fvector&))(set_hud_offset)),
+		def("get_hud_transform", get_hud_transform)
 	];
 
 	module(L, "relation_registry")
@@ -3032,6 +3339,13 @@ void CLevel::script_register(lua_State* L)
 		def("translate_string", &translate_string),
 		def("reload_language", &reload_language),
 		def("get_resolutions", &vid_modes_string),
+		def("set_hand_pose", set_hand_pose),
+		def("force_set_hand_pose", force_set_hand_pose),
+		def("clear_hand_pose", clear_hand_pose),
+		def("list_hand_motions", list_hand_motions),
+		def("get_hand_motion_marks", get_hand_motion_marks),
+		def("set_hand_motion_marks", set_hand_motion_marks),
+		def("set_part_cycle_time", set_part_cycle_time),
 		def("play_hud_motion", PlayHudMotion),
 		def("stop_hud_motion", StopHudMotion),
 		def("get_motion_length", MotionLength),
@@ -3050,7 +3364,9 @@ void CLevel::script_register(lua_State* L)
 		def("actor_lower_weapon", actor_set_safemode),
 		def("prefetch_texture", prefetch_texture),
 		def("prefetch_model", prefetch_model),
+		def("model_prefetched", model_prefetched),
 		def("get_visual_userdata", GetVisualUserdata),
+		def("list_lanims", list_lanims),
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
 		def("world2ui_many", world2ui_many),
@@ -3058,7 +3374,7 @@ void CLevel::script_register(lua_State* L)
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector&, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
-		
+		def("top_input_receiver", TopInputReceiver),
 		// demonized: adjust game news time
 		def("change_game_news_show_time", &change_game_news_show_time),
 		def("update_pda_news_from_uiwindow", &update_pda_news_from_uiwindow),

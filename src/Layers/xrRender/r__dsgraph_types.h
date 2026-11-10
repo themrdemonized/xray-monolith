@@ -78,11 +78,12 @@ namespace R_dsgraph
 		Fmatrix* pMatrix = nullptr;
 		ShaderElement* pSE = nullptr;
 		bool b_hud_mode = false;
+		float fov = 0.f;
 
         DSGraphItem(T key, float _ssa, IRenderable* obj, dxRender_Visual* vis,
-            Fmatrix* mat, ShaderElement* se, bool hud)
+            Fmatrix* mat, ShaderElement* se, bool hud, float custom_fov = 0.f)
             : sortKey(key), ssa(_ssa), pObject(obj), pVisual(vis),
-            pMatrix(mat), pSE(se), b_hud_mode(hud) {
+            pMatrix(mat), pSE(se), b_hud_mode(hud), fov(custom_fov) {
         }
 
         bool operator<(const DSGraphItem& other) const noexcept
@@ -240,6 +241,16 @@ namespace R_dsgraph
 		RenderQueueArray mapStaticPasses;
 		RenderQueueArray mapDynamicPasses;
 
+		mapDSGraphItems<float, false> mapUI3D;
+		mapDSGraphItems<float, false> mapUI3DEmissive;
+#if RENDER == R_R4
+		// Main draws DX11 material-sorted icons front to back.
+		mapDSGraphItems<float, false> mapUI3DSorted;
+#else
+		mapDSGraphItems<float, true> mapUI3DSorted;
+#endif
+		mapDSGraphItems<float, false> mapCustomFOV;
+		mapSorted<float, true, false, false, true> mapCustomFOVSorted;
 		mapDSGraphItems<float, false> mapHUD;
 		mapSorted<float, true, false, false, false> mapHUDSorted;
 
@@ -252,6 +263,8 @@ namespace R_dsgraph
 #ifdef USE_DX11
 		mapDSGraphItems<float, true> mapScopeHUDSorted;
 		mapDSGraphItems<float, false> mapScopeHUD;
+		mapDSGraphItems<float, false> mapScopeCamAttached;
+		mapDSGraphItems<float, false> mapScopeCamAttachedSorted;
 #endif
 		template<bool free = true>
 		IC void clear_graph(RenderQueueArray& queue, u32 _priority)
@@ -315,6 +328,14 @@ namespace R_dsgraph
 		{
 			if constexpr (free)
 			{
+				mapUI3D.clear_and_free();
+				mapUI3DEmissive.clear_and_free();
+				mapUI3DSorted.clear_and_free();
+				mapCustomFOV.clear_and_free();
+				mapCustomFOVSorted.Sorted.clear_and_free();
+				mapCustomFOVSorted.Emissive.clear_and_free();
+				mapCustomFOVSorted.Distort.clear_and_free();
+				mapCustomFOVSorted.Wmark.clear_and_free();
 				mapHUD.clear_and_free();
 				mapHUDSorted.Wmark.clear_and_free();
 				mapHUDSorted.Emissive.clear_and_free();
@@ -327,12 +348,22 @@ namespace R_dsgraph
 				mapCamAttachedSorted.Distort.clear_and_free();
 
 #ifdef USE_DX11
+				mapScopeCamAttached.clear_and_free();
+				mapScopeCamAttachedSorted.clear_and_free();
 				mapScopeHUD.clear_and_free();
 				mapScopeHUDSorted.clear_and_free();
 #endif
 			}
 			else
 			{
+				mapUI3D.clear();
+				mapUI3DEmissive.clear();
+				mapUI3DSorted.clear();
+				mapCustomFOV.clear();
+				mapCustomFOVSorted.Sorted.clear();
+				mapCustomFOVSorted.Emissive.clear();
+				mapCustomFOVSorted.Distort.clear();
+				mapCustomFOVSorted.Wmark.clear();
 				mapHUD.clear();
 				mapHUDSorted.Wmark.clear();
 				mapHUDSorted.Emissive.clear();
@@ -345,6 +376,8 @@ namespace R_dsgraph
 				mapCamAttachedSorted.Distort.clear();
 
 #ifdef USE_DX11
+				mapScopeCamAttached.clear();
+				mapScopeCamAttachedSorted.clear();
 				mapScopeHUD.clear();
 				mapScopeHUDSorted.clear();
 #endif

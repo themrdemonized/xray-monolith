@@ -67,6 +67,19 @@ void CScriptGameObject::explode(u32 level_time)
 	}
 }
 
+void CScriptGameObject::set_initiator(u16 id)
+{
+    CExplosive* explosive = smart_cast<CExplosive*>(&object());
+    if (!explosive)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CExplosive : cannot access class member explode!");
+        return;
+    }
+
+    explosive->SetInitiator(id);
+}
+
 bool CScriptGameObject::active_zone_contact(u16 id)
 {
 	CScriptZone* script_zone = smart_cast<CScriptZone*>(&object());
@@ -436,6 +449,23 @@ void CScriptGameObject::SetActorDirection(const Fvector& dir)
 	SetActorDirection(dir.x, dir.y, dir.z);
 }
 
+Fvector CScriptGameObject::GetActorDirection()
+{
+    Fvector res = { 0.f, 0.f, 0.f };
+
+    CActor* actor = smart_cast<CActor*>(&object());
+    if (actor)
+    {
+        CCameraBase* cam = actor->cam_Active();
+        res.set(cam->yaw, cam->pitch, cam->roll);
+    }
+    else
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "ScriptGameObject : attempt to call GetActorDirection method for non-actor object");
+
+    return res;
+}
+
 void CScriptGameObject::DisableHitMarks(bool disable)
 {
 	CActor* actor = smart_cast<CActor*>(&object());
@@ -461,25 +491,37 @@ bool CScriptGameObject::DisableHitMarks() const
 
 Fvector CScriptGameObject::GetMovementSpeed() const
 {
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+	{
+		return stalker->character_physics_support()->movement()->GetVelocity();
+	}
+
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call GetMovementSpeed method for non-actor object");
+		                                "ScriptGameObject : attempt to call GetMovementSpeed method for non-stalker object");
 		NODEFAULT;
 	}
-	//return actor->GetMovementSpeed();
 	return actor->character_physics_support()->movement()->GetVelocity();
 }
 
 // momopate: db.actor:set_movement_speed(vector vel)
 void CScriptGameObject::SetMovementSpeed(Fvector vel)
 {
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+	{
+		stalker->character_physics_support()->movement()->SetVelocity(vel.x, vel.y, vel.z);
+		return;
+	}
+
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call SetMovementSpeed method for non-actor object");
+		                                "ScriptGameObject : attempt to call SetMovementSpeed method for non-stalker object");
 		return;
 	}
 	actor->character_physics_support()->movement()->SetVelocity(vel.x, vel.y, vel.z);
@@ -813,4 +855,16 @@ void CScriptGameObject::set_scope_ui(LPCSTR scope_texture) {
 	}*/
 
 	weapon->SetUIScope(scope_texture);
+}
+
+void CScriptGameObject::reset_scope_ui() {
+	CWeapon * weapon = smart_cast<CWeapon*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : reset_scope_ui works only with CWeapon object!");
+		return;
+	}
+
+	weapon->ResetUIScope();
 }
