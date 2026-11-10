@@ -199,6 +199,10 @@ public:
 
 	void SetScale(Fvector scale);
     void SetScale(float scale) { SetScale(Fvector().set(scale, scale, scale)); }
+    void SetScale(float x, float y, float z)
+    {
+        SetScale(Fvector().set(x, y, z));
+    } 
 	Fvector GetScale() { return m_attachment_offset[3]; }
 	float GetScaleVal()
     {
