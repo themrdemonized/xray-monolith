@@ -61,7 +61,7 @@ bool CScriptGameObject::burer_get_force_gravi_attack()
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "object is not CBurer to call burer_set_force_gravi_attack");
+		                                "object is not CBurer to call burer_get_force_gravi_attack");
 		return false;
 	}
 
@@ -131,7 +131,7 @@ void CScriptGameObject::set_override_animation(pcstr anim_name)
 	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
 	if (!monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "object is not of CBaseMonster class!");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "set_override_animation: object is not of CBaseMonster class!");
 		return;
 	}
 
@@ -143,7 +143,7 @@ void CScriptGameObject::set_override_animation(u32 AnimType, u32 AnimIndex)
 	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
 	if (!monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "object is not of CBaseMonster class!");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "set_override_animation: object is not of CBaseMonster class!");
 		return;
 	}
 
@@ -155,7 +155,7 @@ void CScriptGameObject::clear_override_animation()
 	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
 	if (!monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "object is not of CBaseMonster class!");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "clear_override_animation: object is not of CBaseMonster class!");
 		return;
 	}
 
@@ -207,7 +207,7 @@ void CScriptGameObject::set_manual_invisibility(bool val)
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CAI_Bloodsucker [%s]: cannot access class member set_manual_invisible!", object().cNameSect().c_str()).c_str());
+		                                make_string("CAI_Bloodsucker [%s]: cannot access class member set_manual_invisibility!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	val ? monster->set_manual_control(true) : monster->set_manual_control(false);
@@ -219,7 +219,7 @@ void CScriptGameObject::bloodsucker_drag_jump(CScriptGameObject* e, LPCSTR e_str
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptGameObject : cannot process drag, anim, jump for CAI_Bloodsucker!");
+		                                "bloodsucker_drag_jump: CScriptGameObject : cannot process drag, anim, jump for CAI_Bloodsucker!");
 		return;
 	}
 
@@ -270,7 +270,7 @@ void CScriptGameObject::off_collision(bool val)
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CAI_Bloodsucker [%s]: cannot access class member set_vis_state!", object().cNameSect().c_str()).c_str());
+		                                make_string("CAI_Bloodsucker [%s]: cannot access class member off_collision!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	monster->set_collision_off(val);
@@ -282,7 +282,7 @@ void CScriptGameObject::set_alien_control(bool val)
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CAI_Bloodsucker [%s]: cannot access class member alien_control_activate!", object().cNameSect().c_str()).c_str());
+		                                make_string("CAI_Bloodsucker [%s]: cannot access class member set_alien_control!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 
@@ -429,7 +429,7 @@ void CScriptGameObject::fake_death_stand_up()
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CZombie [%s]: cannot access class member fake_death_fall_down!", object().cNameSect().c_str()).c_str());
+		                                make_string("CZombie [%s]: cannot access class member fake_death_stand_up!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 

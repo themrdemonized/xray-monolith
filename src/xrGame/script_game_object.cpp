@@ -259,7 +259,7 @@ CHangingLamp* CScriptGameObject::get_hanging_lamp()
 	CHangingLamp* lamp = smart_cast<CHangingLamp*>(&object());
 	if (!lamp)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : it is not a lamp!");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "get_hanging_lamp: CGameObject : it is not a lamp!");
 		NODEFAULT;
 	}
 	return lamp;
@@ -270,7 +270,7 @@ CHolderCustom* CScriptGameObject::get_custom_holder()
 	CHolderCustom* holder = smart_cast<CHolderCustom*>(&object());
 	if (!holder)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : it is not a holder!");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "get_custom_holder: CGameObject : it is not a holder!");
 	}
 	return holder;
 }
@@ -304,7 +304,7 @@ LPCSTR CScriptGameObject::WhoHitSectionName()
 	else
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CScriptGameObject [%s]: cannot access class member  WhoHitName()", object().cNameSect().c_str()).c_str());
+		                                make_string("CScriptGameObject [%s]: cannot access class member  WhoHitSectionName()", object().cNameSect().c_str()).c_str());
 		return NULL;
 	}
 }
@@ -315,7 +315,7 @@ bool CScriptGameObject::CheckObjectVisibility(const CScriptGameObject* tpLuaGame
 	if (entity_alive && !entity_alive->g_Alive())
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptGameObject : cannot check visibility of dead object!");
+		                                "CheckObjectVisibility: CScriptGameObject : cannot check visibility of dead object!");
 		return (false);
 	}
 

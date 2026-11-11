@@ -9,6 +9,7 @@
 #include "spawn_templates.h"
 #include "game_graph_builder.h"
 #include "patrol_path_storage.h"
+#include "restriction_space.h"
 
 using namespace spawn_overlays;
 
@@ -23,14 +24,20 @@ namespace
 	const LPCSTR SECTION_PATH_REMOVE = "path_remove";
 	const LPCSTR SECTION_LEVEL_CUT = "level_cut";
 	const LPCSTR PATCH_PREFIX = "spawn_patch@";
+	const LPCSTR ADD_PREFIX = "spawn_add@";
 	const float DEFAULT_LINK_TOLERANCE = 2.f;
+
+	bool overlay_path(string_path& file_name)
+	{
+		FS.update_path(file_name, "$game_config$", OVERLAY_FILE);
+		return !!FS.exist(file_name);
+	}
 
 	bool overlay_file(string_path& file_name)
 	{
-		FS.update_path(file_name, "$game_config$", OVERLAY_FILE);
-		if (FS.exist(file_name))
+		if (overlay_path(file_name))
 			return true;
-		Msg("* [spawn_overlays] %s not found: graph_links/graph_unlinks/spawn_remove/spawn_patch are off; level packs, spawns\\<level>\\*.spawn and *.game fragments, offset sync and patrol_paths.ltx 'level =' sections still apply", OVERLAY_FILE);
+		Msg("* [spawn_overlays] %s not found: graph_links/graph_unlinks/spawn_remove/spawn_add/spawn_patch are off; level packs, spawns\\<level>\\*.spawn and *.game fragments, offset sync and patrol_paths.ltx 'level =' sections still apply", OVERLAY_FILE);
 		return false;
 	}
 
@@ -97,6 +104,45 @@ namespace
 			entry.offset = pGameIni->r_fvector3(section, "offset");
 			if (!entry.offset.similar(level->offset()))
 				result.push_back(entry);
+		}
+	}
+
+	// Names of the game.ltx [levels] entries; on a duplicate name the first section wins, as in the pack reader.
+	xr_vector<shared_str> listed_level_names()
+	{
+		xr_vector<shared_str> result;
+		if (!pGameIni->section_exist("levels"))
+			return result;
+
+		LPCSTR section, dummy;
+		for (int i = 0; pGameIni->r_line("levels", i, &section, &dummy); ++i)
+		{
+			if (!pGameIni->line_exist(section, "name"))
+				continue;
+			const LPCSTR name = pGameIni->r_string(section, "name");
+			if (!name || !*name)
+				continue;
+			const shared_str key(name);
+			if (std::find(result.begin(), result.end(), key) == result.end())
+				result.push_back(key);
+		}
+		return result;
+	}
+
+	// game.ltx [levels] is the level set; the base spawn and the packs must agree with it.
+	void check_level_list(const GameGraph::CHeader& base, const CSpawnPacks& packs)
+	{
+		const xr_vector<shared_str> listed = listed_level_names();
+
+		for (const auto& level : base.levels())
+		{
+			if (std::find(listed.begin(), listed.end(), level.second.name()) == listed.end())
+				Msg("! [spawn_overlays] game.ltx: level '%s' is in the base spawn but has no [levelNN] section under [levels]", *level.second.name());
+		}
+		for (const shared_str& name : listed)
+		{
+			if (!base.level(*name, true) && !packs.carries(*name))
+				Msg("! [spawn_overlays] game.ltx: level '%s' is listed under [levels] but neither the base spawn nor any pack provides it", *name);
 		}
 	}
 
@@ -328,6 +374,71 @@ namespace
 		xr_delete(object.m_ini_file);
 	}
 
+	// x, y, z; result is untouched unless all three parse.
+	bool read_vector(CInifile& ini, const LPCSTR section, const LPCSTR key, Fvector& result)
+	{
+		Fvector parsed;
+		if (3 != sscanf(ini.r_string(section, key), "%f,%f,%f", &parsed.x, &parsed.y, &parsed.z))
+			return false;
+		result = parsed;
+		return true;
+	}
+
+	// direction, custom data, story ids and flags, shared by [spawn_patch@] and [spawn_add@]. ids: the sets the
+	// object's ids are claimed in, nullptr for an object not registered yet (register_template claims them).
+	// 1 applied, 0 skipped (logged), -1 not one of these keys.
+	int apply_object_key(CInifile& ini, const LPCSTR section, const LPCSTR key, const LPCSTR value, CSE_Abstract& object, STemplateIds* ids)
+	{
+		auto* alife_object = smart_cast<CSE_ALifeObject*>(&object);
+		if (!xr_strcmp(key, "direction"))
+		{
+			if (!read_vector(ini, section, key, object.o_Angle))
+			{
+				log_skip(line_source(ini, section, key), section, key, "must be x, y, z; ignored");
+				return 0;
+			}
+		}
+		else if (!xr_strcmp(key, "custom_data"))
+		{
+			xr_string text;
+			unescape_custom_data(value, text);
+			set_custom_data(object, text.c_str());
+		}
+		else if (!xr_strcmp(key, "custom_data_cfg"))
+		{
+			string_path text;
+			xr_sprintf(text, "[logic]\ncfg = %s", value);
+			set_custom_data(object, text);
+		}
+		else if (!xr_strcmp(key, "story_id") && alife_object)
+		{
+			const auto id = ALife::_STORY_ID(ini.r_s32(section, key));
+			if (!ids)
+				alife_object->m_story_id = id;
+			else if (!reassign_id(ids->story_ids, alife_object->m_story_id, id))
+			{
+				log_skip(line_source(ini, section, key), section, key, "story_id is already taken");
+				return 0;
+			}
+		}
+		else if (!xr_strcmp(key, "spawn_story_id") && alife_object)
+		{
+			const auto id = ALife::_SPAWN_STORY_ID(ini.r_s32(section, key));
+			if (!ids)
+				alife_object->m_spawn_story_id = id;
+			else if (!reassign_id(ids->spawn_story_ids, alife_object->m_spawn_story_id, id))
+			{
+				log_skip(line_source(ini, section, key), section, key, "spawn_story_id is already taken");
+				return 0;
+			}
+		}
+		else if (!xr_strcmp(key, "object_flags") && alife_object)
+			alife_object->m_flags.flags = u32(strtoul(value, nullptr, 0));
+		else
+			return -1;
+		return 1;
+	}
+
 	// [spawn_remove] and [spawn_replace] share the syntax (name [= match_position]); the latter runs before the
 	// fragments and packs so their copy of the object is taken instead of the base one.
 	void apply_removes(CInifile& ini, const LPCSTR section, STemplates& templates, u32& removed)
@@ -376,6 +487,87 @@ namespace
 			storage.erase(key);
 			++removed;
 		}
+	}
+
+	bool destination_key(const LPCSTR key)
+	{
+		return !xr_strcmp(key, "dest_level") || !xr_strcmp(key, "dest_position") || !xr_strcmp(key, "dest_direction");
+	}
+
+	bool has_value(CInifile& ini, const LPCSTR section, const LPCSTR key)
+	{
+		if (!ini.line_exist(section, key))
+			return false;
+		const LPCSTR value = ini.r_string(section, key);
+		return value && *value;
+	}
+
+	// dest_level / dest_position / dest_direction of a level changer; returns the keys applied. A dest_level that is
+	// not installed or comes without dest_position skips all three.
+	u32 apply_destination(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const CGameGraph& graph, const LPCSTR name)
+	{
+		const bool has_level = has_value(ini, section, "dest_level");
+		const bool has_position = has_value(ini, section, "dest_position");
+		const bool has_direction = has_value(ini, section, "dest_direction");
+		if (!has_level && !has_position && !has_direction)
+			return 0;
+		const bool empty_level = ini.line_exist(section, "dest_level") && !has_level;
+		if (empty_level)
+			return 0;
+		auto* changer = smart_cast<CSE_ALifeLevelChanger*>(&object);
+		if (!changer)
+		{
+			const LPCSTR key = has_level ? "dest_level" : has_position ? "dest_position" : "dest_direction";
+			log_skip(line_source(ini, section, key), section, key, "not a level changer");
+			return 0;
+		}
+
+		shared_str level_name = changer->m_caLevelToChange;
+		if (has_level)
+		{
+			const LPCSTR source = line_source(ini, section, "dest_level");
+			const LPCSTR value = ini.r_string(section, "dest_level");
+			if (!graph.header().level(value, true))
+			{
+				log_no_level(source, section, "dest_level", value);
+				return 0;
+			}
+			if (!has_position)
+			{
+				log_skip(source, section, "dest_level", "needs a dest_position key, coordinates do not carry over between levels");
+				return 0;
+			}
+			level_name = value;
+		}
+
+		u32 applied = 0;
+		if (has_direction)
+		{
+			changer->m_tAngles = ini.r_fvector3(section, "dest_direction");
+			++applied;
+		}
+		if (!has_position)
+			return applied;
+
+		const shared_str previous_level = changer->m_caLevelToChange;
+		const Fvector previous_position = changer->m_tNextPosition;
+		changer->m_caLevelToChange = level_name;
+		changer->m_tNextPosition = ini.r_fvector3(section, "dest_position");
+		string256 reason;
+		const LPCSTR source = line_source(ini, section, "dest_position");
+		const int result = resolve_destination(*changer, graph, reason);
+		if (result != 1)
+		{
+			changer->m_caLevelToChange = previous_level;
+			changer->m_tNextPosition = previous_position;
+			if (result < 0)
+				log_no_level(source, section, "dest_position", reason);
+			else
+				log_skip(source, section, "dest_position", reason);
+			return applied;
+		}
+		Msg("* [spawn_overlays] spawn_patch: %s leads to %s(%d) [%.1f,%.1f,%.1f]", name, *level_name, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
+		return applied + 1;
 	}
 
 	bool apply_patch(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const CGameGraph& graph, const LPCSTR name, STemplateIds& ids)
@@ -427,7 +619,7 @@ namespace
 				continue;
 			}
 
-			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level"))
+			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key))
 				continue;
 			if (!xr_strcmp(key, "position"))
 			{
@@ -435,44 +627,11 @@ namespace
 				relocated = true;
 				continue;
 			}
-			else if (!xr_strcmp(key, "direction"))
-				object.o_Angle = ini.r_fvector3(section, key);
-			else if (!xr_strcmp(key, "custom_data"))
-			{
-				xr_string text;
-				unescape_custom_data(value, text);
-				set_custom_data(object, text.c_str());
-			}
-			else if (!xr_strcmp(key, "custom_data_cfg"))
-			{
-				string_path text;
-				xr_sprintf(text, "[logic]\ncfg = %s", value);
-				set_custom_data(object, text);
-			}
-			else if (!xr_strcmp(key, "story_id") && alife_object)
-			{
-				if (!reassign_id(ids.story_ids, alife_object->m_story_id, ALife::_STORY_ID(ini.r_s32(section, key))))
-				{
-					log_skip(source, section, key, "story_id is already taken");
-					continue;
-				}
-			}
-			else if (!xr_strcmp(key, "spawn_story_id") && alife_object)
-			{
-				if (!reassign_id(ids.spawn_story_ids, alife_object->m_spawn_story_id, ALife::_SPAWN_STORY_ID(ini.r_s32(section, key))))
-				{
-					log_skip(source, section, key, "spawn_story_id is already taken");
-					continue;
-				}
-			}
-			else if (!xr_strcmp(key, "object_flags") && alife_object)
-				alife_object->m_flags.flags = u32(strtoul(value, nullptr, 0));
-			else
-			{
+			const int result = apply_object_key(ini, section, key, value, object, &ids);
+			if (result < 0)
 				log_skip(source, section, key, "unknown key");
-				continue;
-			}
-			++applied;
+			else if (result > 0)
+				++applied;
 		}
 
 		if (relocated)
@@ -489,6 +648,8 @@ namespace
 				Msg("* [spawn_overlays] spawn_patch: %s moved to %s(%d) [%.1f,%.1f,%.1f]", name, *graph.header().level(level_id).name(), alife_object->m_tGraphID, VPUSH(position));
 			}
 		}
+
+		applied += apply_destination(ini, section, object, graph, name);
 
 		if (applied)
 			Msg("* [spawn_overlays] spawn_patch: %s (%s) %d keys applied (%s)", name, *object.s_name, applied, summary_source);
@@ -517,6 +678,51 @@ namespace
 
 			if (apply_patch(ini, section, templates.spawns.vertex(spawn_id)->data()->object(), graph, name, templates.ids))
 				++patched;
+		}
+	}
+
+	float changer_radius(const CSE_ALifeLevelChanger& changer)
+	{
+		float radius = 0.f;
+		for (const CShapeData::shape_def& shape : changer.shapes)
+		{
+			if (shape.type == CShapeData::cfSphere)
+				radius = _max(radius, shape.data.sphere.R);
+			else
+				radius = _max(radius, 0.5f * _max(shape.data.box.i.magnitude(), _max(shape.data.box.j.magnitude(), shape.data.box.k.magnitude())));
+		}
+		return radius;
+	}
+
+	void report_overlapping_changers(const STemplates& templates, const CGameGraph& graph)
+	{
+		struct SChanger
+		{
+			const CSE_ALifeLevelChanger* changer;
+			GameGraph::_LEVEL_ID level_id;
+			float radius;
+			LPCSTR source;
+		};
+		xr_vector<SChanger> changers;
+		for (const auto& [spawn_id, vertex] : templates.spawns.vertices())
+		{
+			const auto* changer = smart_cast<const CSE_ALifeLevelChanger*>(&vertex->data()->object());
+			if (changer && graph.valid_vertex_id(changer->m_tGraphID))
+			{
+				const auto found = templates.sources.find(spawn_id);
+				changers.push_back({changer, graph.vertex(changer->m_tGraphID)->level_id(), changer_radius(*changer), found == templates.sources.end() ? "base" : *found->second});
+			}
+		}
+
+		for (size_t i = 0; i < changers.size(); ++i)
+		{
+			for (size_t j = i + 1; j < changers.size(); ++j)
+			{
+				const SChanger& a = changers[i];
+				const SChanger& b = changers[j];
+				if (a.level_id == b.level_id && a.changer->m_caLevelToChange != b.changer->m_caLevelToChange && a.changer->o_Position.distance_to(b.changer->o_Position) < a.radius + b.radius)
+					Msg("! [spawn_overlays] %s: level changers %s (-> %s, %s) and %s (-> %s, %s) overlap", *graph.header().level(a.level_id).name(), a.changer->name_replace(), *a.changer->m_caLevelToChange, a.source, b.changer->name_replace(), *b.changer->m_caLevelToChange, b.source);
+			}
 		}
 	}
 
@@ -611,6 +817,109 @@ namespace
 			Msg("* [spawn_overlays] %s %s: -%d templates on it, -%d level changers into it", SECTION_LEVEL_CUT, *graph.header().level(cut_levels[i]).name(), on_level[i], changers[i]);
 	}
 
+	struct SRetired
+	{
+		ALife::_SPAWN_ID spawn_id;
+		shared_str name;
+		shared_str section;
+		shared_str story_object;
+		ALife::_STORY_ID story_id;
+		ALife::_SPAWN_STORY_ID spawn_story_id;
+		// the rebuilt level the template stood on, or led into
+		GameGraph::_LEVEL_ID level;
+		bool changer;
+	};
+
+	bool is_rebuilt(const xr_vector<GameGraph::_LEVEL_ID>& rebuilt, const GameGraph::_LEVEL_ID level_id)
+	{
+		return std::find(rebuilt.begin(), rebuilt.end(), level_id) != rebuilt.end();
+	}
+
+	// Base templates on a rebuilt level and base level changers into one; the rebuilding pack brings its own copies.
+	// The actor template is kept and placed by its position.
+	void retire_rebuilt(STemplates& templates, const CGameGraph& graph, const xr_vector<GameGraph::_LEVEL_ID>& rebuilt, xr_vector<SRetired>& retired)
+	{
+		for (auto& I : templates.spawns.vertices())
+		{
+			auto* object = smart_cast<CSE_ALifeObject*>(&I.second->data()->object());
+			if (!object)
+				continue;
+			auto* changer = smart_cast<CSE_ALifeLevelChanger*>(object);
+			SRetired entry{};
+			const bool placed = graph.valid_vertex_id(object->m_tGraphID);
+			const GameGraph::_LEVEL_ID object_level = placed ? graph.vertex(object->m_tGraphID)->level_id() : GameGraph::_LEVEL_ID(-1);
+			if (placed && is_rebuilt(rebuilt, object_level))
+			{
+				entry.level = object_level;
+				if (smart_cast<CSE_ALifeCreatureActor*>(object))
+				{
+					const LPCSTR level_name = *graph.header().level(object_level).name();
+					string256 reason;
+					if (!relocate(*object, graph, object_level, object->o_Position, reason))
+						Msg("! [spawn_overlays] rebuilt level '%s': the actor template %s cannot be placed: %s", level_name, object->name_replace(), reason);
+					else
+						Msg("! [spawn_overlays] rebuilt level '%s': the actor template %s is on it, kept and placed by its position", level_name, object->name_replace());
+					continue;
+				}
+			}
+			else if (changer)
+			{
+				const GameGraph::SLevel* destination = graph.header().level(*changer->m_caLevelToChange, true);
+				if (!destination || !is_rebuilt(rebuilt, destination->id()))
+					continue;
+				entry.level = destination->id();
+			}
+			else
+				continue;
+
+			CInifile& ini = object->spawn_ini();
+			entry.name = object->name_replace();
+			entry.section = object->s_name;
+			entry.story_object = ini.line_exist("story_object", "story_id") ? ini.r_string("story_object", "story_id") : nullptr;
+			entry.story_id = object->m_story_id;
+			entry.spawn_story_id = object->m_spawn_story_id;
+			entry.changer = !!changer;
+			entry.spawn_id = I.first;
+			retired.push_back(entry);
+		}
+
+		for (const SRetired& entry : retired)
+			remove_template(templates, *entry.name, entry.spawn_id);
+	}
+
+	// After the packs: a retired level changer without a copy by name, and a retired story object whose story ids
+	// no template holds now or whose story_object has no copy by name. Names listed in [spawn_remove] (ini may be
+	// null) are not reported.
+	void report_retired(const CInifile* ini, const STemplates& templates, const CGameGraph& graph, const xr_vector<GameGraph::_LEVEL_ID>& rebuilt, const xr_vector<SRetired>& retired)
+	{
+		for (const GameGraph::_LEVEL_ID level_id : rebuilt)
+		{
+			const LPCSTR level_name = *graph.header().level(level_id).name();
+			u32 count = 0, missing = 0;
+			for (const SRetired& entry : retired)
+			{
+				if (entry.level != level_id)
+					continue;
+				++count;
+				if (ini && ini->line_exist(SECTION_REMOVE, *entry.name))
+					continue;
+				const auto copy = templates.index.find(entry.name);
+				const bool copied = copy != templates.index.end() && !copy->second.empty();
+				missing += u32(!copied);
+				if (entry.changer)
+				{
+					if (!copied)
+						Msg("! [spawn_overlays] rebuilt level '%s': level changer %s is not in the pack, removed", level_name, *entry.name);
+				}
+				else if ((entry.story_id != INVALID_STORY_ID && !templates.ids.story_ids.count(entry.story_id))
+					|| (entry.spawn_story_id != INVALID_SPAWN_STORY_ID && !templates.ids.spawn_story_ids.count(entry.spawn_story_id))
+					|| (entry.story_object.size() && !copied))
+					Msg("! [spawn_overlays] rebuilt level '%s': %s (%s) with story_id %d, spawn_story_id %d, story_object '%s' is not in the pack, removed - scripts using it will fail", level_name, *entry.name, *entry.section, entry.story_id, entry.spawn_story_id, entry.story_object.size() ? *entry.story_object : "");
+			}
+			Msg("* [spawn_overlays] rebuilt level '%s': -%d base templates on it and level changers into it, taken from the pack; %d not in the pack", level_name, count, missing);
+		}
+	}
+
 	const LPCSTR FRAGMENT_MASK = "*.spawn";
 
 	// One level.spawn chunk = one raw M_SPAWN packet (no size prefix, no M_UPDATE part).
@@ -649,6 +958,280 @@ namespace
 
 		register_template(templates, dynamic_object, source);
 		return 1;
+	}
+
+	const LPCSTR DEFAULT_CHANGER_HINT = "level_changer_invitation";
+	const LPCSTR CHANGER_KEYS[] = {"dest_level", "dest_position", "dest_direction", "silent_mode", "hint"};
+
+	bool add_key(const LPCSTR key)
+	{
+		static const LPCSTR keys[] = {"section", "level", "position", "box", "sphere", "restrictor_type"};
+		for (const LPCSTR known : keys)
+			if (!xr_strcmp(key, known))
+				return true;
+		for (const LPCSTR known : CHANGER_KEYS)
+			if (!xr_strcmp(key, known))
+				return true;
+		return false;
+	}
+
+	// The value of a key [spawn_add@] cannot do without; nullptr (logged) when it is missing or empty.
+	LPCSTR required_value(CInifile& ini, const LPCSTR section, const LPCSTR key)
+	{
+		if (has_value(ini, section, key))
+			return ini.r_string(section, key);
+		log_skip(ini.line_exist(section, key) ? line_source(ini, section, key) : section_source(ini, section), section, key, "missing, section skipped");
+		return nullptr;
+	}
+
+	// A required key holding x, y, z; false (logged) when it is missing or does not parse.
+	bool required_vector(CInifile& ini, const LPCSTR section, const LPCSTR key, Fvector& result)
+	{
+		if (!required_value(ini, section, key))
+			return false;
+		if (read_vector(ini, section, key, result))
+			return true;
+		log_skip(line_source(ini, section, key), section, key, "must be x, y, z; section skipped");
+		return false;
+	}
+
+	bool parse_shape(CInifile& ini, const LPCSTR section, const LPCSTR key, CShapeData::shape_def& shape)
+	{
+		const LPCSTR value = ini.r_string(section, key);
+		if (!xr_strcmp(key, "box"))
+		{
+			Fvector size;
+			if (!read_vector(ini, section, key, size) || size.x <= 0.f || size.y <= 0.f || size.z <= 0.f)
+			{
+				log_skip(line_source(ini, section, key), section, key, "must be width, height, depth, all above 0; section skipped");
+				return false;
+			}
+			shape.type = CShapeData::cfBox;
+			shape.data.box.identity();
+			shape.data.box.i.set(size.x, 0.f, 0.f);
+			shape.data.box.j.set(0.f, size.y, 0.f);
+			shape.data.box.k.set(0.f, 0.f, size.z);
+			return true;
+		}
+		float radius;
+		if (1 != sscanf(value, "%f", &radius) || radius <= 0.f)
+		{
+			log_skip(line_source(ini, section, key), section, key, "must be a radius above 0; section skipped");
+			return false;
+		}
+		shape.type = CShapeData::cfSphere;
+		shape.data.sphere.P.set(0.f, 0.f, 0.f);
+		shape.data.sphere.R = radius;
+		return true;
+	}
+
+	void set_changer_hint(CSE_ALifeLevelChanger& changer, const LPCSTR hint)
+	{
+		NET_Packet packet;
+		packet.write_start();
+		changer.CSE_ALifeLevelChanger::STATE_Write(packet);
+		packet.w_u8(1);
+		packet.w_stringZ(hint);
+		packet.w_u16(u16(1 + xr_strlen(hint) + 1));
+		packet.read_start();
+		changer.STATE_Read(packet, u16(packet.B.count));
+	}
+
+	LPCSTR template_level_name(const CSE_Abstract& object, const CGameGraph& graph)
+	{
+		const auto* alife_object = smart_cast<const CSE_ALifeObject*>(&object);
+		if (!alife_object || !graph.valid_vertex_id(alife_object->m_tGraphID))
+			return "?";
+		return *graph.header().level(graph.vertex(alife_object->m_tGraphID)->level_id()).name();
+	}
+
+	bool apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	{
+		const bool has_box = has_value(ini, section, "box");
+		const bool has_sphere = has_value(ini, section, "sphere");
+		if (auto* shaped = smart_cast<CSE_Shape*>(&object))
+		{
+			if (has_box == has_sphere)
+			{
+				log_skip(section_source(ini, section), section, "box", has_box ? "box and sphere are both given, section skipped" : "a shaped object needs box or sphere, section skipped");
+				return false;
+			}
+			CShapeData::shape_def shape;
+			if (!parse_shape(ini, section, has_box ? "box" : "sphere", shape))
+				return false;
+			shaped->shapes.clear();
+			shaped->shapes.push_back(shape);
+			return true;
+		}
+		if (has_box)
+			log_skip(line_source(ini, section, "box"), section, "box", "not a shaped object, ignored");
+		if (has_sphere)
+			log_skip(line_source(ini, section, "sphere"), section, "sphere", "not a shaped object, ignored");
+		return true;
+	}
+
+	void apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	{
+		if (!has_value(ini, section, "restrictor_type"))
+			return;
+		const LPCSTR source = line_source(ini, section, "restrictor_type");
+		auto* restrictor = smart_cast<CSE_ALifeSpaceRestrictor*>(&object);
+		if (!restrictor)
+		{
+			log_skip(source, section, "restrictor_type", "not a space restrictor, ignored");
+			return;
+		}
+
+		static const std::pair<LPCSTR, u8> types[] = {
+			{"default_none", RestrictionSpace::eDefaultRestrictorTypeNone},
+			{"default_out", RestrictionSpace::eDefaultRestrictorTypeOut},
+			{"default_in", RestrictionSpace::eDefaultRestrictorTypeIn},
+			{"none", RestrictionSpace::eRestrictorTypeNone},
+			{"in", RestrictionSpace::eRestrictorTypeIn},
+			{"out", RestrictionSpace::eRestrictorTypeOut},
+		};
+		const LPCSTR value = ini.r_string(section, "restrictor_type");
+		for (const auto& [name, id] : types)
+		{
+			if (!xr_strcmp(value, name))
+			{
+				restrictor->m_space_restrictor_type = id;
+				return;
+			}
+		}
+		log_skip(source, section, "restrictor_type", "must be default_none, default_out, default_in, none, in or out; ignored");
+	}
+
+	bool apply_changer(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	{
+		auto* changer = smart_cast<CSE_ALifeLevelChanger*>(&object);
+		if (!changer)
+		{
+			for (const LPCSTR key : CHANGER_KEYS)
+				if (has_value(ini, section, key))
+					log_skip(line_source(ini, section, key), section, key, "not a level changer, ignored");
+			return true;
+		}
+
+		Fvector dest_position;
+		const LPCSTR dest_level = required_value(ini, section, "dest_level");
+		if (!dest_level || !required_vector(ini, section, "dest_position", dest_position))
+			return false;
+
+		changer->m_caLevelToChange = dest_level;
+		changer->m_tNextPosition = dest_position;
+		if (has_value(ini, section, "dest_direction"))
+		{
+			Fvector dest_direction;
+			if (read_vector(ini, section, "dest_direction", dest_direction))
+				changer->m_tAngles = dest_direction;
+			else
+				log_skip(line_source(ini, section, "dest_direction"), section, "dest_direction", "must be x, y, z; ignored");
+		}
+		if (has_value(ini, section, "silent_mode"))
+			changer->m_bSilentMode = ini.r_bool(section, "silent_mode");
+		set_changer_hint(*changer, has_value(ini, section, "hint") ? ini.r_string(section, "hint") : DEFAULT_CHANGER_HINT);
+		return true;
+	}
+
+	bool apply_add(CInifile& ini, const LPCSTR section, const LPCSTR name, STemplates& templates, const CGameGraph& graph)
+	{
+		const LPCSTR source = section_source(ini, section);
+		if (!*name)
+		{
+			log_skip(source, section, "", "the section needs an object name after spawn_add@, skipped");
+			return false;
+		}
+		const LPCSTR object_section = required_value(ini, section, "section");
+		const LPCSTR level_name = required_value(ini, section, "level");
+		Fvector position;
+		const bool has_position = required_vector(ini, section, "position", position);
+		if (!object_section || !level_name || !has_position)
+			return false;
+
+		const GameGraph::SLevel* level = graph.header().level(level_name, true);
+		if (!level)
+		{
+			log_no_level(line_source(ini, section, "level"), section, "level", level_name);
+			return false;
+		}
+
+		if (same_object_present(templates.spawns, templates.index, graph, name, level->id(), position))
+			return false;
+		if (const auto found = templates.index.find(shared_str(name)); found != templates.index.end() && !found->second.empty())
+		{
+			const CSE_Abstract& other = templates.spawns.vertex(found->second.front())->data()->object();
+			string256 reason;
+			xr_sprintf(reason, "name already used by %s on %s [%.1f,%.1f,%.1f], skipped", other.name_replace(), template_level_name(other, graph), VPUSH(other.o_Position));
+			log_skip(source, section, name, reason);
+			return false;
+		}
+
+		if (!pSettings->section_exist(object_section) || !pSettings->line_exist(object_section, "class"))
+		{
+			log_skip(line_source(ini, section, "section"), section, "section", "not an object section of system.ltx, section skipped");
+			return false;
+		}
+		CSE_Abstract* object = F_entity_Create(object_section);
+		if (!object)
+		{
+			log_skip(line_source(ini, section, "section"), section, "section", "no server object for this class, section skipped");
+			return false;
+		}
+		const auto refuse = [&]() {
+			F_entity_Destroy(object);
+			return false;
+		};
+		object->s_RP = 0xff;
+		object->m_wVersion = SPAWN_VERSION;
+		object->set_name_replace(name);
+		object->o_Position = position;
+
+		if (!apply_shape(ini, section, *object) || !apply_changer(ini, section, *object))
+			return refuse();
+
+		apply_restrictor_type(ini, section, *object);
+
+		LPCSTR key, value;
+		for (int i = 0; ini.r_line(section, i, &key, &value); ++i)
+		{
+			if (!value || !*value)
+			{
+				log_skip(line_source(ini, section, key), section, key, "missing value");
+				continue;
+			}
+			if (add_key(key))
+				continue;
+			if (apply_object_key(ini, section, key, value, *object, nullptr) < 0)
+				log_skip(line_source(ini, section, key), section, key, "unknown key");
+		}
+
+		string256 reason;
+		if (const int result = add_template(templates, object, graph, level->id(), source, reason); result != 1)
+		{
+			if (result < 0)
+				log_no_level(line_source(ini, section, "dest_level"), section, "dest_level", reason);
+			else
+				log_skip(source, section, name, reason);
+			return refuse();
+		}
+
+		string256 destination = "";
+		if (const auto* changer = smart_cast<CSE_ALifeLevelChanger*>(object))
+			xr_sprintf(destination, " leads to %s(%d) [%.1f,%.1f,%.1f]", *changer->m_caLevelToChange, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
+		Msg("* [spawn_overlays] spawn_add: %s (%s) on %s(%d) [%.1f,%.1f,%.1f]%s (%s)", name, object_section, level_name, smart_cast<CSE_ALifeObject*>(object)->m_tGraphID, VPUSH(position), destination, source);
+		return true;
+	}
+
+	void apply_adds(CInifile& ini, STemplates& templates, const CGameGraph& graph, u32& added)
+	{
+		const size_t prefix_length = xr_strlen(ADD_PREFIX);
+		for (const auto& [Name, Data] : ini.sections())
+		{
+			const LPCSTR section = Name.c_str();
+			if (0 == strncmp(section, ADD_PREFIX, prefix_length) && apply_add(ini, section, section + prefix_length, templates, graph))
+				++added;
+		}
 	}
 
 	const GameGraph::SLevel* fragment_level(const LPCSTR relative, const CGameGraph& graph, string256& level_name)
@@ -763,6 +1346,36 @@ namespace
 	}
 }
 
+const xr_vector<shared_str>& spawn_overlays::level_names()
+{
+	static xr_vector<shared_str> names;
+	static bool built = false;
+	if (built)
+		return names;
+	built = true;
+
+	names = listed_level_names();
+	u32 cut = 0;
+	string_path file_name;
+	if (overlay_path(file_name))
+	{
+		CInifile ini(file_name, TRUE);
+		const bool cuts = section_has_lines(ini, SECTION_LEVEL_CUT);
+		LPCSTR key, value;
+		for (int i = 0; cuts && ini.r_line(SECTION_LEVEL_CUT, i, &key, &value); ++i)
+		{
+			const auto found = std::find(names.begin(), names.end(), shared_str(key));
+			if (found == names.end())
+				continue;
+			names.erase(found);
+			++cut;
+		}
+	}
+	std::sort(names.begin(), names.end(), [](const shared_str& a, const shared_str& b) { return xr_strcmp(a, b) < 0; });
+	Msg("* [spawn_overlays] level list: %d levels (%d cut)", names.size(), cut);
+	return names;
+}
+
 CSpawnOverlays::CSpawnOverlays(const LPCSTR base_spawn_name)
 {
 	string_path file_name;
@@ -786,6 +1399,8 @@ CSpawnOverlays::~CSpawnOverlays()
 
 CGameGraph* CSpawnOverlays::apply_graph(const CGameGraph& base, void*& buffer)
 {
+	check_level_list(base.header(), m_packs);
+
 	xr_vector<SLevelOffset> offsets;
 	if (m_sync_offsets)
 		collect_level_offsets(base.header(), offsets);
@@ -829,18 +1444,27 @@ void CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, con
 	STemplates templates(spawns);
 
 	u32 removed = 0, patched = 0, added = 0;
+	const xr_vector<GameGraph::_LEVEL_ID> rebuilt = m_packs.rebuilt_levels();
+	xr_vector<SRetired> retired;
 	if (m_ini)
 		apply_removes(*m_ini, SECTION_REPLACE, templates, removed);
+	if (!rebuilt.empty())
+		retire_rebuilt(templates, graph, rebuilt, retired);
 	apply_fragments(templates, graph, added);
 	added += m_packs.add_objects(templates, graph);
 	if (m_ini)
 	{
 		apply_removes(*m_ini, SECTION_REMOVE, templates, removed);
-		apply_patches(*m_ini, templates, graph, patched);
+		apply_adds(*m_ini, templates, graph, added);
 	}
+	report_retired(m_ini, templates, graph, rebuilt, retired);
+	removed += retired.size();
+	if (m_ini)
+		apply_patches(*m_ini, templates, graph, patched);
 	if (!m_cut_levels.empty())
 		cut_objects(templates, graph, m_cut_levels, removed);
 	m_packs.report_drift(templates, graph);
+	report_overlapping_changers(templates, graph);
 
 	if (removed || patched || added)
 		Msg("* [spawn_overlays] objects: -%d templates, %d patched, +%d added, %d remaining", removed, patched, added, spawns.vertex_count());

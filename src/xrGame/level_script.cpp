@@ -1786,6 +1786,12 @@ void StopHudMotion()
 	g_player_hud->StopScriptAnim();
 }
 
+void SetHudMotionLock(float target, float time)
+{
+	g_player_hud->script_anim_lock_camera_target = clampr(target, 0.f, 1.f);
+	g_player_hud->script_anim_lock_camera_time = time;
+}
+
 float MotionLength(LPCSTR section, LPCSTR name, float speed)
 {
 	return g_player_hud->motion_length_script(section, name, speed);
@@ -1978,6 +1984,17 @@ const Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = fa
 		table[i] = world2ui_with_depth(*pos, hud, allow_offscreen);
 	}
 
+	return table;
+}
+
+#include "spawn_overlays.h"
+
+::luabind::object game_level_names()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+	int index = 0;
+	for (const shared_str& name : spawn_overlays::level_names())
+		table[++index] = *name;
 	return table;
 }
 
@@ -3348,6 +3365,7 @@ void CLevel::script_register(lua_State* L)
 		def("set_part_cycle_time", set_part_cycle_time),
 		def("play_hud_motion", PlayHudMotion),
 		def("stop_hud_motion", StopHudMotion),
+		def("set_hud_motion_lock", SetHudMotionLock),
 		def("get_motion_length", MotionLength),
 		def("hud_motion_allowed", AllowHudMotion),
 		def("motion_exists", MotionExists),
@@ -3370,6 +3388,7 @@ void CLevel::script_register(lua_State* L)
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
 		def("world2ui_many", world2ui_many),
+		def("level_names", game_level_names),
 		def("ui2world", (void (*)(Fvector2, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
