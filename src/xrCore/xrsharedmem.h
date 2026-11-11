@@ -14,38 +14,27 @@ struct XRCORE_API smem_value
 	u8 value[];
 };
 
-// generic predicate for "less"
-IC bool smem_sort(const smem_value* A, const smem_value* B)
-{
-	if (A->dwCRC < B->dwCRC) return true;
-	if (A->dwCRC > B->dwCRC) return false;
-	if (A->dwLength < B->dwLength) return true;
-	if (A->dwLength > B->dwLength) return false;
-	return memcmp(A->value, B->value, A->dwLength) < 0;
-};
-
-// predicate for insertion - just a quick estimate
-IC bool smem_search(const smem_value* A, const smem_value* B)
-{
-	if (A->dwCRC < B->dwCRC) return true;
-	if (A->dwCRC > B->dwCRC) return false;
-	return A->dwLength < B->dwLength;
-};
-
-// predicate for exact (byte level) comparition
-IC bool smem_equal(const smem_value* A, u32 dwCRC, u32 dwLength, u8* ptr)
-{
-	if (A->dwCRC != dwCRC) return false;
-	if (A->dwLength != dwLength) return false;
-	return 0 == memcmp(A->value, ptr, dwLength);
-};
 #pragma warning(pop)
 
 //////////////////////////////////////////////////////////////////////////
 class XRCORE_API smem_container
 {
 private:
-	typedef xr_vector<smem_value*> cdb;
+	struct key
+	{
+		u32 crc, length;
+		const u8* bytes;
+		bool operator==(const key& other) const noexcept
+		{
+			return crc == other.crc && length == other.length &&
+				memcmp(bytes, other.bytes, length) == 0;
+		}
+	};
+	struct hash
+	{
+		size_t operator()(const key& value) const noexcept { return value.crc; }
+	};
+	typedef xr_unordered_map<key, smem_value*, hash> cdb;
 	xrCriticalSection cs;
 	cdb container;
 public:
