@@ -7,7 +7,7 @@ name: MSBuild
 
 on:
   push:
-    branches: [ "all-in-one-vs2022-wpo" ]
+    branches: [ "all-in-one-vs2022-wpo", "dev", "dev-mt" ]
   pull_request:
     branches: [ "all-in-one-vs2022-wpo" ]
 
@@ -32,6 +32,7 @@ env:
 
 jobs:
   pack_gamedata:
+    if: github.ref == 'refs/heads/all-in-one-vs2022-wpo' || github.base_ref == 'all-in-one-vs2022-wpo'
     name: pack_gamedata
     runs-on: windows-latest
 
@@ -66,6 +67,7 @@ jobs:
         retention-days: 1
         
   build:
+    if: github.ref != 'refs/heads/dev-mt'
     name: build-job
     runs-on: windows-latest
 
@@ -174,6 +176,7 @@ jobs:
         retention-days: 1
 
   build_mt:
+    if: github.ref != 'refs/heads/dev'
     name: build-mt-job
     runs-on: windows-latest
 
@@ -197,7 +200,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
       with:
-        ref: all-in-one-vs2022-wpo-mt
+        ref: ${{ github.ref == 'refs/heads/dev-mt' && github.sha || 'all-in-one-vs2022-wpo-mt' }}
 
     - name: Init submodules
       uses: snickerbockers/submodules-init@v4
@@ -282,6 +285,7 @@ jobs:
         retention-days: 1
 
   release:
+    if: github.ref == 'refs/heads/all-in-one-vs2022-wpo' || github.base_ref == 'all-in-one-vs2022-wpo'
     needs: [pack_gamedata, build, build_mt]
     name: Release
     runs-on: ubuntu-latest
