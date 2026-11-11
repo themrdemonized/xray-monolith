@@ -17,7 +17,7 @@ namespace spawn_overlays
 	// lacks is taken from it: levels absent from the base header, records and paths whose names are new. Levels
 	// are gated per pack (append_levels); records and paths are gated per record/path against the assembled
 	// graph (add_objects, add_paths) - a pack with some levels not installed still contributes everything it can
-	// on the levels that are.
+	// on the levels that are. A level a pack rebuilt (substituted) takes its content from that pack alone.
 	class CSpawnPacks
 	{
 	public:
@@ -28,7 +28,7 @@ namespace spawn_overlays
 			IReader* graph_chunk = nullptr;
 			xrGUID guid{};
 			CGameGraph* graph = nullptr;
-			// pack graph vertex id -> assembled vertex id; u32(-1) for vertices of levels the base already has
+			// pack graph vertex id -> assembled vertex id; u32(-1) for vertices of levels this pack neither appended nor rebuilt
 			xr_vector<u32> vertex_map;
 			struct SAppendedLevel
 			{
@@ -53,6 +53,9 @@ namespace spawn_overlays
 			// records and paths on, or leading to, a [level_cut] level the pack brings; counted, not logged one by one
 			u32 cut_records = 0;
 			u32 cut_paths = 0;
+			// records and paths on a level another pack rebuilt, and level changers leading into one
+			u32 rebuilt_elsewhere_records = 0;
+			u32 rebuilt_elsewhere_paths = 0;
 			// path points off the AI map (level vertex id -1), kept as the pack wrote them
 			u32 off_mesh_points = 0;
 			u32 skipped = 0;
@@ -89,10 +92,10 @@ namespace spawn_overlays
 
 	private:
 		bool cut(LPCSTR level_name) const;
+		// Levels rebuilt by a pack other than the given one.
+		xr_vector<GameGraph::_LEVEL_ID> rebuilt_by_others(const SPack& pack) const;
 		// GUID and version of the installed $game_levels$\<level_name>\level.ai; false when there is none.
 		bool installed_level(LPCSTR level_name, xrGUID& guid, u32& version);
-		bool substituted(GameGraph::_LEVEL_ID level_id) const;
-		void approximate_substituted(SPAWN_GRAPH& spawns, const CGameGraph& graph) const;
 
 	public:
 		~CSpawnPacks();
@@ -104,11 +107,17 @@ namespace spawn_overlays
 		// does not match the installed level.ai is substituted by a pack's build that does. Returns the levels
 		// appended plus substituted. A level the graph lacks that is named in cut_levels is not appended.
 		u32 append_levels(CGameGraphBuilder& builder, float tolerance, const xr_vector<shared_str>& cut_levels);
-		// Adds the pack records templates lacks, gated per record against the assembled graph.
+		// Levels a pack rebuilt (substituted) in append_levels; their objects and compiled paths come from that pack.
+		xr_vector<GameGraph::_LEVEL_ID> rebuilt_levels() const;
+		// Adds the pack records templates lacks, gated per record against the assembled graph. Records on a level
+		// another pack rebuilt are skipped, and so are level changers leading into one, unless the changer stands on
+		// or leads into a level this pack appended or rebuilt; the first copy in file order wins (copies within 1 m
+		// are the same changer).
 		u32 add_objects(STemplates& templates, const CGameGraph& graph);
 		// Logs the add_objects records that still look like a renamed or moved base template.
 		void report_drift(const STemplates& templates, const CGameGraph& graph) const;
-		// Adds the pack paths whose names storage lacks, remapped to graph.
+		// Adds the pack paths whose names storage lacks, remapped to graph. Compiled paths on a rebuilt level are
+		// erased first; paths on a level another pack rebuilt are skipped.
 		u32 add_paths(CPatrolPathStorage& storage, const CGameGraph& graph);
 		// Spawn GUID of base_guid plus every contributing pack; logs each pack's summary.
 		void finish(const xrGUID& base_guid, xrGUID& result) const;
