@@ -454,6 +454,19 @@ public:
         swap(mListForFree, other.mListForFree);
     }
 
+    // Diagnostic query: includes retained blocks and recycled hash tables. The callback
+    // returns the size of a live malloc allocation; no bookkeeping is added to the pool.
+    template <typename AllocationSize>
+    size_t allocated_bytes(AllocationSize allocationSize) const {
+        size_t bytes = 0;
+        auto block = mListForFree;
+        while (block) {
+            bytes += allocationSize(block);
+            block = reinterpret_cast_no_cast_align_warning<T**>(*block);
+        }
+        return bytes;
+    }
+
 private:
     // iterates the list of allocated memory to calculate how many to alloc next.
     // Recalculating this each time saves us a size_t member.
@@ -543,6 +556,11 @@ struct NodeAllocator;
 // dummy allocator that does nothing
 template <typename T, size_t MinSize, size_t MaxSize>
 struct NodeAllocator<T, MinSize, MaxSize, true> {
+
+    template <typename AllocationSize>
+    size_t allocated_bytes(AllocationSize) const noexcept {
+        return 0;
+    }
 
     // we are not using the data, so just free it.
     void addOrFree(void* ptr, size_t ROBIN_HOOD_UNUSED(numBytes) /*unused*/) noexcept {
@@ -2105,6 +2123,16 @@ public:
     size_type size() const noexcept { // NOLINT(modernize-use-nodiscard)
         ROBIN_HOOD_TRACE(this)
         return mNumElements;
+    }
+
+    // Dynamic storage only; sizeof(Table) is accounted for by the caller.
+    template <typename AllocationSize>
+    size_t allocated_bytes(AllocationSize allocationSize) const {
+        size_t bytes = DataPool::allocated_bytes(allocationSize);
+        if (mMask != 0) {
+            bytes += allocationSize(mKeyVals);
+        }
+        return bytes;
     }
 
     size_type max_size() const noexcept { // NOLINT(modernize-use-nodiscard)

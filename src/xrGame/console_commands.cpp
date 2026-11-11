@@ -393,7 +393,8 @@ static void full_memory_stats(bool assert = true)
 	u32 _eco_strings_count = 0;
 	u32 _eco_strings_unique_count = 0;
 	int _eco_strings = (int)g_pStringContainer->stat_economy(_eco_strings_count, _eco_strings_unique_count);
-	int _eco_smem = (int)g_pSharedMemoryContainer->stat_economy();
+	size_t _smem_usage = 0;
+	s64 _eco_smem = g_pSharedMemoryContainer->stat_economy(&_smem_usage);
 	u32 m_base = 0, c_base = 0, m_lmaps = 0, c_lmaps = 0;
 
 	//if (Device.Resources)	Device.Resources->_GetMemoryUsage	(m_base,c_base,m_lmaps,c_lmaps);
@@ -414,7 +415,7 @@ static void full_memory_stats(bool assert = true)
 	if (_eco_strings_count != _eco_strings_unique_count)
 		Msg("! [x-ray]: shared strings, count != unique");
 
-	Msg("* [x-ray]: shared memory: memory[%ld K]", _eco_smem);
+	Msg("* [x-ray]: shared memory: memory[%zu K], economy[%lld K]", _smem_usage / 1024, _eco_smem / 1024);
 
 	u64 DLTX_total_bytes = 0;
 	u64 DLTX_section_count = 0;

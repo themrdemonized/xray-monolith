@@ -514,10 +514,11 @@ int out_of_memory_handler(size_t size)
         u32 eco_strings_count = 0;
         u32 eco_strings_unique_count = 0;
 		int eco_strings = (int)g_pStringContainer->stat_economy(eco_strings_count, eco_strings_unique_count);
-		int eco_smem = (int)g_pSharedMemoryContainer->stat_economy();
+		size_t smem_usage = 0;
+		s64 eco_smem = g_pSharedMemoryContainer->stat_economy(&smem_usage);
 		Msg("* [x-ray]: process heap[%llu K]", process_heap / 1024);
 		Msg("* [x-ray]: strings: memory[%ld K], count[%lu], unique[%lu]", eco_strings / 1024, eco_strings_count, eco_strings_unique_count);
-		Msg("* [x-ray]: shared: memory[%ld K]", eco_smem);
+		Msg("* [x-ray]: shared memory: memory[%zu K], economy[%lld K]", smem_usage / 1024, eco_smem / 1024);
 	}
 
 	Debug.fatal(DEBUG_INFO, "Out of memory. Memory request: %lld K", size / 1024);

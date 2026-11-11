@@ -34,14 +34,16 @@ private:
 	{
 		size_t operator()(const key& value) const noexcept { return value.crc; }
 	};
-	typedef xr_unordered_map<key, smem_value*, hash> cdb;
+	typedef xr_unordered_flat_map<key, smem_value*, hash> cdb;
 	xrCriticalSection cs;
 	cdb container;
 public:
 	smem_value* dock(u32 dwCRC, u32 dwLength, void* ptr);
 	void clean();
 	void dump();
-	u32 stat_economy();
+	// Signed net savings in bytes versus one payload per reference. Includes block
+	// headers and all retained index allocations; excludes heap-private metadata.
+	s64 stat_economy(size_t* memory_usage = nullptr);
 #ifdef PROFILE_CRITICAL_SECTIONS
     smem_container ():cs(MUTEX_PROFILE_ID(smem_container)) {}
 #endif // PROFILE_CRITICAL_SECTIONS

@@ -283,7 +283,7 @@ public:
 	void settings_load(LPCSTR section);
 	void settings_overrides();
 
-	SMonsterSettings& db() { return *(*m_current_settings); }
+	const SMonsterSettings& db() const { return *(*m_current_settings); }
 	// --------------------------------------------------------------------------------------
 
 	CCharacterPhysicsSupport* m_pPhysics_support;

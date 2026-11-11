@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#include <malloc.h>
+
 using namespace std;
 
 XRCORE_API smem_container* g_pSharedMemoryContainer = NULL;
@@ -18,7 +20,7 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 	// if not found - create new entry
 	if (0 == result)
 	{
-		result = (smem_value*)Memory.mem_alloc(4 * sizeof(u32) + dwLength
+		result = (smem_value*)Memory.mem_alloc(sizeof(smem_value) + dwLength
 #ifdef DEBUG_MEMORY_NAME
                                                , "storage: smem"
 #endif // DEBUG_MEMORY_NAME
@@ -65,22 +67,25 @@ void smem_container::dump()
 	cs.Leave();
 }
 
-u32 smem_container::stat_economy()
+s64 smem_container::stat_economy(size_t* memory_usage)
 {
-	cs.Enter();
-	s64 counter = 0;
-	counter -= sizeof(*this);
-	const int node_size = 20;
+	xrCriticalSectionGuard guard(cs);
+	// Robin Hood owns malloc allocations, including old tables reused by its node
+	// pool. Query them directly instead of estimating a fixed cost per live entry.
+	size_t used = sizeof(*this) + container.allocated_bytes([](void* allocation) {
+		return _msize(allocation);
+	});
+	s64 unshared = 0;
 	for (const auto& item : container)
 	{
 		const smem_value* value = item.second;
-		counter -= 16;
-		counter -= node_size;
-		counter += s64((s64(value->dwReference.load(std::memory_order_relaxed)) - 1) * s64(value->dwLength));
+		used += sizeof(smem_value) + value->dwLength;
+		unshared += s64(value->dwReference.load(std::memory_order_relaxed)) * value->dwLength;
 	}
-	cs.Leave();
 
-	return u32(s64(counter) / s64(1024));
+	if (memory_usage)
+		*memory_usage = used;
+	return unshared - s64(used);
 }
 
 smem_container::~smem_container()
