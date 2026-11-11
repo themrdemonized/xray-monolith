@@ -49,7 +49,7 @@ while swap is still free and VRAM is barely used.
 
 Build
 -----
-Windows, Visual Studio 2022. This tree was not compiled here (no MSVC).
+Windows, Visual Studio 2022.
 
 The solution configuration that produces the DX11 AVX exe is DX11-AVX|x64:
 
@@ -63,8 +63,8 @@ xrEngine's project configuration for that solution config is ReleaseR4-AVX|x64.
 Solution configuration Release-AVX|x64 builds AnomalyDX9AVX, not the DX11 exe.
 The texture loader is compiled into xrRender_R4, which this solution builds
 as a static library and links into the exe. Copy AnomalyDX11AVX.exe from
-that build over the modded-exes build from tag 2026.10.11 (commit
-c57fe5b9fab4fe0506659db03137c52d2500eb2f). Do not mix that exe with
+that build over the modded-exes build from tag 2026.11.9 (commit
+a6a070adaf4d0bcd44bd7c7725b0a84cf11e0dec). Do not mix that exe with
 binaries from a different build.
 
 Decoder check, no Visual Studio required:
@@ -76,13 +76,15 @@ That test is not part of the Visual Studio projects.
 
 After a level load the engine log should contain a line like:
     * texture residency: pageable N (... KB RAM, GPU upload on first use), legacy staging M, total T
+The KB figure is the full pageable total, including totals past 4 GiB.
 On the GAMMA configuration (r__no_ram_textures off, r__pageable_textures auto)
 N should be almost all of T. M is the number of DDS files that fell back to
 D3DX; the first 24 fallback names are logged as "pageable texture fallback".
 
 Draft note for DXVK issue 5816 (for the reporter to post; not filed from here)
 -------------------------------------------------------------------------------
-X-Ray Monolith (Anomaly modded exes, tag 2026.10.11) does this itself.
+Unpatched X-Ray Monolith (Anomaly modded exes, through tag 2026.11.9) does
+this itself.
 
 CTexture::Load always calls CRender::texture_load(..., bStaging=true) for a
 normal DDS. Unless r__no_ram_textures is on, that creates the texture with
@@ -93,6 +95,10 @@ loads every texture this way, including the prefetch set, and does not promote
 them. Promotion is CTexture::ProcessStaging, and it runs only from the first
 Apply(), surface_get(), or an equivalent bind: it creates one USAGE_DEFAULT
 texture, CopyResource, then Release()s the STAGING texture.
+
+Tag 2026.11.9 logs GetDeviceRemovedReason when D3DX11CreateTextureFromMemory
+fails, then still calls R_CHK2. r__pageable_textures returns before that call
+on a successful decode, and leaves the D3DX failure path as it is.
 
 So during a save load the whole loaded set is simultaneously D3D11 STAGING and
 almost nothing has been copied to DEFAULT yet. That matches VRAM staying near

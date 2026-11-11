@@ -403,9 +403,12 @@ void CResourceManager::DeferredUpload()
 		else if (it->second->flags.bLoadedAsStaging)
 			++n_staging;
 	}
-	const u32 pageable_kb = bytes_pageable > 0xffffffffull ? 0xffffffffu : (u32)(bytes_pageable / 1024ull);
-	Msg("* texture residency: pageable %u (%u KB RAM, GPU upload on first use), legacy staging %u, total %u",
-		n_pageable, pageable_kb, n_staging, (u32)m_textures.size());
+	// The sum is already a u64. Narrowing the KB figure to u32 and saturating
+	// it once the bytes pass 4 GiB prints 4294967295. MemoryUsage itself is
+	// unchanged: it stays a 28-bit field, and nothing about the allocation
+	// changes here.
+	Msg("* texture residency: pageable %u (%llu KB RAM, GPU upload on first use), legacy staging %u, total %u",
+		n_pageable, (unsigned long long)(bytes_pageable / 1024ull), n_staging, (u32)m_textures.size());
 #endif
 }
 
