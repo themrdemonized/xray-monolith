@@ -609,7 +609,10 @@ u32 CSpawnPacks::append_levels(CGameGraphBuilder& builder, float tolerance, cons
 			{
 				if (!present)
 				{
-					Msg("- [spawn_overlays] pack %s: level '%s' is not installed (no levels\\%s\\level.ai), skipped", file_name, level_name, level_name);
+					if (listed_section(level_name))
+						Msg("! [spawn_overlays] pack %s: level '%s' is listed in game.ltx [levels] but levels\\%s\\level.ai is missing, skipped", file_name, level_name, level_name);
+					else
+						Msg("- [spawn_overlays] pack %s: level '%s' is not installed (no [levelNN] in game.ltx [levels], no levels\\%s\\level.ai), skipped", file_name, level_name, level_name);
 					++pack.missing_levels;
 				}
 				continue;
@@ -709,6 +712,14 @@ u32 CSpawnPacks::append_levels(CGameGraphBuilder& builder, float tolerance, cons
 			Msg("! [spawn_overlays] pack %s: %d edges could not be resolved (no vertex within %.1f m)", file_name, unresolved, tolerance);
 	}
 	return changed;
+}
+
+bool CSpawnPacks::carries(const LPCSTR level_name) const
+{
+	for (const auto* pack : m_packs)
+		if (pack->graph->header().level(level_name, true))
+			return true;
+	return false;
 }
 
 bool CSpawnPacks::substituted(const GameGraph::_LEVEL_ID level_id) const

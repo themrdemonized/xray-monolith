@@ -25,10 +25,15 @@ namespace
 	const LPCSTR PATCH_PREFIX = "spawn_patch@";
 	const float DEFAULT_LINK_TOLERANCE = 2.f;
 
-	bool overlay_file(string_path& file_name)
+	bool overlay_path(string_path& file_name)
 	{
 		FS.update_path(file_name, "$game_config$", OVERLAY_FILE);
-		if (FS.exist(file_name))
+		return !!FS.exist(file_name);
+	}
+
+	bool overlay_file(string_path& file_name)
+	{
+		if (overlay_path(file_name))
 			return true;
 		Msg("* [spawn_overlays] %s not found: graph_links/graph_unlinks/spawn_remove/spawn_patch are off; level packs, spawns\\<level>\\*.spawn and *.game fragments, offset sync and patrol_paths.ltx 'level =' sections still apply", OVERLAY_FILE);
 		return false;
@@ -97,6 +102,45 @@ namespace
 			entry.offset = pGameIni->r_fvector3(section, "offset");
 			if (!entry.offset.similar(level->offset()))
 				result.push_back(entry);
+		}
+	}
+
+	// Names of the game.ltx [levels] entries; on a duplicate name the first section wins, as in the pack reader.
+	xr_vector<shared_str> listed_level_names()
+	{
+		xr_vector<shared_str> result;
+		if (!pGameIni->section_exist("levels"))
+			return result;
+
+		LPCSTR section, dummy;
+		for (int i = 0; pGameIni->r_line("levels", i, &section, &dummy); ++i)
+		{
+			if (!pGameIni->line_exist(section, "name"))
+				continue;
+			const LPCSTR name = pGameIni->r_string(section, "name");
+			if (!name || !*name)
+				continue;
+			const shared_str key(name);
+			if (std::find(result.begin(), result.end(), key) == result.end())
+				result.push_back(key);
+		}
+		return result;
+	}
+
+	// game.ltx [levels] is the level set; the base spawn and the packs must agree with it.
+	void check_level_list(const GameGraph::CHeader& base, const CSpawnPacks& packs)
+	{
+		const xr_vector<shared_str> listed = listed_level_names();
+
+		for (const auto& level : base.levels())
+		{
+			if (std::find(listed.begin(), listed.end(), level.second.name()) == listed.end())
+				Msg("! [spawn_overlays] game.ltx: level '%s' is in the base spawn but has no [levelNN] section under [levels]", *level.second.name());
+		}
+		for (const shared_str& name : listed)
+		{
+			if (!base.level(*name, true) && !packs.carries(*name))
+				Msg("! [spawn_overlays] game.ltx: level '%s' is listed under [levels] but neither the base spawn nor any pack provides it", *name);
 		}
 	}
 
@@ -763,6 +807,36 @@ namespace
 	}
 }
 
+const xr_vector<shared_str>& spawn_overlays::level_names()
+{
+	static xr_vector<shared_str> names;
+	static bool built = false;
+	if (built)
+		return names;
+	built = true;
+
+	names = listed_level_names();
+	u32 cut = 0;
+	string_path file_name;
+	if (overlay_path(file_name))
+	{
+		CInifile ini(file_name, TRUE);
+		const bool cuts = section_has_lines(ini, SECTION_LEVEL_CUT);
+		LPCSTR key, value;
+		for (int i = 0; cuts && ini.r_line(SECTION_LEVEL_CUT, i, &key, &value); ++i)
+		{
+			const auto found = std::find(names.begin(), names.end(), shared_str(key));
+			if (found == names.end())
+				continue;
+			names.erase(found);
+			++cut;
+		}
+	}
+	std::sort(names.begin(), names.end(), [](const shared_str& a, const shared_str& b) { return xr_strcmp(a, b) < 0; });
+	Msg("* [spawn_overlays] level list: %d levels (%d cut)", names.size(), cut);
+	return names;
+}
+
 CSpawnOverlays::CSpawnOverlays(const LPCSTR base_spawn_name)
 {
 	string_path file_name;
@@ -786,6 +860,8 @@ CSpawnOverlays::~CSpawnOverlays()
 
 CGameGraph* CSpawnOverlays::apply_graph(const CGameGraph& base, void*& buffer)
 {
+	check_level_list(base.header(), m_packs);
+
 	xr_vector<SLevelOffset> offsets;
 	if (m_sync_offsets)
 		collect_level_offsets(base.header(), offsets);

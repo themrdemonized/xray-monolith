@@ -186,15 +186,11 @@ void CPatrolPathStorage::load_from_config(const CGameGraph* game_graph)
 			}
 		}
 
-		if (m_registry.find(patrol_name) != m_registry.end())
+		const bool replaces = m_registry.find(patrol_name) != m_registry.end();
+		if (replaces && !overlay)
 		{
-			if (!overlay)
-			{
-				Msg("! [spawn_overlays] %s [%s]: a compiled path has this name, skipped", file, patrol_name);
-				continue;
-			}
-			Msg("* [spawn_overlays] %s [%s]: replaces the compiled path of that name", file, patrol_name);
-			erase(patrol_name);
+			Msg("! [spawn_overlays] %s [%s]: a compiled path has this name, skipped", file, patrol_name);
+			continue;
 		}
 
 		auto* patrol_path = xr_new<CPatrolPath>(patrol_name);
@@ -203,6 +199,12 @@ void CPatrolPathStorage::load_from_config(const CGameGraph* game_graph)
 			Msg("! [spawn_overlays] %s [%s]: %s, skipped", file, patrol_name, reason);
 			xr_delete(patrol_path);
 			continue;
+		}
+
+		if (replaces)
+		{
+			Msg("* [spawn_overlays] %s [%s]: replaces the compiled path of that name", file, patrol_name);
+			erase(patrol_name);
 		}
 
 		// Insert in registry
