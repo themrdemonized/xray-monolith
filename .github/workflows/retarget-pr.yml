@@ -1,0 +1,34 @@
+name: Retarget pull requests
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  retarget:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce allowed target branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          endpoint="repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER"
+          base=$(gh api "$endpoint" --jq '.base.ref')
+
+          case "$base" in
+            dev|dev-mt)
+              exit 0
+              ;;
+            all-in-one-vs2022-wpo-mt)
+              target=dev-mt
+              ;;
+            *)
+              target=dev
+              ;;
+          esac
+
+          gh api --method PATCH "$endpoint" -f base="$target"
