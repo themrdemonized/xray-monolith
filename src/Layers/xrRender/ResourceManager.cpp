@@ -601,7 +601,7 @@ void CResourceManager::EvictStalledTextures() {
   u32 scanned = 0;
   for (; I != m_textures.end() && scanned < batch_size; ++I, ++scanned) {
     CTexture *tex = I->second;
-    if (tex->flags.bUser) {
+    if (tex->flags.bUser || tex->bNoEvict) {
 #ifdef DEBUG
       skip_user++;
 #endif // DEBUG

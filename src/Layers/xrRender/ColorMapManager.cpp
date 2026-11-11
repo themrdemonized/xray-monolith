@@ -36,6 +36,8 @@ void ColorMapManager::UpdateTexture(const shared_str& strTexName, int iTex)
 		{
 			ref_texture tmp;
 			tmp.create(strTexName.c_str());
+			// The cache copies this map with surface_get on later uses and never applies it
+			tmp->bNoEvict = true;
 
 			m_TexCache.insert(mk_pair(strTexName, tmp));
 
