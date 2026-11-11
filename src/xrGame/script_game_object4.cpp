@@ -23,6 +23,7 @@
 #include "stalker_sound_data.h"
 
 #include "Actor.h"
+#include "visual_memory_manager.h"
 #include "Car.h"
 #include "helicopter.h"
 #include "InventoryOwner.h"
@@ -569,6 +570,12 @@ CBottleItem* CScriptGameObject::cast_BottleItem()
 
 void CScriptGameObject::memory_remove_links(const CScriptGameObject* tpLuaGameObject)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->remove_links(&tpLuaGameObject->object());
+		return;
+	}
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (monster)
 	{
