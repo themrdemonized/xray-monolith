@@ -135,6 +135,9 @@
     Camera sections
         lim_deg - Interpret lim_yaw and lim_pitch limits in degrees instead of radians, default false.
 
+    A-Life ([alife] section)
+        scheduled_time_limit - Max time in microseconds one scheduled update spends updating objects, 0 default (off). At least one object is updated, then it stops at the limit or at objects_per_update and continues next update. When set, the interval between scheduled updates is schedule_min ms (30 ms engine minimum).
+
     PDA level-map sections (game.ltx)
         label - Translated string ID for a label centered on this level's global-map rectangle.
         label_scale_max - When positive, hide the label at or above this global-map zoom and honor pda_show_map_labels. Default 0 leaves this visibility check inactive.

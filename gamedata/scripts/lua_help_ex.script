@@ -206,6 +206,7 @@
         void iterate_level_objects_of_clsid(number script_clsid, function(se_obj)) -- walks actor's current-level CSE registry filtered by m_script_clsid; functor returns true to stop early; must not release the currently iterated entity
         void force_update() -- forces an immediate alife scheduled update cycle
         number objects_per_update() -- current scheduled-update object budget, as last set by set_objects_per_update (initially alife.ltx [alife] objects_per_update)
+        void set_scheduled_time_limit(number microseconds) -- Max time a scheduled update keeps updating objects, 0 = off.
         cse_abstract create_on_level(string section, string level_name, Fvector position, number level_vertex_id = nil) -- create(section, position, lvid, gvid) with the ids derived: exact on the current level; elsewhere the level's nearest game vertex and level_vertex_id or that vertex's own level vertex, re-snapped to position when the level loads; nil (logged) when the level is not in the game graph
     }
 
