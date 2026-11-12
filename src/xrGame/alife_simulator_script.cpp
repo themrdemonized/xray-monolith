@@ -516,6 +516,11 @@ void set_scheduled_time_limit(CALifeSimulator* self, u32 micro)
 	self->scheduled_time_limit(micro);
 }
 
+u32 get_scheduled_time_limit(CALifeSimulator* self)
+{
+	return self->scheduled_time_limit();
+}
+
 void set_process_time(CALifeSimulator* self, int micro)
 {
 	self->set_process_time(micro);
@@ -719,6 +724,7 @@ void CALifeSimulator::script_register(lua_State* L)
 		.def("set_objects_per_update", &set_objects_per_update)
 		.def("objects_per_update", &get_objects_per_update)
 		.def("set_scheduled_time_limit", &set_scheduled_time_limit)
+		.def("scheduled_time_limit", &get_scheduled_time_limit)
 		.def("set_process_time", &set_process_time)
 		.def("force_update", &force_update)
 		.def("get_children", &get_children, return_stl_iterator)

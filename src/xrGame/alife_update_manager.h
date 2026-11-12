@@ -58,6 +58,7 @@ public:
 	void set_process_time(int microseconds);
 	void objects_per_update(const u32& objects_per_update);
 	void scheduled_time_limit(const u32& microseconds);
+	u32 scheduled_time_limit() const { return m_scheduled_time_limit; }
 	void set_switch_online(ALife::_OBJECT_ID id, bool value);
 	void set_switch_offline(ALife::_OBJECT_ID id, bool value);
 	void set_interactive(ALife::_OBJECT_ID id, bool value);
