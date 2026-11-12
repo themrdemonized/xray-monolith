@@ -30,6 +30,8 @@ protected:
 	u64 m_max_process_time;
 	float m_update_monster_factor;
 	u32 m_objects_per_update;
+	u32 m_scheduled_time_limit;
+	u32 m_switch_time;
 	bool m_changing_level;
 
 public:
@@ -55,6 +57,7 @@ public:
 	bool change_level(NET_Packet& net_packet);
 	void set_process_time(int microseconds);
 	void objects_per_update(const u32& objects_per_update);
+	void scheduled_time_limit(const u32& microseconds);
 	void set_switch_online(ALife::_OBJECT_ID id, bool value);
 	void set_switch_offline(ALife::_OBJECT_ID id, bool value);
 	void set_interactive(ALife::_OBJECT_ID id, bool value);
