@@ -2,6 +2,7 @@
 #pragma hdrstop
 
 #include <malloc.h>
+#include <string_view>
 
 using namespace std;
 
@@ -9,12 +10,16 @@ XRCORE_API smem_container* g_pSharedMemoryContainer = NULL;
 
 smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 {
-	VERIFY(dwCRC && dwLength && ptr);
+	VERIFY(dwLength && ptr);
 
-	cs.Enter();
+	// Asset CRCs can be zero or shared by many distinct blocks. Hash the complete
+	// binary payload once, outside the lock, and retain the hash for table growth.
+	const size_t content_hash = xr_hash<std::string_view>()(
+		std::string_view(static_cast<const char*>(ptr), dwLength));
+	xrCriticalSectionGuard guard(cs);
 	smem_value* result = 0;
 
-	cdb::iterator it = container.find(key{dwCRC, dwLength, static_cast<const u8*>(ptr)});
+	cdb::iterator it = container.find(key{dwCRC, dwLength, static_cast<const u8*>(ptr), content_hash});
 	if (it != container.end()) result = it->second;
 
 	// if not found - create new entry
@@ -29,11 +34,9 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 		result->dwCRC = dwCRC;
 		result->dwLength = dwLength;
 		CopyMemory(result->value, ptr, dwLength);
-		container.emplace(key{dwCRC, dwLength, result->value}, result);
+		container.emplace(key{dwCRC, dwLength, result->value, content_hash}, result);
 	}
 
-	// exit
-	cs.Leave();
 	return result;
 }
 
@@ -70,11 +73,15 @@ void smem_container::dump()
 s64 smem_container::stat_economy(size_t* memory_usage)
 {
 	xrCriticalSectionGuard guard(cs);
+#ifdef USE_ROBINHOOD
 	// Robin Hood owns malloc allocations, including old tables reused by its node
 	// pool. Query them directly instead of estimating a fixed cost per live entry.
 	size_t used = sizeof(*this) + container.allocated_bytes([](void* allocation) {
 		return _msize(allocation);
 	});
+#else
+	size_t used = sizeof(*this) + index_bytes;
+#endif
 	s64 unshared = 0;
 	for (const auto& item : container)
 	{
@@ -82,6 +89,25 @@ s64 smem_container::stat_economy(size_t* memory_usage)
 		used += sizeof(smem_value) + value->dwLength;
 		unshared += s64(value->dwReference.load(std::memory_order_relaxed)) * value->dwLength;
 	}
+
+#ifdef USE_ROBINHOOD
+	const auto buckets = container.bucket_statistics();
+	Msg("* [x-ray]: shared memory: count[%zu], load factor[%.2f], max_collisions[%zu]",
+		container.size(), container.load_factor(), buckets.max_collisions);
+#else
+	size_t collisions = 0;
+	size_t max_collisions = 0;
+	for (size_t i = 0; i < container.bucket_count(); ++i)
+	{
+		const size_t size = container.bucket_size(i);
+		if (size != 0)
+			collisions += size - 1;
+		max_collisions = (std::max)(max_collisions, size);
+	}
+	// Standard unordered containers expose bucket occupancy, but no probe distance.
+	Msg("* [x-ray]: shared memory: count[%zu], load factor[%.2f], max_collisions[%zu]",
+		container.size(), container.load_factor(), max_collisions);
+#endif
 
 	if (memory_usage)
 		*memory_usage = used;

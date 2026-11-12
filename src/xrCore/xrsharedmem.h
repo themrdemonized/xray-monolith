@@ -24,19 +24,60 @@ private:
 	{
 		u32 crc, length;
 		const u8* bytes;
+		size_t content_hash;
 		bool operator==(const key& other) const noexcept
 		{
-			return crc == other.crc && length == other.length &&
+			return content_hash == other.content_hash && crc == other.crc && length == other.length &&
 				memcmp(bytes, other.bytes, length) == 0;
 		}
 	};
 	struct hash
 	{
-		size_t operator()(const key& value) const noexcept { return value.crc; }
+		size_t operator()(const key& value) const noexcept { return value.content_hash ^ value.crc; }
 	};
+#ifdef USE_ROBINHOOD
 	typedef xr_unordered_flat_map<key, smem_value*, hash> cdb;
+#else
+	// Rebinding preserves the counter for every STL allocation, including buckets,
+	// nodes and debug proxies. The underlying engine allocator remains unchanged.
+	template <class T>
+	struct index_allocator
+	{
+		using value_type = T;
+		size_t* used = nullptr;
+
+		index_allocator() noexcept = default;
+		explicit index_allocator(size_t* counter) noexcept : used(counter) {}
+		template <class U>
+		index_allocator(const index_allocator<U>& other) noexcept : used(other.used) {}
+
+		T* allocate(size_t count)
+		{
+			T* ptr = xalloc<T>().allocate(count);
+			*used += count * sizeof(T);
+			return ptr;
+		}
+		void deallocate(T* ptr, size_t count) noexcept
+		{
+			xalloc<T>().deallocate(ptr, count);
+			*used -= count * sizeof(T);
+		}
+		template <class U>
+		bool operator==(const index_allocator<U>& other) const noexcept { return used == other.used; }
+		template <class U>
+		bool operator!=(const index_allocator<U>& other) const noexcept { return !(*this == other); }
+	};
+	using cdb = xr_unordered_flat_map<key, smem_value*, hash, std::equal_to<key>,
+		index_allocator<std::pair<const key, smem_value*>>>;
+#endif
 	xrCriticalSection cs;
+#ifdef USE_ROBINHOOD
 	cdb container;
+#else
+	// Declared before container so the counter outlives allocator deallocation.
+	size_t index_bytes = 0;
+	cdb container{cdb::allocator_type(&index_bytes)};
+#endif
 public:
 	smem_value* dock(u32 dwCRC, u32 dwLength, void* ptr);
 	void clean();

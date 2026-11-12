@@ -2135,6 +2135,47 @@ public:
         return bytes;
     }
 
+    struct bucket_stats {
+        size_t buckets = 0;
+        size_t collisions = 0;
+        size_t max_collisions = 0;
+        size_t max_probe = 0;
+    };
+
+    // Snapshot diagnostics, without allocating or modifying the table. Collisions
+    // count entries beyond the first in each home bucket; max_collisions includes
+    // that first entry, like the length of a bucket in a chained hash table.
+    bucket_stats bucket_statistics() const noexcept {
+        bucket_stats stats;
+        stats.buckets = mMask == 0 ? 0 : mMask + 1;
+        if (empty()) {
+            return stats;
+        }
+
+        size_t previousBucket = (std::numeric_limits<size_t>::max)();
+        size_t bucketSize = 0;
+        const size_t count = calcNumElementsWithBuffer(mMask + 1);
+        for (size_t i = 0; i < count; ++i) {
+            if (mInfo[i] == 0) {
+                continue;
+            }
+            // The upper info bits encode distance + 1. Robin Hood ordering keeps
+            // entries with the same home bucket adjacent, including overflow slots.
+            const size_t distance = mInfo[i] / mInfoInc - 1;
+            const size_t bucket = i - distance;
+            if (bucket == previousBucket) {
+                ++bucketSize;
+                ++stats.collisions;
+            } else {
+                previousBucket = bucket;
+                bucketSize = 1;
+            }
+            stats.max_collisions = (std::max)(stats.max_collisions, bucketSize);
+            stats.max_probe = (std::max)(stats.max_probe, distance);
+        }
+        return stats;
+    }
+
     size_type max_size() const noexcept { // NOLINT(modernize-use-nodiscard)
         ROBIN_HOOD_TRACE(this)
         return static_cast<size_type>(-1);
