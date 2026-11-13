@@ -1019,6 +1019,9 @@ void CUIMapWnd::Update()
 	inherited::Update();
 	m_ActionPlanner->update();
 	UpdateNav();
+    ::luabind::functor<void> callback;
+    if (ai().script_engine().functor("_G.SendScriptCallback", callback))
+        callback("on_pda_map_update");
 }
 
 void CUIMapWnd::SetZoom(float value)
