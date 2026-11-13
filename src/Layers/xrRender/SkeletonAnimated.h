@@ -117,6 +117,7 @@ public:
 	u32 LL_PartBlendsCount(u32 bone_part_id);
 	CBlend* LL_PartBlend(u32 bone_part_id, u32 n);
 	void LL_IterateBlends(IterateBlendsCallback& callback);
+	bool LL_IsBlendInPool(const CBlend* blend) const override;
 
 	void SetUpdateTracksCalback(IUpdateTracksCallback* callback);
 	IUpdateTracksCallback* GetUpdateTracksCalback() { return m_update_tracks_callback; }

@@ -310,6 +310,12 @@ public:
 		return &p_->m_motion_map;
 	}
 
+	const accel_map* motion_map() const
+	{
+		VERIFY(p_);
+		return &p_->m_motion_map;
+	}
+
 	accel_map* cycle()
 	{
 		VERIFY(p_);
@@ -329,6 +335,12 @@ public:
 	}
 
 	MotionDefVec* motion_defs()
+	{
+		VERIFY(p_);
+		return &p_->m_mdefs;
+	}
+
+	const MotionDefVec* motion_defs() const
 	{
 		VERIFY(p_);
 		return &p_->m_mdefs;

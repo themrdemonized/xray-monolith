@@ -50,6 +50,7 @@ public:
 	virtual u32 LL_PartBlendsCount(u32 bone_part_id) =0;
 	virtual CBlend* LL_PartBlend(u32 bone_part_id, u32 n) =0;
 	virtual void LL_IterateBlends(IterateBlendsCallback& callback) =0;
+	virtual bool LL_IsBlendInPool(const CBlend* blend) const = 0;
 
 	virtual u16 LL_MotionsSlotCount() = 0;
 	virtual const shared_motions& LL_MotionsSlot(u16 idx) = 0;

@@ -1001,14 +1001,33 @@ void CIKLimb::SetAnimGoal(SCalculateData& cd)
 	cd.apply = true;
 }
 
-void CIKLimb::Update(CGameObject* O, const CBlend* b, const extrapolation::points& object_pose_extrapolation)
+LPCSTR CIKLimb::bone_name() const
 {
+	IKinematics* K = Kinematics();
+	return K && m_bones[2] < K->LL_BoneCount() ? K->LL_BoneName_dbg(m_bones[2]) : "<unavailable>";
+}
+
+void CIKLimb::ResetAnimation()
+{
+	anim_state = ik_anim_state();
+	collide_data.collided = false;
+	state_predict = ik_limb_state_predict();
+	sv_state = ik_limb_state();
+	sv_state.set_limb(this);
+}
+
+bool CIKLimb::Update(CGameObject* O, const CBlend* b, const extrapolation::points& object_pose_extrapolation,
+	ik_anim_error& error)
+{
+	// Validate even when collision history is unavailable: Calculate also uses this blend.
+	if (!anim_state.update(KinematicsAnimated(), b, get_id(), error))
+		return false;
+
 	if (!m_collide || !sv_state.valide())
 	{
 		collide_data.collided = false;
-		return;
+		return true;
 	}
-	anim_state.update(KinematicsAnimated(), b, get_id());
 
 	Fmatrix anim_foot;
 	AnimGoal(anim_foot);
@@ -1024,6 +1043,7 @@ void CIKLimb::Update(CGameObject* O, const CBlend* b, const extrapolation::point
 	m_foot.Collide(collide_data, collider, anim_foot, O->XFORM(), O, anim_state.step());
 
 	step_predict(O, b, state_predict, object_pose_extrapolation);
+	return true;
 }
 
 float CIKLimb::ObjShiftDown(float current_shift, const SCalculateData& cd) const

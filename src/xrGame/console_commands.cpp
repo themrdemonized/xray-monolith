@@ -167,6 +167,7 @@ extern float f_Freelook_cam_limit;
 extern int MOUSEBUFFERSIZE;
 extern int KEYBOARDBUFFERSIZE;
 extern BOOL print_bone_warnings;
+extern BOOL print_ik_warnings;
 extern BOOL print_dltx_warnings;
 extern BOOL dltx_use_cache;
 extern BOOL poltergeist_spawn_corpse_on_death;
@@ -3417,6 +3418,7 @@ void CCC_RegisterCommands()
 
 	// Print warnings when using bone_position and bone_direction functions and encounter invalid bones
 	CMD4(CCC_Integer, "print_bone_warnings", &print_bone_warnings, 0, 1);
+	CMD4(CCC_Integer, "print_ik_warnings", &print_ik_warnings, 0, 1);
 
 	// Print DLTX warnings when "override section which doesn't exist", also prints cache hit for each file
 	CMD4(CCC_Integer, "print_dltx_warnings", &print_dltx_warnings, 0, 1);

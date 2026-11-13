@@ -40,7 +40,10 @@ public:
 	void SolveBones(SCalculateData& cd);
 	void ApplyState(SCalculateData& cd);
 	void SetGoal(SCalculateData& cd);
-	void Update(CGameObject* O, const CBlend* b, const extrapolation::points& object_pose_extrapolation);
+	bool Update(CGameObject* O, const CBlend* b, const extrapolation::points& object_pose_extrapolation,
+		ik_anim_error& error);
+	void ResetAnimation();
+	LPCSTR bone_name() const;
 public:
 	IC u16 get_id() const { return m_id; }
 	float ObjShiftDown(float current_shift, const SCalculateData& cd) const;
