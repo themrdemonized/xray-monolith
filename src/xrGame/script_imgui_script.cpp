@@ -304,7 +304,16 @@ void ScriptImGui::script_register(::lua_State* L)
 		def("GetFontSize", &ImGui::GetFontSize),
 
 		def("GetClipboardText", &ImGui_GetClipboardText),
-		def("SetClipboardText", &ImGui::SetClipboardText)
+		def("SetClipboardText", &ImGui::SetClipboardText),
+
+		def("BeginChild", &ImGui_BeginChild),
+		def("EndChild", &ImGui::EndChild),
+
+		def("DrawLine", &ImGui_DrawLine),
+		def("DrawRectFilled", &ImGui_DrawRectFilled),
+		def("DrawRect", &ImGui_DrawRect),
+		def("DrawText", &ImGui_DrawText),
+		def("DrawTriangleFilled", &ImGui_DrawTriangleFilled)
 	],
 	
 	module(L)
@@ -353,6 +362,21 @@ void ScriptImGui::script_register(::lua_State* L)
 			value("NoNav", (int)ImGuiWindowFlags_NoNav),
 			value("NoDecoration", (int)ImGuiWindowFlags_NoDecoration),
 			value("NoInputs", (int)ImGuiWindowFlags_NoInputs)
+		],
+
+		class_<enum_exporter<ImGuiChildFlags_>>("ImGuiChildFlags")
+		.enum_("ImGuiChildFlags")
+		[
+			value("None", (int)ImGuiChildFlags_None),
+			value("Borders", (int)ImGuiChildFlags_Borders),
+			value("AlwaysUseWindowPadding", (int)ImGuiChildFlags_AlwaysUseWindowPadding),
+			value("ResizeX", (int)ImGuiChildFlags_ResizeX),
+			value("ResizeY", (int)ImGuiChildFlags_ResizeY),
+			value("AutoResizeX", (int)ImGuiChildFlags_AutoResizeX),
+			value("AutoResizeY", (int)ImGuiChildFlags_AutoResizeY),
+			value("AlwaysAutoResize", (int)ImGuiChildFlags_AlwaysAutoResize),
+			value("FrameStyle", (int)ImGuiChildFlags_FrameStyle),
+			value("NavFlattened", (int)ImGuiChildFlags_NavFlattened)
 		],
 
 		class_<enum_exporter<ImGuiItemFlags_>>("ImGuiItemFlags")

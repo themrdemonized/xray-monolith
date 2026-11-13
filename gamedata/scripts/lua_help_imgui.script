@@ -277,6 +277,15 @@
 		
 		string GetClipboardText()
 		void SetClipboardText(string)
+
+		bool BeginChild(string str_id, vector2 size, ImGuiChildFlags child_flags, ImGuiWindowFlags window_flags)
+		void EndChild()
+
+		void DrawLine(vector2 p1, vector2 p2, number col, number thickness) -- col is a packed IM_COL32 u32, the same format PushStyleColor takes; draws on the current window draw list
+		void DrawRectFilled(vector2 p_min, vector2 p_max, number col, number rounding)
+		void DrawRect(vector2 p_min, vector2 p_max, number col, number rounding, number thickness)
+		void DrawText(vector2 pos, number col, string text)
+		void DrawTriangleFilled(vector2 p1, vector2 p2, vector2 p3, number col)
 	};
 	
 	enum ImGuiCond {
@@ -317,6 +326,19 @@
 		NoNav,
 		NoDecoration,
 		NoInputs,
+	};
+
+	enum ImGuiChildFlags {
+		None,
+		Borders,
+		AlwaysUseWindowPadding,
+		ResizeX,
+		ResizeY,
+		AutoResizeX,
+		AutoResizeY,
+		AlwaysAutoResize,
+		FrameStyle,
+		NavFlattened,
 	};
 
 	enum ImGuiItemFlags {
