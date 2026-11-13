@@ -44,6 +44,7 @@ protected:
 	virtual CPHSkeleton* PHSkeleton() { return this; }
 	virtual void SpawnInitPhysics(CSE_Abstract* D) =0;
 	virtual void SaveNetState(NET_Packet& P);
+	void SaveNetState(NET_Packet& P, bool save_physics, u16 animation_root);
 	virtual void RestoreNetState(CSE_PHSkeleton* po);
 
 	virtual void InitServerObject(CSE_Abstract* D); //

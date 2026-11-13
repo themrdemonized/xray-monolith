@@ -78,6 +78,7 @@ public:
 	virtual CParticlesPlayer* cast_particles_player() { return this; }
 	virtual IDamageSource* cast_IDamageSource() { return NULL; }
 	virtual CPHSoundPlayer* ph_sound_player() { return NULL; }
+	bool is_script_ragdoll() const;
 	virtual CCharacterPhysicsSupport* character_physics_support() { return NULL; }
 	virtual const CCharacterPhysicsSupport* character_physics_support() const { return NULL; }
 	virtual CIKLimbsController* character_ik_controller() { return NULL; }

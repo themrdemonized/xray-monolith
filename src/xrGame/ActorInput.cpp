@@ -42,6 +42,7 @@ extern u32 hud_adj_mode;
 
 void CActor::IR_OnKeyboardPress(int cmd)
 {
+	if (is_script_ragdoll() && cmd != kCAM_1 && cmd != kCAM_2 && cmd != kCAM_3) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote()) return;
@@ -275,6 +276,7 @@ BOOL mouseWheelInvertChangeWeapons = FALSE;
 BOOL mouseWheelInvertZoom = FALSE;
 void CActor::IR_OnMouseWheel(int direction)
 {
+	if (is_script_ragdoll()) return;
 	if (hud_adj_mode)
 	{
 		g_player_hud->tune(Ivector().set(0, 0, direction));
@@ -350,6 +352,7 @@ void CActor::IR_OnKeyboardRelease(int cmd)
 
 void CActor::IR_OnKeyboardHold(int cmd)
 {
+	if (is_script_ragdoll()) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote() || !g_Alive()) return;
@@ -524,6 +527,7 @@ bool CActor::use_Holder(CHolderCustom* holder)
 
 void CActor::ActorUse()
 {
+	if (is_script_ragdoll()) return;
 	if (m_holder)
 	{
 		CGameObject* GO = smart_cast<CGameObject*>(m_holder);

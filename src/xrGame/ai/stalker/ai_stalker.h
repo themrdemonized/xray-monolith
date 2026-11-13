@@ -171,6 +171,7 @@ public:
 	virtual ~CAI_Stalker();
 
 public:
+	void OnScriptRagdollRecover();
 	virtual CCharacterPhysicsSupport* character_physics_support() { return m_pPhysics_support; }
 	virtual const CCharacterPhysicsSupport* character_physics_support() const { return m_pPhysics_support; }
 	virtual CPHDestroyable* ph_destroyable();
