@@ -43,10 +43,10 @@ public:
 	void SetMinDistance(const float fMinDistance);
 	IC void SetMaxDistance(const float fMaxDistance);
 	Fvector GetPosition() const;
-	IC const float GetFrequency() const;
-	IC const float GetMinDistance() const;
-	IC const float GetMaxDistance() const;
-	IC const float GetVolume() const;
+	const float GetFrequency() const;
+	const float GetMinDistance() const;
+	const float GetMaxDistance() const;
+	const float GetVolume() const;
 	IC bool IsPlaying() const;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION

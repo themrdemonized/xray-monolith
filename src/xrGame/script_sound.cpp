@@ -82,6 +82,50 @@ Fvector CScriptSound::GetPosition() const
 	}
 }
 
+const float CScriptSound::GetFrequency() const
+{
+	VERIFY(m_sound._handle());
+	const CSound_params* l_tpSoundParams = m_sound.get_params();
+	if (l_tpSoundParams)
+		return (l_tpSoundParams->freq);
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "Sound was not launched, can't get frequency!");
+	return (0.f);
+}
+
+const float CScriptSound::GetMinDistance() const
+{
+	VERIFY(m_sound._handle());
+	const CSound_params* l_tpSoundParams = m_sound.get_params();
+	if (l_tpSoundParams)
+		return (l_tpSoundParams->min_distance);
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "Sound was not launched, can't get min_distance!");
+	return (0.f);
+}
+
+const float CScriptSound::GetMaxDistance() const
+{
+	VERIFY(m_sound._handle());
+	const CSound_params* l_tpSoundParams = m_sound.get_params();
+	if (l_tpSoundParams)
+		return (l_tpSoundParams->max_distance);
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "Sound was not launched, can't get max_distance!");
+	return (0.f);
+}
+
+const float CScriptSound::GetVolume() const
+{
+	VERIFY(m_sound._handle());
+	const CSound_params* l_tpSoundParams = m_sound.get_params();
+	if (l_tpSoundParams)
+		return (l_tpSoundParams->volume);
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "Sound was not launched, can't get volume!");
+	return (0.f);
+}
+
 void CScriptSound::Play(CScriptGameObject* object, float delay, int flags)
 {
 	THROW3(m_sound._handle(), "There is no sound", *m_caSoundToPlay);
