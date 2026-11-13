@@ -107,6 +107,7 @@ public:
 	IC void restore_threshold();
 	IC void set_min_threshold(float threshold);
 	IC void set_factor(int sound_type, float factor);
+	IC float threshold() const;
 
 public:
 	void save(NET_Packet& packet) const;

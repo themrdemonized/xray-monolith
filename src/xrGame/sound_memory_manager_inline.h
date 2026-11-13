@@ -74,3 +74,8 @@ IC void CSoundMemoryManager::set_factor(int sound_type, float factor)
 	if ((sound_type & SOUND_TYPE_ANOMALY) == SOUND_TYPE_ANOMALY) m_anomaly_factor = factor;
 	if ((sound_type & SOUND_TYPE_WORLD) == SOUND_TYPE_WORLD) m_world_factor = factor;
 }
+
+IC float CSoundMemoryManager::threshold() const
+{
+	return m_sound_threshold;
+}

@@ -705,6 +705,7 @@ public:
 	void set_sound_threshold_floor(float value);
 	void set_sound_factor(int sound_type, float value);
 	void restore_hearing();
+	float get_sound_threshold() const;
 	//////////////////////////////////////////////////////////////////////////
 	void enable_attachable_item(bool value);
 	bool attachable_item_enabled() const;

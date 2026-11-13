@@ -399,6 +399,18 @@ void CScriptGameObject::restore_hearing()
 	monster->memory().sound().restore_threshold();
 }
 
+float CScriptGameObject::get_sound_threshold() const
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSoundMemoryManager : cannot access class member get_sound_threshold!");
+		return -1.f;
+	}
+	return monster->memory().sound().threshold();
+}
+
 void CScriptGameObject::SetStartDialog(LPCSTR dialog_id)
 {
 	CAI_PhraseDialogManager* pDialogManager = smart_cast<CAI_PhraseDialogManager*>(&object());
