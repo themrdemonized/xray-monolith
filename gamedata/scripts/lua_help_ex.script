@@ -445,6 +445,14 @@
         table GetQuickSlotIcons()
     }
 
+    class CUITextWnd: CUIWindow {
+        // antglobes
+        float GetTextWidth() // Get the width of the current text
+        float GetTextHeight() //  Get the height of the current text
+        Fvector2 GetTextSize() // Get both the width and height of the current text as a 2D vector
+
+    }
+
     class CGameTask {
         int get_type() // the task type set by set_type
     }
