@@ -1024,8 +1024,6 @@
         void set_sound_factor(number snd_type, float factor) // Stalkers. Per-object override of one sound_perceive_section factor, picked by the family bit of snd_type (snd_type.weapon, item, monster, anomaly, world), multiplied into the power before the keep compare. Not serialized, re-set on spawn.
         void restore_hearing() // Stalkers. Re-reads sound_threshold and the five factors from the object's own section and resets the live threshold to the floor.
         float get_sound_threshold() // Stalkers. The live keep threshold the next sound is compared against (rises to the last kept power, decays back to the floor). -1 on a non-monster.
-        void set_max_hear_dist(float dist) // Monsters. Per-instance override of the species max_hear_dist cap checked in feel_sound_new; < 0 restores the species value. Not serialized, re-set on spawn.
-        void restore_max_hear_dist() // Monsters. Drops the per-instance cap.
         void set_vision_speed(float factor) // Per-object vision-speed factor multiplied into get_visible_value on top of the ai_vision_speed_boost cvar. 1.0 = vanilla, higher spots faster, negative clamps to 0. Persists while online; re-set on spawn (memory manager is rebuilt when the NPC comes back online).
         void set_visible_enemy_bias(float actor_bias, float npc_bias) // Per-object override of the enemy-selection bias toward whoever can see the NPC. actor_bias replaces the default 900 subtracted when the actor sees this NPC. npc_bias replaces the default 300 for another NPC that sees it. Each arg is independent, a negative one keeps that side vanilla (900 / 300). 0 removes the pull. Not serialized, re-set on spawn.
         void set_hit_redirect(float max, float falloff) // Per-object bonus toward the last attacker in enemy selection, replacing the flat CQB step. max < 0 keeps vanilla. max >= 0 subtracts max*(1 - d2/falloff^2) from the attacker cost within falloff metres, so a close attacker is prioritised and a distant one fades to 0. The victim turns toward the shooter without a forced sighting. Not serialized, re-set on spawn.
@@ -1040,6 +1038,10 @@
         
         // CBaseMonster - rear-strike lever. Default = exact vanilla; not serialized, re-apply on net_spawn.
         void set_monster_melee_strike(string anim_left, string anim_right, float rear_arc_deg) // Arms the dormant rear-strike component (CControlMeleeJump, registered for every species but inert without motions): with the enemy in the rear cone under 4m the monster spin-strikes left or right, rate-limited 500-1000ms. rear_arc_deg sizes that cone (the enemy must sit beyond 180 - arc/2 degrees off the front); <= 0 keeps 120. Pass the model's own strike motions; an unknown motion name stays invalid and the component keeps refusing. Damage comes from the motions' attack_params rows - a motion without a row deals the first row's numbers, so supply motions that have rows.
+
+        // CBaseMonster - hearing cap. Default = exact vanilla; not serialized, re-apply on net_spawn.
+        void set_max_hear_dist(float dist) // Per-instance override of the species max_hear_dist cap checked in feel_sound_new; < 0 restores the species value.
+        void restore_max_hear_dist() // Drops the per-instance cap.
         
         // CBaseMonster - FSM and combat-state readers. All return -1 / false on a non-monster object.
         number get_monster_state() // Deepest resolved FSM state id (EMonsterState) via StateMan->get_state_type(): recurses into the current substate, so an attacking monster reports the substate it runs (e.g. Attack_Run, Attack_Melee), not just eStateAttack. eStateUnknown while no state is active.
