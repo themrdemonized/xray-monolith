@@ -853,4 +853,89 @@
 		DelayNormal,
 		NoSharedDelay,
 	};
+
+	-- ImPlot: real XY plots (axes, legend, zoom) built on ImGui. Series take parallel 1-based number arrays (xs, ys) plus their count.
+	-- A plot or setup call outside a BeginPlot/EndPlot pair is ignored, a setup call after the first series too, and BeginPlot returns false inside an open plot.
+	namespace ImPlot
+	{
+		bool BeginPlot(string title, vector2 size, ImPlotFlags flags)
+		void EndPlot() -- call only when BeginPlot returned true
+		void SetupAxes(string x_label, string y_label, ImPlotAxisFlags x_flags, ImPlotAxisFlags y_flags)
+		void SetupAxisLimits(ImAxis axis, number v_min, number v_max, ImPlotCond cond) -- ignored for an out-of-range or disabled axis
+		void SetupAxisTicks(ImAxis axis, table values, table labels, number count, bool keep_default) -- labels may be nil; stops at the first non-number value or non-string label
+		void SetupLegend(ImPlotLocation location, ImPlotLegendFlags flags)
+		void SetNextLineStyle(fcolor color, number weight) -- applies to the next series only; weight <= 0 keeps the default
+		void SetNextFillStyle(fcolor color, number alpha) -- applies to the next series only; alpha clamped to 0..1
+		bool IsPlotHovered() -- call after the series
+		vector2 GetPlotMousePos() -- mouse in plot units on X1/Y1; call after the series
+		void PlotLine(string label, table xs, table ys, number count)
+		void PlotShaded(string label, table xs, table ys, number count, number yref)
+		void PlotShadedBand(string label, table xs, table ys1, table ys2, number count) -- fills between ys1 and ys2
+		void PlotScatter(string label, table xs, table ys, number count)
+		void PlotBars(string label, table xs, table ys, number count, number bar_size)
+		void PlotBars(string label, table xs, table ys, number count, number bar_size, ImPlotBarsFlags flags)
+	};
+
+	enum ImPlotFlags {
+		None,
+		NoTitle,
+		NoLegend,
+		NoMouseText,
+		NoInputs,
+		NoMenus,
+		NoBoxSelect,
+		Crosshairs,
+		CanvasOnly,
+	};
+
+	enum ImPlotAxisFlags {
+		None,
+		NoLabel,
+		NoGridLines,
+		NoTickMarks,
+		NoTickLabels,
+		Opposite,
+		AutoFit,
+		NoDecorations,
+	};
+
+	enum ImPlotCond {
+		None,
+		Always,
+		Once,
+	};
+
+	enum ImAxis {
+		X1,
+		X2,
+		X3,
+		Y1,
+		Y2,
+		Y3,
+	};
+
+	enum ImPlotBarsFlags {
+		None,
+		Horizontal,
+	};
+
+	enum ImPlotLegendFlags {
+		None,
+		NoButtons,
+		NoMenus,
+		Outside,
+		Horizontal,
+	};
+
+	enum ImPlotLocation {
+		Center,
+		North,
+		South,
+		West,
+		East,
+		NorthWest,
+		NorthEast,
+		SouthWest,
+		SouthEast,
+	};
 ]]
