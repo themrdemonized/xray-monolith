@@ -14,10 +14,38 @@
 #include "camerafirsteye.h"
 #include "level.h"
 #include "../xrEngine/cameramanager.h"
-
-#ifdef CAR_NEW
 #include "../Include/xrRender/Kinematics.h"
-#endif
+
+// Third-person cameras orbit the middle of the car, slightly above the roof line, instead of the driver's
+// head (camera_pos), so the view is symmetric. car_definition "chase_camera_pivot" (object space) overrides it.
+Fvector CCar::ChaseCameraPivot()
+{
+	Fvector P;
+	if (!m_vho.enabled)
+	{
+		// stock: orbit the driver's head
+		XFORM().transform_tiny(P, m_camera_position);
+		return P;
+	}
+	CInifile* ini = smart_cast<IKinematics*>(Visual())->LL_UserData();
+	if (ini && ini->line_exist("car_definition", "chase_camera_pivot"))
+	{
+		XFORM().transform_tiny(P, ini->r_fvector3("car_definition", "chase_camera_pivot"));
+		return P;
+	}
+	Fvector local;
+	if (m_vho.s.chase_pivot_ok)
+		local = m_vho.s.chase_pivot;
+	else
+	{
+		const Fbox& box = BoundingBox();
+		box.getcenter(local);
+		local.y = box.min.y + (box.max.y - box.min.y) * 0.8f;
+	}
+	local.y += m_vho.p.camera_raise;
+	XFORM().transform_tiny(P, local);
+	return P;
+}
 
 bool CCar::HUDView() const
 {
@@ -32,6 +60,9 @@ void CCar::cam_Update(float dt, float fov)
 	Fvector P, Da;
 	Da.set(0, 0, 0);
 	//bool							owner = !!Owner();
+	// the car camera's collision fix only runs with the handling overhaul; otherwise it is the stock camera
+	static_cast<CCameraCarLook*>(camera[ectChase])->m_overhaul = m_vho.enabled;
+	static_cast<CCameraCarLook*>(camera[ectFree])->m_overhaul = m_vho.enabled;
 
 #ifdef CAR_NEW
     u16 bone_id = GetCameraBone();
@@ -57,7 +88,7 @@ void CCar::cam_Update(float dt, float fov)
 		case ectChase:
 		case ectFree:
 		{
-			XFORM().transform_tiny(P, m_camera_position);
+			P = ChaseCameraPivot();
 		}
 		break;
 		}
@@ -69,7 +100,14 @@ void CCar::cam_Update(float dt, float fov)
 	}
 #endif
 
-	XFORM().transform_tiny(P, m_camera_position);
+	if (active_camera->tag == ectFirst)
+	{
+		Fvector eye = m_camera_position;
+		if (m_vho.enabled) eye.y += m_vho.p.camera_raise; // handling overhaul: per-vehicle seat height tweak
+		XFORM().transform_tiny(P, eye);
+	}
+	else
+		P = ChaseCameraPivot();
 
 	switch (active_camera->tag)
 	{

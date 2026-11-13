@@ -812,6 +812,20 @@ depth##ox=sidePr-dFabs(dist##ox);\
 		contact->pos[2] = pos[2];
 	}
 
+	// Each triangle is tested alone and the axis of least overlap wins, so a wheel a few mm over an edge shared with the next
+	// triangle of a smooth road can get an axis of that edge: often near level and along its axle, on flat ground with nothing
+	// there. Sliding sideways into it stops the wheel dead in one step (tools/vho_tests/ode_experiment/wheel_ghost_test.py).
+	// A face looking up holds a tyre only along its own normal. Steep faces are real obstacles and stay as they are.
+	{
+		const dReal ground = dGeomGetUserData(o1)->tyre_ground;
+		if (code && ground > 0.f && triAx[1] > ground && dDOT(norm, triAx) > -0.95f)
+		{
+			norm[0] = -triAx[0];
+			norm[1] = -triAx[1];
+			norm[2] = -triAx[2];
+		}
+	}
+
 	if ((int)ret > maxc) ret = (unsigned int)maxc;
 
 	for (unsigned int i = 0; i < ret; ++i)

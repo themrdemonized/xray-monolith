@@ -16,6 +16,7 @@
 #include "../../../CharacterPhysicsSupport.h"
 #include "../control_path_builder_base.h"
 #include "inventory_item.h"
+#include "../../../CarPush.h"
 
 #include "script_hit.h"
 #include "pch_script.h"
@@ -349,6 +350,8 @@ void CPseudoGigant::on_threaten_execute()
 		}
 
 		if (!obj || !obj->m_pPhysicsShell || (itm && itm->IsQuestItem())) continue;
+		float push = vehicle_push_scale(obj, this); // cars: the giant's share (VHO); 1 for anything else
+		if (push <= 0.f) continue;
 
 		Fvector dir;
 		Fvector pos;
@@ -356,7 +359,7 @@ void CPseudoGigant::on_threaten_execute()
 		pos.y += 2.f;
 		dir.sub(pos, Position());
 		dir.normalize();
-		obj->m_pPhysicsShell->applyImpulse(dir, 20 * obj->m_pPhysicsShell->getMass());
+		obj->m_pPhysicsShell->applyImpulse(dir, push * 20 * obj->m_pPhysicsShell->getMass());
 	}
 
 	// играть звук

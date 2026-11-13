@@ -5,6 +5,7 @@
 #include "../../../material_manager.h"
 #include "../../../level_debug.h"
 #include "inventory_item.h"
+#include "../../../CarPush.h"
 
 
 CPolterSpecialAbility::CPolterSpecialAbility(CPoltergeist* polter)
@@ -123,6 +124,7 @@ void CPoltergeist::PhysicalImpulse(const Fvector& position)
 	CInventoryItem* itm = smart_cast<CInventoryItem*>(obj);
 	if (!obj || !obj->m_pPhysicsShell) return;
 	if (itm && itm->IsQuestItem()) return;
+	if (vehicle_blocks_push(obj, this)) return;
 
 	Fvector dir;
 	dir.sub(obj->Position(), position);

@@ -28,6 +28,10 @@ public:
 	float val_fCustomFOV;
 	BOOL val_bInvisible;
 	BOOL val_bRecordMP; // record nearest for multi-pass
+	BOOL val_bRainOccluder; // filling the rain occlusion map with a sheltering object (renderable.rain_occluder)
+	float val_fRainLift; // m that object is drawn above itself there (renderable.rain_lift)
+	// per vertex layout, the shadow element of an opaque part seen on a rain occluder (see rain_cover_element)
+	xr_vector<std::pair<ref_declaration, ref_selement>> rain_cover;
 	R_feedback* val_feedback; // feedback for geometry being rendered
 	u32 val_feedback_breakp; // breakpoint
 	xr_vector<Fbox3,render_alloc<Fbox3>>* val_recorder; // coarse structure recorder
@@ -152,6 +156,8 @@ public:
 		val_bCamAttached = FALSE;
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
+		val_bRainOccluder = FALSE;
+		val_fRainLift = 0.f;
 		val_fCustomFOV = 0.f;
 		val_feedback = 0;
 		val_feedback_breakp = 0;
@@ -161,8 +167,11 @@ public:
 		b_loaded = FALSE;
 	};
 
+	ShaderElement* rain_cover_element(dxRender_Visual* pVisual, ShaderElement* sh);
+
 	void r_dsgraph_destroy()
 	{
+		rain_cover.clear();
 		nrmVS.clear();
 		nrmPS.clear();
 		nrmCS.clear();

@@ -96,6 +96,13 @@ void SCarLight::TurnOff()
 	smart_cast<IKinematics*>(m_holder->PCar()->Visual())->LL_SetBoneVisible(bone_id,FALSE,TRUE);
 }
 
+bool CCarLights::AnyOn()
+{
+	for (SCarLight* l : m_lights)
+		if (l->isOn()) return true;
+	return false;
+}
+
 bool SCarLight::isOn()
 {
 	VERIFY(!physics_world()->Processing());
