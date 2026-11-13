@@ -6,12 +6,13 @@ options_builder.import_into(this)
 -- Options page
 PAGE = page {
 	{ id = "ui_hud" },
-	list_bool {id = "g_draw_pickup_item_names"},
+	list_bool { id = "g_draw_pickup_item_names", def = "1" },
 	list_bool {
 		id = "use_english_text_for_missing_translations",
+		def = "1",
 		restart = true,
 	},
-	list_bool { id = "pda_show_map_labels" },
+	list_bool { id = "pda_show_map_labels", def = "1" },
 	list_bool { id = "g_loading_screen_early", def = "0" },
 	list_bool { id = "hud_ik_compensation", def = "0" },
 

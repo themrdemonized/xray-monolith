@@ -159,7 +159,7 @@ BIND_FUNCTION10(&object(), CScriptGameObject::GetEnemyStrength, CScriptEntity, g
 BIND_FUNCTION10(&object(), CScriptGameObject::GetActionCount, CScriptEntity, GetActionCount, u32, 0);
 BIND_FUNCTION10(&object(), CScriptGameObject::can_script_capture, CScriptEntity, can_script_capture, bool, 0);
 
-BOOL print_bone_warnings = TRUE;
+BOOL print_bone_warnings = FALSE;
 
 u32 CScriptGameObject::level_vertex_id() const
 {
