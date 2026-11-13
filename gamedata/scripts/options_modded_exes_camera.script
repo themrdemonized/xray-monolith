@@ -11,4 +11,9 @@ PAGE = page {
 		step = 0.01,
 	},
 	list_bool { id = "freelook_while_reloading" },
+	track {
+		id = "cam_attached_fov",
+		def = 1,
+		step = 0.01,
+	},
 }

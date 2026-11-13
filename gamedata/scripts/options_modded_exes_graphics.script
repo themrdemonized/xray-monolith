@@ -41,12 +41,12 @@ PAGE = filter_false(page {
 
 	get_item_if_exists(track {
 		id = "r__ssa_discard",
-		def = 10,
+		def = 7,
 		step = 1,
 	}),
 	get_item_if_exists(track {
 		id = "r__ssa_discard_exp",
-		def = 1,
+		def = 0.5,
 		step = 0.1,
 	}),
 	get_item_if_exists(track {
@@ -65,6 +65,7 @@ PAGE = filter_false(page {
 	list_bool { id = "r__actor_shadow_in_demo_record"},
 	list_bool { id = "g_use_non_linear_inertia"},
 	get_item_if_exists(list_bool { id = "pfx_volumetric_mode"}),
+	get_item_if_exists(check { id = "r2_lights_details" }),
 
 	line {},
 

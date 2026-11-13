@@ -27,6 +27,12 @@ PAGE = filter_false(page {
 	list_bool { id = "mt_update_weapon_sounds" },
 	get_item_if_exists(list_bool { id = "r__optimize_torch" }),
 	get_item_if_exists(list_bool { id = "r2_shadow_omnipart_vischeck" }),
+	get_item_if_exists(list_bool { id = "hud_frequent_updates", def = "1", restart = true }),
+	get_item_if_exists(track {
+		id = "r4_full_detail_distance_scale",
+		def = 0.5,
+		step = 0.05,
+	}),
 
 	line{},
 
@@ -55,13 +61,18 @@ PAGE = filter_false(page {
 	get_item_if_exists(list_bool { id = "r__tex_evict_enabled" }),
 	get_item_if_exists(track {
 		id = "r__tex_evict_age_frames",
-		def = 1024,
-		step = 32,
+		def = 1800,
+		step = 60,
 	}),
 	get_item_if_exists(track {
 		id = "r__tex_evict_batch_size",
-		def = 1024,
-		step = 32,
+		def = 200,
+		step = 10,
+	}),
+	get_item_if_exists(track {
+		id = "r__tex_evict_interval",
+		def = 600,
+		step = 60,
 	}),
 	list_bool { id = "dltx_use_cache" },
 	track {
