@@ -194,6 +194,11 @@ public:
 
 	virtual void ColorAnimationSetTextColor(u32 color, bool only_alpha);
 
+    // antglobes
+    float GetTextWidth() { return TextItemControl().GetTextWidth(); }
+    float GetTextHeight() { return TextItemControl().GetTextHeight(); }
+    Fvector2 GetTextSize() { return TextItemControl().GetTextSize(); }
+
 	CUILines& TextItemControl() { return m_lines; }
 
 
