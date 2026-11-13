@@ -68,7 +68,15 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetTextAlignment", &CUITextWnd::SetTextAlignment)
 		.def("SetVTextAlignment", &CUITextWnd::SetVTextAlignment)
 		.def("SetEllipsis", &CUITextWnd::SetEllipsis)
-		.def("SetTextOffset", &CUITextWnd::SetTextOffset),
+		.def("SetTextOffset", &CUITextWnd::SetTextOffset)
+        // antglobes: Get the width of the current text
+        .def("GetTextWidth", &CUITextWnd::GetTextWidth)
+        // antglobes: Get the height of the current text
+        .def("GetTextHeight", &CUITextWnd::GetTextHeight)
+        // antglobes: Get both the width and height of the current text as a 2D vector
+        .def("GetTextSize", &CUITextWnd::GetTextSize)
+
+        ,
 		//		.def("",					&CUITextWnd::)
 
 		class_<CUI3dStatic, CUIStatic>("CUI3dStatic")
