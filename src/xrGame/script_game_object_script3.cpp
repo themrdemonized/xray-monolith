@@ -128,6 +128,9 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("vision_enabled", SAFE_WRAP(&CScriptGameObject::vision_enabled))
 		.def("set_sound_threshold", SAFE_WRAP(&CScriptGameObject::set_sound_threshold))
 		.def("restore_sound_threshold", SAFE_WRAP(&CScriptGameObject::restore_sound_threshold))
+		.def("set_sound_threshold_floor", SAFE_WRAP(&CScriptGameObject::set_sound_threshold_floor))
+		.def("set_sound_factor", SAFE_WRAP(&CScriptGameObject::set_sound_factor))
+		.def("restore_hearing", SAFE_WRAP(&CScriptGameObject::restore_hearing))
 
 		// sight manager
 		.def("set_sight",

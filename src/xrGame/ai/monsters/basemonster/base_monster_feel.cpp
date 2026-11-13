@@ -45,7 +45,7 @@ void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr us
 	Fvector center;
 	Center(center);
 	float dist = center.distance_to(Position);
-	if (dist > db().m_max_hear_dist) return;
+	if (dist > max_hear_dist()) return;
 
 	// ignore sounds if not from enemies and not help sounds
 	CEntityAlive* entity = smart_cast<CEntityAlive*>(who);

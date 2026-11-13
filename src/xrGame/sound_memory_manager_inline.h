@@ -58,3 +58,19 @@ IC void CSoundMemoryManager::restore_threshold()
 	m_sound_threshold = m_min_sound_threshold;
 	VERIFY(_valid(m_sound_threshold));
 }
+
+IC void CSoundMemoryManager::set_min_threshold(float threshold)
+{
+	m_min_sound_threshold = threshold;
+	m_sound_threshold = m_min_sound_threshold;
+	VERIFY(_valid(m_sound_threshold));
+}
+
+IC void CSoundMemoryManager::set_factor(int sound_type, float factor)
+{
+	if ((sound_type & SOUND_TYPE_WEAPON) == SOUND_TYPE_WEAPON) m_weapon_factor = factor;
+	if ((sound_type & SOUND_TYPE_ITEM) == SOUND_TYPE_ITEM) m_item_factor = factor;
+	if ((sound_type & SOUND_TYPE_MONSTER) == SOUND_TYPE_MONSTER) m_npc_factor = factor;
+	if ((sound_type & SOUND_TYPE_ANOMALY) == SOUND_TYPE_ANOMALY) m_anomaly_factor = factor;
+	if ((sound_type & SOUND_TYPE_WORLD) == SOUND_TYPE_WORLD) m_world_factor = factor;
+}

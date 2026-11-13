@@ -146,6 +146,7 @@ void CBaseMonster::Load(LPCSTR section)
 	}
 
 	m_force_anti_aim = false;
+	m_max_hear_dist_override = -1.f;
 }
 
 void CBaseMonster::PostLoad(LPCSTR section)

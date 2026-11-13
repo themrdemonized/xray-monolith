@@ -464,3 +464,15 @@ void CScriptGameObject::set_monster_melee_strike(LPCSTR anim_left, LPCSTR anim_r
 	float arc = (rear_arc_deg > 0.f) ? rear_arc_deg : 120.f;
 	monster->set_melee_face_eps((180.f - arc * 0.5f) * 0.0174532925f);
 }
+
+void CScriptGameObject::set_max_hear_dist(float value)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster *>(&object());
+	if (monster) monster->set_max_hear_dist(value);
+}
+
+void CScriptGameObject::restore_max_hear_dist()
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster *>(&object());
+	if (monster) monster->restore_max_hear_dist();
+}

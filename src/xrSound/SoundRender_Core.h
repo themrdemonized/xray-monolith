@@ -36,6 +36,7 @@ public:
 	float fTimer_Value;
 	float fTimer_Delta;
 	sound_event* Handler;
+	xr_map<int, std::pair<float, float>> s_ai_ranges; // game_type -> (min_m, max_m), written by script, read once at emitter start
 protected:
 	// Collider
 #ifndef _EDITOR
@@ -92,6 +93,9 @@ public:
 	virtual void set_geometry_som(IReader* I);
 	virtual void set_geometry_occ(CDB::MODEL* M);
 	virtual void set_handler(sound_event* E);
+	virtual void set_ai_range(int game_type, float min_m, float max_m);
+	virtual void clear_ai_ranges();
+	float ai_range(int game_type, float max_ai_distance) const;
 
 	virtual void update(const Fvector& P, const Fvector& D, const Fvector& N);
 	virtual void update_events();
