@@ -121,6 +121,35 @@ void dx10StateManager::BindAlphaRef(R_constant* C)
 	if (m_cAlphaRef) RCache.set_c(m_cAlphaRef, (float)m_uiAlphaRef / 255.0f);
 }
 
+//	Runtime override for DepthClipEnable (console: r3_depth_clip).
+//	Every rasterizer state - baked into shader passes at load time or built here from m_RDesc -
+//	passes through Apply(), so enforcing the flag here covers all passes without recreating
+//	shaders. Variants are created once and cached by RSManager (its hash includes the flag).
+//	Runs only when the rasterizer state changes, not per draw call.
+void dx10StateManager::ApplyDepthClipOverride()
+{
+	const BOOL bWanted = ps_r3_depth_clip ? TRUE : FALSE;
+
+	D3D_RASTERIZER_DESC desc;
+	if (m_pRState)
+		m_pRState->GetDesc(&desc);
+	else
+	{
+		// NULL binds the D3D default rasterizer state. dx10StateUtils::ResetDescription() matches it
+		// except for MultisampleEnable (enabled there under MSAA, FALSE in the D3D default), so set
+		// the defaults explicitly to make the override differ from NULL only in DepthClipEnable.
+		dx10StateUtils::ResetDescription(desc);
+		desc.DepthClipEnable = TRUE;
+		desc.MultisampleEnable = FALSE;
+	}
+
+	if (desc.DepthClipEnable == bWanted)
+		return;
+
+	desc.DepthClipEnable = bWanted;
+	m_pRState = RSManager.GetState(desc);
+}
+
 void dx10StateManager::ValidateRDesc()
 {
 	if (m_bRDInvalid)
@@ -171,6 +200,8 @@ void dx10StateManager::Apply()
 			m_pRState = RSManager.GetState(m_RDesc);
 			m_bRSChanged = false;
 		}
+
+		ApplyDepthClipOverride();
 
 		HW.pContext->RSSetState(m_pRState);
 		m_bRSNeedApply = false;
