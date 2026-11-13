@@ -1072,6 +1072,11 @@ public:
 			return;
 		}
 
+		if (MainMenu()->IsSceneLive())
+		{
+			Msg("! Cannot save a live menu presentation scene");
+			return;
+		}
 		Console->Execute("stat_memory");
 
 		string_path S, S1;

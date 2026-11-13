@@ -1,0 +1,9 @@
+# R1 Menu API Test 0.1.0
+
+Small test fixture: two game files, no DLL, models, textures or MCM. Lua freezes an already loaded single-player level and drives an orbit with real time. XML preserves the stock layout and names its background for temporary hiding. Ordinary Modded Exes lacks this API: the R1_menu_presentation_api EXE is required.
+
+Install only into an isolated Anomaly 1.5.3 test environment with R1 Menu Presentation API DX11 x64. Extract gamedata, load a separate save and open the pause/main menu. ESC returns to gameplay. The external automated runner selects an explicit NPC through r1_menu_api_test.set_subject(id); the actor is the default center. The addon creates no NPC and writes no save state. Verified aspect ratio will be recorded in the report.
+
+Removal: close the test game, remove the two addon files and restore the original EXE. ui_mm_main.xml overlaps with other main-menu addons; this is a clean-room fixture. Stock Anomaly UI / GSC Game World, Serhiy Vynnychenko and Tronex; layout and existing credits are retained. R1 Lua is a test integration, not the complete R1 3D Menu.
+
+Agent verification on 2026-10-13: 34 automated checks in ordinary Anomaly 1.5.3, DX11 x64, 1280×720 on a private desktop. Two frames from the same pause show an NPC beneath transparent UI from different angles while the world clock remains fixed; a third frame shows reopening. Gameplay return, HUD restoration, saving and cold loading passed. The original API matrix previously passed another 45 checks on the same EXE. EXE SHA-256: 6486ed75b92d196961677c6587c9c13338881cffaa323c1490f999542a65a097. All particle/audio effects, death, transitions, UI reload, MT, other renderers, modpacks and physical input remain unverified. Stock pause alone does not prove that absolutely every effect stops.

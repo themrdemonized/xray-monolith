@@ -121,6 +121,7 @@ extern CUISequencer* g_tutorial2;
 
 void CLevel::net_Stop()
 {
+	MainMenu()->ResetScene();
 	Msg("- Disconnect");
 
 	if (CurrentGameUI())
