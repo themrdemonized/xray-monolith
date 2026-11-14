@@ -1,0 +1,15 @@
+-- The status functor only runs on k00_marsh, so everything it creates is on that level.
+
+local base_gd_task_status_functor
+
+local function gd_task_status_functor(tsk, task_id)
+	return level_placement.on_level("k00_marsh", base_gd_task_status_functor, tsk, task_id)
+end
+
+function on_game_start()
+	if not tasks_pump_station_defense then
+		return
+	end
+	base_gd_task_status_functor = task_status_functor.gd_task_status_functor
+	task_status_functor.gd_task_status_functor = gd_task_status_functor
+end

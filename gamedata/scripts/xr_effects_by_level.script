@@ -1,0 +1,50 @@
+-- pos_itms key = level
+local ITEM_LEVELS = {
+	drx_x8_documents        = "labx8",
+	drx_x16_documents       = "l08u_brainlab",
+	drx_x18_documents       = "l04u_labx18",
+	drx_x19_documents       = "l10u_bunker",
+	drx_agr_u_documents     = "l03u_agr_underground",
+	drx_jup_u_documents     = "jupiter_underground",
+	lx8_history_documents   = "labx8",
+	lx8_history_2_documents = "labx8",
+	lx8_history_3_documents = "labx8",
+	wpn_gauss_quest         = "zaton",
+}
+
+-- xr_effects functions with literal ids = level of everything they create or travel to
+local FUNCTION_LEVELS = {
+	spawn_strelok_notes     = "l03u_agr_underground",
+	spawn_wpn_gauss_quest   = "zaton",
+	spawn_x8_documents      = "labx8",
+	spawn_monolith_shard    = "l12u_control_monolith",
+	spawn_stitch_decoder    = "k02_trucks_cemetery",
+	spawn_contact_lost_pda  = "l10_limansk",
+	spawn_jupiter_documents = "jupiter",
+	make_a_wish             = "k00_marsh",
+}
+
+local base_spawn_item_at_pos
+
+local function spawn_item_at_pos(actor, npc, p)
+	local items = xr_effects.pos_itms
+	local name = p and p[1]
+	if items and name and items[name] and ITEM_LEVELS[name] and not level_placement.resolve(items[name], ITEM_LEVELS[name]) then
+		return
+	end
+	return base_spawn_item_at_pos(actor, npc, p)
+end
+
+function on_game_start()
+	base_spawn_item_at_pos = xr_effects.spawn_item_at_pos
+	xr_effects.spawn_item_at_pos = spawn_item_at_pos
+
+	for name, level_name in pairs(FUNCTION_LEVELS) do
+		local base = xr_effects[name]
+		if base then
+			xr_effects[name] = function(...)
+				return level_placement.on_level(level_name, base, ...)
+			end
+		end
+	end
+end

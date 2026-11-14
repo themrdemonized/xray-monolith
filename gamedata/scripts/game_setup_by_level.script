@@ -1,0 +1,25 @@
+-- Replaces the function: its ids are literals.
+
+local function freedom_medic_fix()
+	if not alife_storage_manager.get_state().freedom_medic_fix then
+		alife_storage_manager.get_state().freedom_medic_fix = true
+		for i=1,65534 do
+			local se = alife():object(i)
+			if se then
+				if se:name() == 'mil_physic_object_0048' then
+					alife():release(se)
+				elseif se:name() == 'sc_freedom_medic_mlr' then
+					local pos = vector():set(27.681089401245, -6.9381303787231, 17.38550567627)
+					local lvid, gvid = level_placement.vertices("l07_military", pos)
+					if lvid then
+						alife():teleport_object(i, gvid, lvid, pos)
+					end
+				end
+			end
+		end
+	end
+end
+
+function on_game_start()
+	game_setup.freedom_medic_fix = freedom_medic_fix
+end

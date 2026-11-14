@@ -1,0 +1,30 @@
+local LEVELS = {
+	spawn_wpn_ak74_jurov_task_2_1                = "l01_escape",
+	spawn_wpn_ak74_jurov_task_2_2                = "l01_escape",
+	spawn_wpn_ak74_jurov_task_2_3                = "l01_escape",
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_1 = "l01_escape",
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_2 = "l01_escape",
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_3 = "l01_escape",
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_4 = "l01_escape",
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_5 = "l01_escape",
+}
+
+local base_aditional_spawn
+
+local function aditional_spawn(name)
+	local tbl = dialogs_lostzone.aditional_spawn_table
+	local items = tbl and tbl[name]
+	if items and LEVELS[name] then
+		for _, t in pairs(items) do
+			if not level_placement.resolve(t, LEVELS[name]) then
+				return
+			end
+		end
+	end
+	return base_aditional_spawn(name)
+end
+
+function on_game_start()
+	base_aditional_spawn = dialogs_lostzone.aditional_spawn
+	dialogs_lostzone.aditional_spawn = aditional_spawn
+end
