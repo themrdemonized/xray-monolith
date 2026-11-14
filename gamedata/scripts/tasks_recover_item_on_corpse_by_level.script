@@ -1,4 +1,4 @@
--- level_coordinate_N overrides level_name for one coordinate.
+-- level_coordinate_N overrides level_name for one coordinate (rioc_garbage_coords lie on y04_pole).
 
 local base_parse_settings
 
