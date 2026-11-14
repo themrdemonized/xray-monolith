@@ -12,6 +12,7 @@
 #include "../xrRender/gifPlayer.h"
 
 #include "../xrRender/dxRenderDeviceRender.h"
+#include "dx10PageableTexture.h"
 
 #include "StateManager/dx10ShaderResourceStateCache.h"
 
@@ -43,6 +44,8 @@ CTexture::CTexture()
 	flags.bUser = false;
 	flags.seqCycles = FALSE;
 	flags.bLoadedAsStaging = FALSE;
+	flags.bPageable = FALSE;
+	m_pageable = nullptr;
 	m_material = 1.0f;
 	bind = fastdelegate::FastDelegate1<u32>(this, &CTexture::apply_load);
 }
@@ -121,8 +124,7 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 
 ID3DBaseTexture* CTexture::surface_get()
 {
-	if (flags.bLoadedAsStaging)
-		ProcessStaging();
+	EnsureGpuTexture();
 
 	if (pSurface) pSurface->AddRef();
 	return pSurface;
@@ -227,10 +229,45 @@ void CTexture::ProcessStaging()
 	_RELEASE(pTargetSurface);
 }
 
-void CTexture::Apply(u32 dwStage)
+void CTexture::EnsureGpuTexture()
 {
 	if (flags.bLoadedAsStaging)
 		ProcessStaging();
+	else if (flags.bPageable)
+		UploadPageable();
+}
+
+void CTexture::UploadPageable()
+{
+	if (!m_pageable)
+	{
+		flags.bPageable = FALSE;
+		return;
+	}
+
+	ID3DTexture2D* tex = nullptr;
+	const HRESULT hr = dx_pageable_upload(m_pageable, &tex);
+	if (FAILED(hr) || !tex)
+	{
+		static volatile long reported = 0;
+		if (InterlockedCompareExchange(&reported, 1, 0) == 0)
+			Msg("! pageable texture upload failed [%s], HRESULT 0x%08x", cName.c_str(), (u32)hr);
+		if (tex)
+			tex->Release();
+		return;
+	}
+
+	// CreateTexture2D has copied the pixels, so the CPU image can go away
+	// before the shader-resource view is built.
+	dx_pageable_free(m_pageable);
+	flags.bPageable = FALSE;
+	surface_set(tex);
+	_RELEASE(tex);
+}
+
+void CTexture::Apply(u32 dwStage)
+{
+	EnsureGpuTexture();
 
 	//if( !RImplementation.o.dx10_msaa )
 	//   VERIFY( !((!pSurface)^(!m_pSRView)) );	//	Both present or both missing
@@ -398,7 +435,9 @@ void CTexture::Load()
 {
 	flags.bLoaded = true;
 	desc_cache = 0;
-	if (pSurface) return;
+	// Pageable textures have no pSurface yet. A second DeferredUpload must not
+	// decode them again; the STAGING path was protected by the pSurface check.
+	if (pSurface || m_pageable) return;
 
 	flags.bUser = false;
 	flags.MemoryUsage = 0;
@@ -579,9 +618,22 @@ void CTexture::Load()
 		// Normal texture
 		u32 mem = 0;
 		//pSurface = ::RImplementation.texture_load	(*cName,mem);
-		pSurface = ::RImplementation.texture_load(*cName, mem, true);
+		DxPageableTexture* pageable = nullptr;
+		pSurface = ::RImplementation.texture_load(*cName, mem, true, &pageable);
 
-		if (GetUsage() == D3D_USAGE_STAGING)
+		if (pageable)
+		{
+			// Same residency timing as the STAGING path (GPU copy on first use),
+			// but the waiting copy is a normal allocation instead of a D3D
+			// STAGING resource. DXVK backs STAGING with unswappable host memory.
+			m_pageable = pageable;
+			flags.bPageable = TRUE;
+			flags.MemoryUsage = mem > 0x0fffffffu ? 0x0fffffffu : mem;
+			desc = pageable->desc;
+			desc_cache = pSurface;
+			bCreateView = false;
+		}
+		else if (GetUsage() == D3D_USAGE_STAGING)
 		{
 			flags.bLoadedAsStaging = TRUE;
 			bCreateView = false;
@@ -611,6 +663,8 @@ void CTexture::Unload()
 
 	flags.bLoaded = FALSE;
 	flags.bLoadedAsStaging = FALSE;
+	flags.bPageable = FALSE;
+	dx_pageable_free(m_pageable);
 	if (!seqDATA.empty())
 	{
 		for (u32 I = 0; I < seqDATA.size(); I++)

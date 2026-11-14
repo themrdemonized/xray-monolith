@@ -23,6 +23,7 @@
 #include "../../xrEngine/fmesh.h"
 
 class dxRender_Visual;
+struct DxPageableTexture;
 
 // definition
 class CRender : public R_dsgraph_structure
@@ -317,7 +318,7 @@ public:
 	virtual void level_Load(IReader*);
 	virtual void level_Unload();
 
-	ID3DBaseTexture* texture_load(LPCSTR fname, u32& msize, bool bStaging = false);
+	ID3DBaseTexture* texture_load(LPCSTR fname, u32& msize, bool bStaging = false, DxPageableTexture** outPageable = nullptr);
 	virtual HRESULT shader_compile(
 		LPCSTR name,
 		DWORD const* pSrcData,

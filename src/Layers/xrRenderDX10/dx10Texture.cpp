@@ -12,6 +12,168 @@
 #include <D3DX10Tex.h>
 
 #include "../xrRender/dxRenderDeviceRender.h"
+#include "dx10PageableTexture.h"
+#include "dds_pageable_decode.h"
+
+// The numeric ids in dds_pageable_decode.h must match the Windows SDK. A
+// mismatch fails this build instead of uploading a texture as the wrong format.
+static_assert(static_cast<u32>(DXGI_FORMAT_R32G32B32A32_FLOAT) == static_cast<u32>(DdsFmt_R32G32B32A32_FLOAT), "R32G32B32A32_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R16G16B16A16_FLOAT) == static_cast<u32>(DdsFmt_R16G16B16A16_FLOAT), "R16G16B16A16_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R16G16B16A16_UNORM) == static_cast<u32>(DdsFmt_R16G16B16A16_UNORM), "R16G16B16A16_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_R32G32_FLOAT) == static_cast<u32>(DdsFmt_R32G32_FLOAT), "R32G32_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R10G10B10A2_UNORM) == static_cast<u32>(DdsFmt_R10G10B10A2_UNORM), "R10G10B10A2_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_R11G11B10_FLOAT) == static_cast<u32>(DdsFmt_R11G11B10_FLOAT), "R11G11B10_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R8G8B8A8_UNORM) == static_cast<u32>(DdsFmt_R8G8B8A8_UNORM), "R8G8B8A8_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_R8G8B8A8_UNORM_SRGB) == static_cast<u32>(DdsFmt_R8G8B8A8_UNORM_SRGB), "R8G8B8A8_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_R8G8B8A8_SNORM) == static_cast<u32>(DdsFmt_R8G8B8A8_SNORM), "R8G8B8A8_SNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_R16G16_FLOAT) == static_cast<u32>(DdsFmt_R16G16_FLOAT), "R16G16_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R32_FLOAT) == static_cast<u32>(DdsFmt_R32_FLOAT), "R32_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R8G8_UNORM) == static_cast<u32>(DdsFmt_R8G8_UNORM), "R8G8_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_R16_FLOAT) == static_cast<u32>(DdsFmt_R16_FLOAT), "R16_FLOAT");
+static_assert(static_cast<u32>(DXGI_FORMAT_R16_UNORM) == static_cast<u32>(DdsFmt_R16_UNORM), "R16_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_R8_UNORM) == static_cast<u32>(DdsFmt_R8_UNORM), "R8_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_A8_UNORM) == static_cast<u32>(DdsFmt_A8_UNORM), "A8_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC1_UNORM) == static_cast<u32>(DdsFmt_BC1_UNORM), "BC1_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC1_UNORM_SRGB) == static_cast<u32>(DdsFmt_BC1_UNORM_SRGB), "BC1_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC2_UNORM) == static_cast<u32>(DdsFmt_BC2_UNORM), "BC2_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC2_UNORM_SRGB) == static_cast<u32>(DdsFmt_BC2_UNORM_SRGB), "BC2_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC3_UNORM) == static_cast<u32>(DdsFmt_BC3_UNORM), "BC3_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC3_UNORM_SRGB) == static_cast<u32>(DdsFmt_BC3_UNORM_SRGB), "BC3_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC4_UNORM) == static_cast<u32>(DdsFmt_BC4_UNORM), "BC4_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC4_SNORM) == static_cast<u32>(DdsFmt_BC4_SNORM), "BC4_SNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC5_UNORM) == static_cast<u32>(DdsFmt_BC5_UNORM), "BC5_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC5_SNORM) == static_cast<u32>(DdsFmt_BC5_SNORM), "BC5_SNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_B5G6R5_UNORM) == static_cast<u32>(DdsFmt_B5G6R5_UNORM), "B5G6R5_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_B5G5R5A1_UNORM) == static_cast<u32>(DdsFmt_B5G5R5A1_UNORM), "B5G5R5A1_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_B8G8R8A8_UNORM) == static_cast<u32>(DdsFmt_B8G8R8A8_UNORM), "B8G8R8A8_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_B8G8R8X8_UNORM) == static_cast<u32>(DdsFmt_B8G8R8X8_UNORM), "B8G8R8X8_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_B8G8R8A8_UNORM_SRGB) == static_cast<u32>(DdsFmt_B8G8R8A8_UNORM_SRGB), "B8G8R8A8_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_B8G8R8X8_UNORM_SRGB) == static_cast<u32>(DdsFmt_B8G8R8X8_UNORM_SRGB), "B8G8R8X8_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC6H_UF16) == static_cast<u32>(DdsFmt_BC6H_UF16), "BC6H_UF16");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC6H_SF16) == static_cast<u32>(DdsFmt_BC6H_SF16), "BC6H_SF16");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC7_UNORM) == static_cast<u32>(DdsFmt_BC7_UNORM), "BC7_UNORM");
+static_assert(static_cast<u32>(DXGI_FORMAT_BC7_UNORM_SRGB) == static_cast<u32>(DdsFmt_BC7_UNORM_SRGB), "BC7_UNORM_SRGB");
+static_assert(static_cast<u32>(DXGI_FORMAT_B4G4R4A4_UNORM) == static_cast<u32>(DdsFmt_B4G4R4A4_UNORM), "B4G4R4A4_UNORM");
+static_assert(static_cast<u32>(D3D11_RESOURCE_MISC_TEXTURECUBE) == DdsMisc_TextureCube, "cubemap misc flag");
+
+bool dx_pageable_textures_wanted(bool wouldStage)
+{
+	// "-nopageable_textures" contains "-pageable_textures", so test it first.
+	if (strstr(Core.Params, "-nopageable_textures"))
+		return false;
+	if (strstr(Core.Params, "-pageable_textures"))
+		return true;
+
+	// r__pageable_textures: 0 auto, 1 on, 2 off.
+	if (ps_r__pageable_textures == 2)
+		return false;
+	if (ps_r__pageable_textures == 1)
+		return true;
+	return wouldStage;
+}
+
+void dx_pageable_free(DxPageableTexture*& image)
+{
+	if (!image)
+		return;
+	xr_free(image->bytes);
+	xr_free(image->subs);
+	xr_free(image);
+}
+
+bool dx_pageable_decode(const void* file, u32 fileSize, u32 mipSkip, bool expectCube, DxPageableTexture*& out, const char*& reason)
+{
+	out = nullptr;
+	reason = "out of memory";
+
+	DdsDecodePlan* plan = (DdsDecodePlan*)xr_malloc(sizeof(DdsDecodePlan));
+	if (!plan)
+		return false;
+
+	const DdsDecodeStatus status = dds_plan_pageable(file, fileSize, mipSkip, expectCube, *plan, reason);
+	if (status != DdsDecode_Ok)
+	{
+		xr_free(plan);
+		return false;
+	}
+
+	DxPageableTexture* image = (DxPageableTexture*)xr_malloc(sizeof(DxPageableTexture));
+	if (!image)
+	{
+		xr_free(plan);
+		reason = "out of memory";
+		return false;
+	}
+	ZeroMemory(image, sizeof(*image));
+	image->bytes = (u8*)xr_malloc(plan->byteCount);
+	image->subs = (D3D_SUBRESOURCE_DATA*)xr_malloc(sizeof(D3D_SUBRESOURCE_DATA) * plan->subCount);
+	if (!image->bytes || !image->subs)
+	{
+		dx_pageable_free(image);
+		xr_free(plan);
+		reason = "out of memory";
+		return false;
+	}
+
+	dds_apply_plan(file, *plan, image->bytes);
+	image->byteCount = plan->byteCount;
+	image->subCount = plan->subCount;
+	image->desc.Width = plan->width;
+	image->desc.Height = plan->height;
+	image->desc.MipLevels = plan->mipCount;
+	image->desc.ArraySize = plan->arraySize;
+	image->desc.Format = (DXGI_FORMAT)plan->format;
+	image->desc.SampleDesc.Count = 1;
+	image->desc.SampleDesc.Quality = 0;
+	image->desc.Usage = D3D_USAGE_DEFAULT;
+	image->desc.BindFlags = D3D_BIND_SHADER_RESOURCE;
+	image->desc.CPUAccessFlags = 0;
+	image->desc.MiscFlags = plan->miscFlags;
+
+	for (u32 i = 0; i < plan->subCount; ++i)
+	{
+		image->subs[i].pSysMem = image->bytes + plan->subs[i].packedOffset;
+		image->subs[i].SysMemPitch = plan->subs[i].rowPitch;
+		image->subs[i].SysMemSlicePitch = plan->subs[i].slicePitch;
+	}
+
+	xr_free(plan);
+	out = image;
+	reason = nullptr;
+	return true;
+}
+
+HRESULT dx_pageable_upload(const DxPageableTexture* image, ID3DTexture2D** outTexture)
+{
+	if (!image || !outTexture || !image->bytes || !image->subs || image->subCount == 0)
+		return E_INVALIDARG;
+	*outTexture = nullptr;
+	return HW.pDevice->CreateTexture2D(&image->desc, image->subs, outTexture);
+}
+
+static bool load_pageable_or_note(const void* data, u32 size, u32 mipSkip, bool expectCube, LPCSTR name, DxPageableTexture** outSlot, u32& ret_msize)
+{
+	const char* reason = nullptr;
+	DxPageableTexture* image = nullptr;
+	if (!dx_pageable_decode(data, size, mipSkip, expectCube, image, reason))
+	{
+		// DeferredUpload decodes on several threads.
+		static volatile long reported = 0;
+		const long n = InterlockedIncrement(&reported);
+		if (n <= 24)
+			Msg("! pageable texture fallback [%s]: %s", name ? name : "?", reason ? reason : "unsupported");
+		else if (n == 25)
+			Msg("! pageable texture: further fallbacks not logged");
+		return false;
+	}
+
+	static volatile long announced = 0;
+	if (InterlockedCompareExchange(&announced, 1, 0) == 0)
+		Msg("* pageable textures: DDS bytes stay in ordinary RAM until a texture is used, then one GPU texture is created. D3D STAGING copies are not kept.");
+	*outSlot = image;
+	ret_msize = image->byteCount;
+	return true;
+}
 
 // #include "std_classes.h"
 // #include "xr_avi.h"
@@ -307,7 +469,7 @@ IC u32 it_height_rev_base(u32 d, u32 s)	{	return	color_rgba	(
 	(color_get_R(s)+color_get_G(s)+color_get_B(s))/3	);	// height
 }
 */
-ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize, bool bStaging)
+ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize, bool bStaging, DxPageableTexture** outPageable)
 {
 	//	Moved here just to avoid warning
 #ifdef USE_DX11
@@ -317,9 +479,13 @@ ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize, bool bStag
 #endif
 	ZeroMemory(&IMG, sizeof(IMG));
 
-	//	Staging control
+	//	Staging control. bAllowStaging is sampled once, on the first texture,
+	//	which is after the renderer has copied r__no_ram_textures into o.no_ram_textures.
+	//	Pageable mode is not cached: r__pageable_textures and the launch arguments
+	//	are read per texture so a config change applies on the next load.
 	static bool bAllowStaging = !RImplementation.o.no_ram_textures;
 	bStaging &= bAllowStaging;
+	const bool wantPageable = outPageable && dx_pageable_textures_wanted(bStaging);
 
 	ID3DBaseTexture* pTexture2D = NULL;
 	//IDirect3DCubeTexture9*	pTextureCUBE	= NULL;
@@ -411,6 +577,14 @@ _DDS:
 
 	_DDS_CUBE:
 		{
+			// Cubemaps are not mip-stripped by the legacy loader, so mipSkip stays 0.
+			if (wantPageable && S && S->length() > 0
+				&& load_pageable_or_note(S->pointer(), (u32)S->length(), 0, true, fname, outPageable, ret_msize))
+			{
+				FS.r_close(S);
+				return nullptr;
+			}
+
 			//R_CHK(D3DXCreateCubeTextureFromFileInMemoryEx(
 			//	HW.pDevice,
 			//	S->pointer(),S->length(),
@@ -494,6 +668,13 @@ _DDS:
 			//	), fn);
 
 			img_loaded_lod = get_texture_load_lod(fn);
+
+			if (wantPageable && S && S->length() > 0
+				&& load_pageable_or_note(S->pointer(), (u32)S->length(), (u32)img_loaded_lod, false, fname, outPageable, ret_msize))
+			{
+				FS.r_close(S);
+				return nullptr;
+			}
 
 			//	Inited to default by provided default constructor
 #ifdef USE_DX11
