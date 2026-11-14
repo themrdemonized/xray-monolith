@@ -69,8 +69,10 @@ CALifeUpdateManager::CALifeUpdateManager(xrServer* server, LPCSTR section) :
 	m_max_process_time = pSettings->r_s32(section, "process_time");
 	m_update_monster_factor = pSettings->r_float(section, "update_monster_factor");
 	m_objects_per_update = pSettings->r_u32(section, "objects_per_update");
+	m_scheduled_time_limit = READ_IF_EXISTS(pSettings, r_u32, section, "scheduled_time_limit", 0);
 	m_changing_level = false;
 	m_first_time = true;
+	m_switch_time = 0;
 }
 
 CALifeUpdateManager::~CALifeUpdateManager()
@@ -86,7 +88,7 @@ CALifeUpdateManager::~CALifeUpdateManager()
 
 float CALifeUpdateManager::shedule_Scale()
 {
-	return (.5f); // (schedule_min + schedule_max)*0.5f
+	return (m_scheduled_time_limit ? 0.f : .5f); // (schedule_min + schedule_max)*0.5f
 }
 
 void CALifeUpdateManager::update_switch()
@@ -113,8 +115,14 @@ void CALifeUpdateManager::update_scheduled(bool init_ef)
 void CALifeUpdateManager::update()
 {
 	PROF_EVENT("AI: A-Life Update");
-	update_switch();
-	update_scheduled(false);
+	u32 switch_interval = (_max(u32(30), u32(shedule.t_min)) + (1000 + shedule.t_max) / 2) / 2;
+	bool switch_needed = !m_scheduled_time_limit || (Device.dwTimeGlobal - m_switch_time >= switch_interval);
+	if (switch_needed)
+	{
+		m_switch_time = Device.dwTimeGlobal;
+		update_switch();
+	}
+	update_scheduled(!switch_needed);
 }
 
 void CALifeUpdateManager::shedule_Update(u32 dt)
@@ -150,6 +158,12 @@ void CALifeUpdateManager::set_process_time(int microseconds)
 void CALifeUpdateManager::objects_per_update(const u32& objects_per_update)
 {
 	scheduled().objects_per_update(objects_per_update);
+}
+
+void CALifeUpdateManager::scheduled_time_limit(const u32& microseconds)
+{
+	m_scheduled_time_limit = microseconds;
+	scheduled().time_limit(float(microseconds) / 1000000.f);
 }
 
 void CALifeUpdateManager::init_ef_storage() const
@@ -318,6 +332,7 @@ void CALifeUpdateManager::reload(LPCSTR section)
 	CALifeSimulatorBase::reload(section);
 	set_process_time((int)m_max_process_time);
 	objects_per_update(m_objects_per_update);
+	scheduled_time_limit(m_scheduled_time_limit);
 }
 
 bool CALifeUpdateManager::load_game(LPCSTR game_name, bool no_assert)
