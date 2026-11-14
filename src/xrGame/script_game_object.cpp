@@ -50,6 +50,9 @@
 #include "script_attachment_manager.h"
 #include "CustomDevice.h"
 #include "CharacterPhysicsSupport.h"
+#include "alife_simulator.h"
+#include "alife_object_registry.h"
+#include "xrServer_Objects_ALife_Items.h"
 
 class CScriptBinderObject;
 
@@ -1021,6 +1024,14 @@ void CScriptGameObject::SetCondition(float val)
 	}
 	val -= inventory_item->GetCondition();
 	inventory_item->ChangeCondition(val);
+
+	// Mirror it on the server entity so saves and offline switches keep it
+	if (ai().get_alife())
+	{
+		CSE_ALifeInventoryItem* server_item = smart_cast<CSE_ALifeInventoryItem*>(ai().alife().objects().object(object().ID(), true));
+		if (server_item)
+			server_item->m_fCondition = inventory_item->GetCondition();
+	}
 }
 
 float CScriptGameObject::GetPowerCritical() const
