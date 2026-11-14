@@ -760,7 +760,6 @@ u32 CHudItem::PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, f
 bool CHudItem::PlayHUDMotion_noCB(const shared_str& motion_name, BOOL bMixIn, float speed, bool bMixIn2)
 {
 	m_current_motion = motion_name;
-    m_fCurrentMotionSpeed = speed;
 
 	if (bDebug && item().m_pInventory)
 	{
@@ -780,6 +779,7 @@ bool CHudItem::PlayHUDMotion_noCB(const shared_str& motion_name, BOOL bMixIn, fl
 		m_started_rnd_anim_idx = 0;
 	}
 
+	m_fCurrentMotionSpeed = speed;
 	return g_player_hud->motion_is_stop_at_end(motion_name, HudSection());
 }
 
