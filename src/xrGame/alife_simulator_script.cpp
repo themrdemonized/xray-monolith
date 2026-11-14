@@ -233,42 +233,23 @@ CSE_Abstract* CALifeSimulator__spawn_item3(CALifeSimulator* self, LPCSTR section
 	return (item);
 }
 
-// create(section, position, level_vertex_id, game_vertex_id) with the ids derived from level_name and position. On
-// the current level both come from its AI map and cross table. Elsewhere the game vertex is the level's nearest
-// by level point and the level vertex is level_vertex_id, or with u32(-1) that game vertex's own, which
-// synchronize_location re-snaps to position when the level loads. nullptr (logged) when the game graph lacks the
-// level.
+LPCSTR level_vertices(const CGameGraph& graph, LPCSTR level_name, const Fvector& position, u32& level_vertex_id, GameGraph::_GRAPH_ID& game_vertex_id, bool& current_level);
+
+// Off the current level a caller's level_vertex_id other than u32(-1) replaces the derived one.
 CSE_Abstract* CALifeSimulator__spawn_on_level2(CALifeSimulator* self, LPCSTR section, LPCSTR level_name, const Fvector& position, u32 level_vertex_id)
 {
 	THROW(self);
-	const CGameGraph& graph = ai().game_graph();
-	const GameGraph::SLevel* level = graph.header().level(level_name, true);
-	if (!level)
+	u32 derived_level_vertex_id;
+	GameGraph::_GRAPH_ID game_vertex_id;
+	bool current_level;
+	LPCSTR error = level_vertices(ai().game_graph(), level_name, position, derived_level_vertex_id, game_vertex_id, current_level);
+	if (error)
 	{
-		Msg("! alife():create_on_level: level '%s' is not in the game graph, %s not created", level_name, section);
+		Msg("! alife():create_on_level: level '%s' %s, %s not created", level_name, error, section);
 		return (nullptr);
 	}
-
-	GameGraph::_GRAPH_ID game_vertex_id;
-	const CLevelGraph* level_graph = ai().get_level_graph();
-	if (level_graph && level_graph->level_id() == level->id())
-	{
-		level_vertex_id = level_graph->vertex(u32(-1), position);
-		game_vertex_id = ai().cross_table().vertex(level_vertex_id).game_vertex_id();
-	}
-	else
-	{
-		u32 vertex_id;
-		float distance;
-		if (!graph.nearest_vertex(level->id(), position, vertex_id, distance))
-		{
-			Msg("! alife():create_on_level: level '%s' has no game vertices, %s not created", level_name, section);
-			return (nullptr);
-		}
-		game_vertex_id = GameGraph::_GRAPH_ID(vertex_id);
-		if (level_vertex_id == u32(-1))
-			level_vertex_id = graph.vertex(vertex_id)->level_vertex_id();
-	}
+	if (current_level || level_vertex_id == u32(-1))
+		level_vertex_id = derived_level_vertex_id;
 	return (self->spawn_item(section, position, level_vertex_id, game_vertex_id, ALife::_OBJECT_ID(-1)));
 }
 

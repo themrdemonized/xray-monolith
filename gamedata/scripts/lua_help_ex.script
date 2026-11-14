@@ -290,6 +290,7 @@
     class CGameGraph {
         table level_neighbours(number level_id) // {[level_id] = true} for every level sharing a game-graph edge with level_id; empty table when the level is unknown or has no cross-level edges (offline squads cannot path in or out)
         number nearest_vertex(string level_name, Fvector position) // game vertex id of level_name's vertex whose level point is nearest to position; nil when the level is not in the game graph
+        table level_vertices(string level_name, Fvector position) // {level_vertex_id, game_vertex_id} of position on level_name: exact on the current level, elsewhere re-snapped when the object goes online; nil (logged) when the level is not in the game graph
     }
 
     bool GetCursorVisible()

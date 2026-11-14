@@ -1,0 +1,12 @@
+-- lvid, gvid for a position on a named level; nothing when the level does not resolve (logged).
+function vertices(level_name, pos)
+	if not level_name then
+		printf("! level_placement.vertices: no level name for position %s, %s, %s", pos.x, pos.y, pos.z)
+		callstack()
+		return
+	end
+	local ids = game_graph():level_vertices(level_name, pos)
+	if ids then
+		return ids.level_vertex_id, ids.game_vertex_id
+	end
+end
