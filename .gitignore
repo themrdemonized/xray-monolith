@@ -1,7 +1,13 @@
-# exclude all dot files except .gitignore
+# exclude dot files except repository metadata and workflow definitions
 .*
 !.gitignore
 !.gitattributes
+!/.github/
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/*.yml
+!/.github/workflows/*.yaml
 
 # exclude binaries and temporary files
 _build/
