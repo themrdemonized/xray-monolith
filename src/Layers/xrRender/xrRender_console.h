@@ -75,6 +75,8 @@ extern ECORE_API float ps_r__Detail_l_ambient;
 extern ECORE_API float ps_r__Detail_l_aniso;
 extern ECORE_API float ps_r__Detail_density;
 extern ECORE_API float ps_r__Detail_height;
+extern ECORE_API float ps_r__Detail_density_knee;
+extern ECORE_API float ps_r__Detail_density_curve;
 
 extern ECORE_API float ps_r__Tree_w_rot;
 extern ECORE_API float ps_r__Tree_w_speed;
