@@ -1,0 +1,38 @@
+local started,phase,at=nil,0,0
+local ffi,dll,s
+local app=getFS():update_path('$app_data_root$','')
+local function log(v)local f=assert(io.open(app..'R1_installable_live.log','ab'));f:write(v..'\n');f:close()end
+local function tick()
+ if not db.actor then return end
+ local now=time_global()/1000;started=started or now
+ if now-started>45 then log('FAIL timeout');exec_console_cmd('quit');return end
+ if phase==0 and now-started>3 then
+  log('START player loader toggle');r1_xreal_native.toggle()
+  ffi=require('ffi');dll=ffi.load(getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
+  s=ffi.new('R1XrealStatus[1]');s[0].size=ffi.sizeof('R1XrealStatus');phase=1;at=now
+ elseif phase==1 and now-at>4 then
+  assert(dll.r1st_status(s)==1);log('PAIRS '..tonumber(s[0].pairs)..' ERROR '..tonumber(s[0].error))
+  assert(s[0].pairs>10 and s[0].error==0,'stereo rendered with production heartbeat')
+  SendScriptCallback('on_key_press',DIK_keys.DIK_ESCAPE)
+  assert(dll.r1st_status(s)==1 and s[0].enabled==0,'Escape disables')
+  log('ESCAPE_OFF');phase=2;at=now
+ elseif phase==2 and now-at>1 then
+  r1_xreal_native.toggle();phase=3;at=now
+ elseif phase==3 and now-at>2 then
+  local before=tonumber(s[0].pairs);assert(dll.r1st_status(s)==1)
+  assert(s[0].enabled==1 and s[0].pairs>before,'reenable')
+  r1_xreal_native.stop();log('PASS production loader: stereo, Escape, reenable, stop');phase=4;exec_console_cmd('quit')
+ end
+end
+function on_game_start()
+ RegisterScriptCallback('actor_on_update',function()local ok,e=xpcall(tick,debug.traceback);if not ok then log('FAIL '..tostring(e));exec_console_cmd('quit')end end)
+end
+local installed=false
+function install()
+ if installed then return end;installed=true
+ local original=ui_main_menu.main_menu.Update
+ ui_main_menu.main_menu.Update=function(self,...)
+  original(self,...)
+  if db.actor then device():pause(false);exec_console_cmd('main_menu off')end
+ end
+end

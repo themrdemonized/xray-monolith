@@ -1,0 +1,5 @@
+function on_xml_read()
+ RegisterScriptCallback('on_xml_read',function(path,xml)
+  if path=='ui\\ui_mm_main.xml' or path=='ui\\ui_mm_main_16.xml' then r1_live.install() end
+ end)
+end

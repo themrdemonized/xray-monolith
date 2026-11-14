@@ -1,0 +1,34 @@
+local ffi,kernel,dll,frame
+local actor_at=nil
+local start,phase,at,last_frame,first_frame,updates=nil,0,0,0,0,0
+local app=getFS():update_path('$app_data_root$','')
+local names={'mono_wide','stereo_original','stereo_balanced','stereo_fast','stereo_original_restored'}
+local function log(s)local f=assert(io.open(app..'R1_volume_quality_benchmark.log','ab'));f:write(s..'\n');f:close()end
+local function tick()
+ if not db.actor then return end
+ if not actor_at then log('ACTOR_CALLBACK '..time_global()) end;actor_at=actor_at or time_global();if time_global()-actor_at<3000 then return end
+ if not ffi then
+  r1_xreal_native.prepare_menu()
+  ffi=require('ffi');ffi.cdef[[void* GetModuleHandleA(const char*);unsigned long long GetTickCount64();int r1st_volume_quality(float);int r1st_capture(const char*);]]
+  kernel=ffi.load('kernel32');dll=ffi.load(getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
+  frame=ffi.cast('unsigned*',ffi.cast('unsigned char*',kernel.GetModuleHandleA(nil))+0x15d0ee0+40)
+  assert(dll.r1st_volume_quality(0)==1);start=tonumber(kernel.GetTickCount64());at=start;phase=1;log('START exact-host isolated benchmark')
+ end
+ local now=tonumber(kernel.GetTickCount64())
+ if now-start>90000 then log('FAIL timeout');exec_console_cmd('quit');return end
+ local elapsed=now-at
+ if elapsed<4000 then first_frame=tonumber(frame[0]);last_frame=now;updates=0;return end
+ updates=updates+1
+ if elapsed<14000 then return end
+ log(string.format('%s frames=%d elapsed_ms=%d fps=%.3f updates=%d',names[phase],tonumber(frame[0])-first_frame,now-last_frame,(tonumber(frame[0])-first_frame)*1000/(now-last_frame),updates))
+ if phase==1 then r1_xreal_native.toggle();assert(dll.r1st_volume_quality(0)==1)
+ elseif phase==2 then assert(dll.r1st_volume_quality(1.5)==1)
+ elseif phase==3 then assert(dll.r1st_volume_quality(1)==1)
+ elseif phase==4 then assert(dll.r1st_volume_quality(0)==1)
+ else r1_xreal_native.stop();log('DONE process exit must also pass');exec_console_cmd('quit');return end
+ phase=phase+1;at=now
+end
+function on_game_start()
+ log('REGISTER benchmark callback')
+ RegisterScriptCallback('actor_on_update',function()local ok,e=xpcall(tick,debug.traceback);if not ok then log('FAIL '..tostring(e));exec_console_cmd('quit')end end)
+end
