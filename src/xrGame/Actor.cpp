@@ -89,6 +89,7 @@
 #include "xrEngine\x_ray.h"
 #include "ui/UIHudStatesWnd.h"
 #include "script_attachment_manager.h"
+#include "../xrEngine/shader_bus.h"
 
 #ifdef STATIONARYMGUN_NEW
 #include "WeaponStatMgun.h"
@@ -2190,6 +2191,7 @@ void CActor::RenderCamAttached(IDSGraphManager* DM)
 			DM->set_HUD(TRUE);
 			DM->set_CamAttached(TRUE);
 			DM->set_Object(this);
+			DM->set_BusTag(ShaderBus::hud_cam);
 
 			for (auto& pair : m_script_attachments)
 			{

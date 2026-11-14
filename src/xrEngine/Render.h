@@ -226,6 +226,9 @@ public:
 	void set_CustomFOV(float value) { val_fCustomFOV = value; }
 	float get_CustomFOV() const { return val_fCustomFOV; }
 	bool i_mask[fl_max]{};//deffered,forward,wmarks,normal,shmap,val_invisible,val_hud,val_cam_attached
+	u32 val_busTag = 0;
+	void set_BusTag(u32 tag) { val_busTag = tag; }
+	u32 get_BusTag() { return val_busTag; }
 
 	virtual void add_Static(IRenderVisual* pVisual, CFrustum& frustum, u32 planes) = 0;
 	virtual void add_Dynamic(IRenderVisual* piVisual, Fmatrix* xform) = 0;
@@ -234,7 +237,7 @@ public:
 	virtual void set_Object(IRenderable* O = nullptr) = 0;
 	IRenderable* get_Object() { return val_pObject; }
 
-	virtual void set_HUD(bool V = false) { i_mask[fl_hud]=V; }
+	virtual void set_HUD(bool V = false) { i_mask[fl_hud]=V; val_busTag = 0; }
 	virtual bool get_HUD() { return i_mask[fl_hud]; }
 
 	// Anomaly

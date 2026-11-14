@@ -57,6 +57,16 @@ struct ShaderTypeTraits<SCS>
 	static inline DXIface* CreateHWShader(DWORD const* buffer, size_t size)
 	{
 		DXIface* cs = 0;
+		// the feature level 11_0 device refuses a shader with a UAV past u7
+		ID3DShaderReflection* reflection = 0;
+		const bool past = SUCCEEDED(D3DReflect(buffer, size, IID_PPV_ARGS(&reflection))) &&
+			(reflection->GetRequiresFlags() & D3D_SHADER_REQUIRES_64_UAVS);
+		_RELEASE(reflection);
+		if (past)
+		{
+			Msg("! compute shader binds a UAV past u7 and is not created");
+			return cs;
+		}
 		R_CHK(HW.pDevice->CreateComputeShader(buffer, size, NULL, &cs));
 		return cs;
 	}

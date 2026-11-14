@@ -40,6 +40,30 @@ public:
 	ref_shader								f_shader;
 	ref_geom								f_geom;
 
+	// shader bus object mask bits live this frame, read once at the render start
+	static u32								bus_live_bits;
+	// mask layer bits this frame, 0 in a second viewport frame or while no layer target exists
+	static u32								bus_layer_bits;
+	// mask bits that also reach objects the game does not draw, 0 while the mask pass does not run
+	static u32								bus_hidden_bits;
+	// mask bits that also reach forward and sorted meshes, 0 while the mask pass does not run
+	static u32								bus_forward_bits;
+	// the world pass keeps queue 0 for the object mask pass this frame
+	bool									bus_mask_on = false;
+	bool bus_mask_runs() const { return bus_mask_on; }
+	// inserts go to the hidden mask list alone, for an object the game does not draw
+	bool									bus_mask_only = false;
+	// the leaves of hidden tagged objects this frame, drawn into the mask after the sorted draw
+	R_dsgraph::mapDSGraphItems<float, false>	bus_hidden;
+	// the screen rectangles of the hidden objects listed this frame, where the scene depth is resolved
+	xr_vector<Fvector4>						bus_hidden_rects;
+	// the hidden objects' matrices, which their rectangles and mask draws read while GameThread moves them
+	xr_vector<Fmatrix>						bus_hidden_xforms;
+	// tagged queue 1 packets and sorted items kept past their draw, which clears them, and the matrices both draws read
+	xr_vector<R_dsgraph::RenderPacket>		bus_forward_packets;
+	R_dsgraph::mapDSGraphItems<float, true>	bus_forward_sorted;
+	xr_vector<Fmatrix>						bus_forward_xforms;
+
 	CDSGraphManager(u32 options, u32 doptions, bool(&& mask)[7]) : i_options(options), i_doptions(doptions)
 	{
 		std::copy(mask, mask + 7, i_mask);
@@ -82,7 +106,20 @@ public:
 	void r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fmatrix* xform);
 
 	void AddToRenderQueue(R_dsgraph::RenderQueue& queue, const R_dsgraph::DSGraphItem<u32, false>& item, const SPass& pass);
+	template<bool BusMask = false>
 	void r_dsgraph_render_graph(R_dsgraph::RenderQueueArray& queue, u32 _priority, bool _clear = true, bool static_geometry = true);
+	// copies the matrices of tagged queue 0 items so both draws use one value
+	void r_dsgraph_bus_keep_xforms();
+#if defined(USE_DX10) || defined(USE_DX11)
+	// redraws the tagged priority 0 dynamic items into the shader bus mask and clears them
+	void r_dsgraph_render_bus_mask();
+	// keeps the tagged queue 1 and sorted items before their draw clears them
+	void r_dsgraph_bus_keep_forward();
+	// redraws the kept forward and sorted items and the hidden items into the shader bus mask
+	void r_dsgraph_render_bus_forward();
+	// lists the tagged objects of the hidden bits the frame drew nowhere, for the forward mask draw
+	void r_dsgraph_add_bus_hidden();
+#endif
 	IC void r_dsgraph_render_graph(u32 _priority, bool _clear = true)
 	{
 		r_dsgraph_render_static(_priority, _clear);
@@ -99,10 +136,11 @@ public:
 		r_dsgraph_render_graph(RGraph.mapDynamicPasses, _priority, _clear, false);
 	};
 
-	template<typename T, bool Reverse>
+	template<typename T, bool Reverse, bool BusMask = false>
 	void r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear = true);
 	void r_dsgraph_capture_hud();
 	void r_dsgraph_render_hud();
+	void r_dsgraph_render_hud_mask(R_dsgraph::mapDSGraphItems<float, false>& list);
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted(bool render_hud = true);

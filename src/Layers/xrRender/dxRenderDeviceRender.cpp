@@ -4,6 +4,12 @@
 #include "ResourceManager.h"
 #include "../../xrEngine/shader_bus.h"
 
+// the $user$ name of a bus lane's texture or target, or of its float or uint buffer view
+void bus_alias(LPSTR out, u32 size, LPCSTR id, bool buffer, bool uint_rows)
+{
+	xr_sprintf(out, size, !buffer ? "$user$bus_%s" : uint_rows ? "$user$busbufu_%s" : "$user$busbuf_%s", id);
+}
+
 // a shader bus texture lane's $user$bus_ alias and the texture it shows
 struct bus_texture_slot
 {
@@ -11,6 +17,8 @@ struct bus_texture_slot
 	ref_texture target;
 	ID3DBaseTexture* applied;
 };
+
+extern xr_task_group textures_load_tasks;
 
 static xr_vector<bus_texture_slot> bus_texture_slots;
 static u32 bus_texture_serial = 0;
@@ -43,13 +51,21 @@ static void bus_textures_update()
 			if (!name.size())
 				continue;
 
+			const bool known = DEV->_FindTexture(name.c_str()) != nullptr;
 			bus_texture_slot slot;
 			slot.target.create(name.c_str());
 			if (!slot.target)
 				continue;
 
+			// create loads only a new texture, so one that eviction already dropped is queued here
+			if (known && !slot.target->flags.bLoaded && !slot.target->flags.bLoading)
+			{
+				ref_texture target = slot.target;
+				textures_load_tasks.run([target]() { target->Load(); });
+			}
+
 			string_path alias;
-			xr_sprintf(alias, "$user$bus_%s", id.c_str());
+			bus_alias(alias, sizeof(alias), id.c_str(), false, false);
 			slot.alias.create(alias);
 			slot.applied = nullptr;
 			bus_texture_slots.push_back(slot);
@@ -62,6 +78,8 @@ static void bus_textures_update()
 	for (u32 i = 0; i < bus_texture_slots.size(); ++i)
 	{
 		bus_texture_slot& slot = bus_texture_slots[i];
+		// the lane never applies its texture, so it marks it used to keep eviction off it
+		slot.target->dwLastUsedFrame = Device.dwFrame;
 		ID3DBaseTexture* surface = slot.target->surface_get();
 		if (surface != slot.applied)
 		{
@@ -71,6 +89,15 @@ static void bus_textures_update()
 		_RELEASE(surface);
 	}
 }
+
+#if defined(USE_DX10) || defined(USE_DX11)
+void bus_device_destroy();
+void bus_device_reset();
+void bus_frame_begin();
+#endif
+#if defined(USE_DX11)
+void bus_readback_poll();
+#endif
 
 dxRenderDeviceRender::dxRenderDeviceRender()
 	: Resources(0)
@@ -109,6 +136,9 @@ void dxRenderDeviceRender::OnDeviceDestroy(BOOL bKeepTextures)
 	m_SelectionShader.destroy();
 
 	bus_textures_release();
+#if defined(USE_DX10) || defined(USE_DX11)
+	bus_device_destroy();
+#endif
 	bus_texture_slots.clear();
 	bus_texture_serial = 0;
 	Resources->OnDeviceDestroy(bKeepTextures);
@@ -133,6 +163,9 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 #endif // DEBUG
 
 	bus_textures_release();
+#if defined(USE_DX10) || defined(USE_DX11)
+	bus_device_reset();
+#endif
 	Resources->reset_begin();
 	Memory.mem_compact();
 
@@ -230,6 +263,15 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 	Resources->OnDeviceCreate(shName);
 	::Render->create();
 	Device.Statistic->OnDeviceCreate();
+#if defined(USE_DX11)
+	ShaderBus::enable_gpu_lanes();
+#endif
+#if defined(USE_DX10) || defined(USE_DX11)
+	ShaderBus::enable_buffers();
+	ShaderBus::enable_mask();
+	ShaderBus::set_mask_msaa(RImplementation.o.dx10_msaa);
+	ShaderBus::set_enable_targets(true);
+#endif
 
 	//#ifndef DEDICATED_SERVER
 	if (!g_dedicated_server)
@@ -429,6 +471,9 @@ void dxRenderDeviceRender::Begin()
 	RCache.set_CullMode(CULL_CCW);
 	if (HW.Caps.SceneMode) overdrawBegin();
 	bus_textures_update();
+#if defined(USE_DX10) || defined(USE_DX11)
+	bus_frame_begin();
+#endif
 }
 
 void dxRenderDeviceRender::Clear()
@@ -490,6 +535,9 @@ void dxRenderDeviceRender::End()
 	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady)
 		HW.pDevice->Present(NULL, NULL, NULL, NULL);
 #endif //-USE_DX10
+#if defined(USE_DX11)
+	bus_readback_poll();
+#endif
 	//HRESULT _hr		= HW.pDevice->Present( NULL, NULL, NULL, NULL );
 	//if				(D3DERR_DEVICELOST==_hr)	return;			// we will handle this later
 }

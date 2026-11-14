@@ -32,6 +32,14 @@ enum script_attachment_type
 	eSA_undefined
 };
 
+enum script_attachment_hud
+{
+	eSAH_Parent = 0,
+	eSAH_Actor,
+	eSAH_Item,
+	eSAH_undefined
+};
+
 struct script_attachment_bone_cb
 {
 	u16 m_bone_id, m_attachment_bone_id;
@@ -106,6 +114,9 @@ private:
 	u32 m_anim_end;
 
 	u16 m_type;
+	u8 m_hud_category;
+	// id of the game object whose draw last drew this attachment, u16(-1) for none
+	u16 m_owner_id;
 	script_attachment* m_parent_attachment;
 	CGameObject* m_parent_object;
 	CGameObject* m_toplevel_parent;
@@ -163,6 +174,8 @@ public:
 	bool spatial_GetVisible();
 	virtual IRenderable* dcast_Renderable() { return this; }
 	virtual ICollidable* dcast_Collidable() { return this; }
+	virtual IRenderable* renderable_Root();
+	virtual u16 renderable_ObjectID() { return m_owner_id; }
 
 	virtual void renderable_Render(IDSGraphManager* DM);
 	void Render(IKinematics* model, const Fmatrix& parent_transform, IDSGraphManager* DM);
@@ -294,6 +307,8 @@ public:
 
 	void SetType(u16 type);
 	u16 GetType() { return m_type; }
+	void SetHudCategory(u16 category) { m_hud_category = u8(category < eSAH_undefined ? category : eSAH_Parent); }
+	u16 GetHudCategory() { return m_hud_category; }
 
 	u32 PlayMotionCB(LPCSTR name, bool mixin, float speed, const ::luabind::functor<void>& motion_end_cb);
 	u32 PlayMotionCB(LPCSTR name, bool mixin, float speed, LPCSTR motion_end_cb);
