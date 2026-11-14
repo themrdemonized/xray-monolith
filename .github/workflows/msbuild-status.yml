@@ -1,0 +1,74 @@
+name: MSBuild PR status
+
+on:
+  workflow_run:
+    workflows: [MSBuild]
+    types: [in_progress, completed]
+
+permissions:
+  actions: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: msbuild-status-${{ github.event.workflow_run.display_title }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Report build status on the PR
+      shell: python
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        import json
+        import os
+        import re
+        import subprocess
+
+        def api(endpoint, **fields):
+            command = ["gh", "api", endpoint]
+            if fields:
+                command += ["--method", "POST"]
+                for name, value in fields.items():
+                    command += ["-f", f"{name}={value}"]
+            return json.loads(subprocess.check_output(command, text=True))
+
+        with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as stream:
+            event = json.load(stream)
+        repo = os.environ["GITHUB_REPOSITORY"]
+        # Read live metadata so a delayed in_progress event cannot regress a
+        # completed build to pending. No PR code or artifacts are loaded here.
+        run = api(f"repos/{repo}/actions/runs/{event['workflow_run']['id']}")
+        match = re.fullmatch(r"MSBuild PR #([1-9][0-9]*) @ ([0-9a-f]{40}) \((dev|dev-mt)\)", run["display_title"])
+        if not match:
+            raise SystemExit(0)
+        pull = api(f"repos/{repo}/pulls/{match[1]}")
+        if pull["state"] != "open" or pull["base"]["ref"] not in ("dev", "dev-mt"):
+            raise SystemExit(0)
+        head = pull["head"]["sha"]
+        if head != match[2] or pull["base"]["ref"] != match[3]:
+            raise SystemExit(0)
+        if run["event"] == "pull_request" and run["head_sha"] != head:
+            raise SystemExit(0)
+        if run["event"] == "workflow_dispatch" and run["head_branch"] != pull["base"]["ref"]:
+            raise SystemExit(0)
+
+        statuses = api(f"repos/{repo}/commits/{head}/status")["statuses"]
+        current = next((status for status in statuses if status["context"] == "MSBuild"), None)
+        if current and current["target_url"] != run["html_url"]:
+            prefix = f"{os.environ['GITHUB_SERVER_URL']}/{repo}/actions/runs/"
+            owner_id = (current["target_url"] or "").removeprefix(prefix)
+            if owner_id.isdigit():
+                owner = api(f"repos/{repo}/actions/runs/{owner_id}")
+                if (owner["workflow_id"] == run["workflow_id"] and owner["display_title"] == run["display_title"]
+                        and owner["run_number"] > run["run_number"]):
+                    raise SystemExit(0)
+        state = "pending"
+        if run["status"] == "completed":
+            state = "success" if run["conclusion"] == "success" else "failure"
+        api(f"repos/{repo}/statuses/{head}", state=state, context="MSBuild",
+            description=f"MSBuild {state}", target_url=run["html_url"])
