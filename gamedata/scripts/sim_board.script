@@ -162,7 +162,8 @@ function simulation_board:create_squad_at_named_location(loc_name, squad_id) -- 
 		return
 	end
 	
-	local str = utils_data.read_from_ini(ini_file("named_locations.ltx"),loc_name,'position')
+	local ini = ini_file("named_locations.ltx")
+	local str = utils_data.read_from_ini(ini,loc_name,'position')
 	
 	if not str then 
 		callstack()
@@ -194,12 +195,16 @@ function simulation_board:create_squad_at_named_location(loc_name, squad_id) -- 
 	-- end
 	
 	local pos = vector():set(data[1], data[2], data[3])
+	local lvid, gvid = level_placement.vertices(utils_data.read_from_ini(ini,loc_name,'level','string'), pos)
+	if not lvid then
+		return
+	end
 	
-	local squad = alife_create(squad_id, pos,	data[4], data[5])
+	local squad = alife_create(squad_id, pos,	lvid, gvid)
 	if squad then 
 		-- printf('create_squad_at_named_location: squad created %s',squad.id)
 	end
-	squad:create_npc(nil, pos, data[4], data[5])
+	squad:create_npc(nil, pos, lvid, gvid)
 
 	local sim = alife()
 	for k in squad:squad_members() do

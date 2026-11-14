@@ -174,15 +174,15 @@ end
 -- Common functions
 ------------------------
 local aditional_spawn_table = {
--- {x,y,z,game_vertex_id,level_vertex_id, кол-во}
-	spawn_wpn_ak74_jurov_task_2_1 = {wpn_ak74_jurov_task_2 = {-118.6462097168,-30.205032348633,-359.24914550781, 140513, 465}},
-	spawn_wpn_ak74_jurov_task_2_2 = {wpn_ak74_jurov_task_2 = {-177.9986114502,-29.81822013855,-355.06866455078, 73576, 460}},
-	spawn_wpn_ak74_jurov_task_2_3 = {wpn_ak74_jurov_task_2 = {-138.13748168945,-25.463516235352,-352.16937255859, 118138, 451}},
-	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_1 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {113.63149261475,0.20527046918869,-36.471702575684, 445153, 444}},
-	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_2 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {105.98963928223,-7.5173659324646,10.584038734436, 436192, 440}},
-	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_3 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {129.74220275879,-3.9539701938629,-2.0078217983246, 462132, 445}},
-	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_4 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {107.52114105225,0.41759753227234,10.651744842529, 438618, 440}},
-	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_5 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {95.632209777832,-2.4896833896637,-22.111057281494, 424676, 444}},		
+-- {x,y,z, кол-во, level = level name}
+	spawn_wpn_ak74_jurov_task_2_1 = {wpn_ak74_jurov_task_2 = {-118.6462097168,-30.205032348633,-359.24914550781, level = "l01_escape"}},
+	spawn_wpn_ak74_jurov_task_2_2 = {wpn_ak74_jurov_task_2 = {-177.9986114502,-29.81822013855,-355.06866455078, level = "l01_escape"}},
+	spawn_wpn_ak74_jurov_task_2_3 = {wpn_ak74_jurov_task_2 = {-138.13748168945,-25.463516235352,-352.16937255859, level = "l01_escape"}},
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_1 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {113.63149261475,0.20527046918869,-36.471702575684, level = "l01_escape"}},
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_2 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {105.98963928223,-7.5173659324646,10.584038734436, level = "l01_escape"}},
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_3 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {129.74220275879,-3.9539701938629,-2.0078217983246, level = "l01_escape"}},
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_4 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {107.52114105225,0.41759753227234,10.651744842529, level = "l01_escape"}},
+	spawn_wpn_pm_esc_2_12_stalker_fanat_task_3_5 = {wpn_pm_esc_2_12_stalker_fanat_task_3 = {95.632209777832,-2.4896833896637,-22.111057281494, level = "l01_escape"}},		
 }
 
 function set_stalker_living_legend_as_companion(a,b)
@@ -200,8 +200,12 @@ end
 function aditional_spawn(name)
 	local tbl = aditional_spawn_table[name]
 	for k, v in pairs(tbl) do
-		for i = 1, (v[6] or 1) do 
-			alife_create(k, vector():set(v[1], v[2], v[3]), v[4], v[5])
+		local pos = vector():set(v[1], v[2], v[3])
+		local lvid, gvid = level_placement.vertices(v.level, pos)
+		if lvid then
+			for i = 1, (v[4] or 1) do 
+				alife_create(k, pos, lvid, gvid)
+			end
 		end
 	end
 end

@@ -165,13 +165,18 @@ status_recover_item_on_corpse[0] = function(tsk, task_id)
 		local pool = {}
 		for k,v in pairs(tdata.settings) do
 			if string.find(k,'^coordinate_') then
-				table.insert(pool,v)
+				table.insert(pool,k)
 			end
 		end
-		local stash_coords = pick_random_array(pool)
-		local x = split_tonumber(stash_coords)
+		local key = pick_random_array(pool)
+		local x = split_tonumber(tdata.settings[key])
+		local pos = vector():set(x[1], x[2], x[3])
+		local lvid, gvid = level_placement.vertices(tdata.settings['level_' .. key] or tdata.settings.level_name, pos)
+		if not lvid then
+			return "fail"
+		end
 		
-		local se_corpse = alife():create('sim_default_'..(tdata.settings.corpse_comm and split_and_pick(tdata.settings.corpse_comm) or 'stalker')..'_'.. (math.random(3)-1), vector():set(x[1], x[2], x[3]), x[4], x[5])
+		local se_corpse = alife():create('sim_default_'..(tdata.settings.corpse_comm and split_and_pick(tdata.settings.corpse_comm) or 'stalker')..'_'.. (math.random(3)-1), pos, lvid, gvid)
 		tdata.corpse_id = se_corpse.id
 		
 		local se_item = spawn_on_id(split_and_pick(tdata.settings.item_section), se_corpse.id)

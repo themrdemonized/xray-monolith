@@ -189,25 +189,25 @@ function reward_random_money_by_dist(actor,npc,p)
 end
 
 local pos_itms = {
-	["drx_x8_documents"] = {-101.9361038208, -31.361772537231, 90.615669250488, 636, 5090},
-	["drx_x16_documents"] = {-46.306594848633, 20.461000442505, 2.1229863166809, 2220, 3792},
-	["drx_x18_documents"] = {23.617618560791, -5.6467723846436, -18.183609008789, 6311, 3760},
-	["drx_x19_documents"] = {6.817852973938, -7.8305835723877, -15.558134078979, 7638, 3842},
-	["drx_agr_u_documents"] = {46.072761535645, 1.8872995376587, 75.970985412598, 3968, 3630},
-	["drx_jup_u_documents"] = {27.983295440674, 12.515381813049, -1.1357840299606, 39736, 4861},
+	["drx_x8_documents"] = {-101.9361038208, -31.361772537231, 90.615669250488, level = "labx8"},
+	["drx_x16_documents"] = {-46.306594848633, 20.461000442505, 2.1229863166809, level = "l08u_brainlab"},
+	["drx_x18_documents"] = {23.617618560791, -5.6467723846436, -18.183609008789, level = "l04u_labx18"},
+	["drx_x19_documents"] = {6.817852973938, -7.8305835723877, -15.558134078979, level = "l10u_bunker"},
+	["drx_agr_u_documents"] = {46.072761535645, 1.8872995376587, 75.970985412598, level = "l03u_agr_underground"},
+	["drx_jup_u_documents"] = {27.983295440674, 12.515381813049, -1.1357840299606, level = "jupiter_underground"},
 	
-	["lx8_history_documents"] = {-93.635635375977, -27.296674728394, 96.18310546875, 1318, 5079},
-	["lx8_history_2_documents"] = {-116.10192871094, -27.196212768555, 82.614562988281, 30, 5090},
-	["lx8_history_3_documents"] = {-43.184757232666, -19.527189254761, 67.334884643555, 6770, 5094},
+	["lx8_history_documents"] = {-93.635635375977, -27.296674728394, 96.18310546875, level = "labx8"},
+	["lx8_history_2_documents"] = {-116.10192871094, -27.196212768555, 82.614562988281, level = "labx8"},
+	["lx8_history_3_documents"] = {-43.184757232666, -19.527189254761, 67.334884643555, level = "labx8"},
 	
-	["wpn_gauss_quest"] = {-426.44213867188, 26.069364547729, -383.1135559082, 138111, 4140},
+	["wpn_gauss_quest"] = {-426.44213867188, 26.069364547729, -383.1135559082, level = "zaton"},
 }
 function spawn_item_at_pos(actor, npc, p)
 	if not (p and p[1]) then return end
 	
 	if (pos_itms[p[1]]) then
 		local pos = vector():set( pos_itms[p[1]][1], pos_itms[p[1]][2], pos_itms[p[1]][3] )
-		local se_obj = alife_create( p[1], pos, pos_itms[p[1]][4], pos_itms[p[1]][5] )
+		local se_obj = alife_create( p[1], pos, level_placement.vertices(pos_itms[p[1]].level, pos) )
 		if (not se_obj) then
 			printe("!ERROR: spawn_item_at_pos | unable to spawn [%s]", p[1])
 		end
@@ -382,7 +382,7 @@ end
 --< LTTZ >
 function spawn_strelok_notes()
      local pos = vector():set( 43.601459503174, 1.3544018268585, 75.227851867676 )
-     local se_obj = alife_create( "strelok_notes", pos, 3762, 3630 )
+     local se_obj = alife_create( "strelok_notes", pos, level_placement.vertices("l03u_agr_underground", pos) )
      if ( not se_obj ) then
           printe("!ERROR: unable to spawn strelok_notes" )
      end
@@ -391,20 +391,16 @@ end
 function spawn_wpn_gauss_quest() -- not used
      -- Potential locations for quest item:
      local quest_item_locations_list = {
-          {-421.80874633789, 23.745666503906, -328.25729370117, 145096, 4394}, -- location data for location 1
-          {-411.07214355469, 32.196994781494, -334.24200439453, 161488, 4139}, -- location data for location 2
-          {-424.48648071289, 24.198583602905, -381.48046875, 142021, 4140},  -- location data for location 3
+          {-421.80874633789, 23.745666503906, -328.25729370117}, -- location data for location 1
+          {-411.07214355469, 32.196994781494, -334.24200439453}, -- location data for location 2
+          {-424.48648071289, 24.198583602905, -381.48046875},  -- location data for location 3
      }
      -- Choose random location from the list:
      local i = math.random( #quest_item_locations_list )
      -- Set the position vector with the x, y, and z coordinates:
      local pos = vector():set( quest_item_locations_list[i][1], quest_item_locations_list[i][2], quest_item_locations_list[i][3] )
-     -- Extract the level vertex id for the chosen location:
-     local lvid = quest_item_locations_list[i][4]
-     -- Extract the game vertex id:
-     local gvid = quest_item_locations_list[i][5]
      -- Spawn the item at the chosen location:
-     local se_obj = alife_create( "wpn_gauss_quest", pos, lvid, gvid )
+     local se_obj = alife_create( "wpn_gauss_quest", pos, level_placement.vertices("zaton", pos) )
      if ( not se_obj ) then
           printe("!ERROR: unable to spawn wpn_gauss_quest" )
      end
@@ -423,20 +419,16 @@ end
 function spawn_x8_documents()
      -- Potential locations for quest item:
      local quest_item_locations_list = {
-          {-79.236862182617, -24.324705123901, 89.061508178711, 3417, 5077}, -- location data for location 1
-          {-101.86143493652, -31.362953186035, 90.774269104004, 636, 5090}, -- location data for location 2
-          {-79.810501098633, -15.038819313049, 114.17692565918, 3459, 5098},  -- location data for location 3
+          {-79.236862182617, -24.324705123901, 89.061508178711}, -- location data for location 1
+          {-101.86143493652, -31.362953186035, 90.774269104004}, -- location data for location 2
+          {-79.810501098633, -15.038819313049, 114.17692565918},  -- location data for location 3
      }
      -- Choose random location from the list:
      local i = math.random( #quest_item_locations_list )
      -- Set the position vector with the x, y, and z coordinates:
      local pos = vector():set( quest_item_locations_list[i][1], quest_item_locations_list[i][2], quest_item_locations_list[i][3] )
-     -- Extract the level vertex id for the chosen location:
-     local lvid = quest_item_locations_list[i][4]
-     -- Extract the game vertex id:
-     local gvid = quest_item_locations_list[i][5]
      -- Spawn the item at the chosen location:
-     local se_obj = alife_create( "x8_documents", pos, lvid, gvid )
+     local se_obj = alife_create( "x8_documents", pos, level_placement.vertices("labx8", pos) )
      if ( not se_obj ) then
           printe("!ERROR: unable to spawn x8_documents" )
      end
@@ -444,7 +436,7 @@ end
 
 function spawn_monolith_shard()
      local pos = vector():set( 0.072339810431004, -34.356998443604, 17.800102233887 )
-     local se_obj = alife_create( "monolith_shard", pos, 1849, 4055 )
+     local se_obj = alife_create( "monolith_shard", pos, level_placement.vertices("l12u_control_monolith", pos) )
      if ( not se_obj ) then
           printe("!ERROR: unable to spawn monolith_shard" )
      end
@@ -482,20 +474,16 @@ end
 function spawn_stitch_decoder()
      -- Potential locations for quest item:
      local quest_item_locations_list = {
-          {50.247924804688, 3.9755771160126, 156.77543640137, 509188, 5248}, -- location data for location 1
-          {51.563461303711, 7.1993789672852, 224.42543029785, 514950, 5155}, -- location data for location 2
-          {19.012723922729, 1.1766533851624, 112.65353393555, 472104, 5144},  -- location data for location 3
+          {50.247924804688, 3.9755771160126, 156.77543640137}, -- location data for location 1
+          {51.563461303711, 7.1993789672852, 224.42543029785}, -- location data for location 2
+          {19.012723922729, 1.1766533851624, 112.65353393555},  -- location data for location 3
      }
      -- Choose random location from the list:
      local i = math.random( #quest_item_locations_list )
      -- Set the position vector with the x, y, and z coordinates:
      local pos = vector():set( quest_item_locations_list[i][1], quest_item_locations_list[i][2], quest_item_locations_list[i][3] )
-     -- Extract the level vertex id for the chosen location:
-     local lvid = quest_item_locations_list[i][4]
-     -- Extract the game vertex id:
-     local gvid = quest_item_locations_list[i][5]
      -- Spawn the item at the chosen location:
-     local se_obj = alife_create( "stitch_decoder", pos, lvid, gvid )
+     local se_obj = alife_create( "stitch_decoder", pos, level_placement.vertices("k02_trucks_cemetery", pos) )
 	 if se_obj then
 		item_radio.add_target(se_obj.id, 171, 75)
 	 else
@@ -519,20 +507,16 @@ end
 function spawn_contact_lost_pda()
      -- Potential locations for quest item:
      local quest_item_locations_list = {
-          {-35.871238708496, -4.0057287216187, 139.02619934082, 8109, 2458}, -- location data for location 1
-          {-18.989786148071, -3.9511435031891, 143.22698974609, 15620, 2477}, -- location data for location 2
-          {-24.930610656738, -4.015763759613, 139.54330444336, 12734, 2458},  -- location data for location 3
+          {-35.871238708496, -4.0057287216187, 139.02619934082}, -- location data for location 1
+          {-18.989786148071, -3.9511435031891, 143.22698974609}, -- location data for location 2
+          {-24.930610656738, -4.015763759613, 139.54330444336},  -- location data for location 3
      }
      -- Choose random location from the list:
      local i = math.random( #quest_item_locations_list )
      -- Set the position vector with the x, y, and z coordinates:
      local pos = vector():set( quest_item_locations_list[i][1], quest_item_locations_list[i][2], quest_item_locations_list[i][3] )
-     -- Extract the level vertex id for the chosen location:
-     local lvid = quest_item_locations_list[i][4]
-     -- Extract the game vertex id:
-     local gvid = quest_item_locations_list[i][5]
      -- Spawn the item at the chosen location:
-     local se_obj = alife_create( "contact_lost_pda", pos, lvid, gvid )
+     local se_obj = alife_create( "contact_lost_pda", pos, level_placement.vertices("l10_limansk", pos) )
      if ( not se_obj ) then
           printe("!ERROR: unable to spawn contact_lost_pda" )
      end
@@ -620,20 +604,16 @@ end
 function spawn_jupiter_documents( )
      -- Potential locations for quest item:
      local quest_item_locations_list = {
-          {304.7744140625, 28.783397674561, -299.32592773438, 1209997, 4517}, -- location data for location 1
-          {324.68350219727, 31.384368896484, -305.80865478516, 1235548, 4517}, -- location data for location 2
-          {351.95175170898, 27.543346405029, -343.99871826172, 1276714, 4516},  -- location data for location 3
+          {304.7744140625, 28.783397674561, -299.32592773438}, -- location data for location 1
+          {324.68350219727, 31.384368896484, -305.80865478516}, -- location data for location 2
+          {351.95175170898, 27.543346405029, -343.99871826172},  -- location data for location 3
      }
      -- Choose random location from the list:
      local i = math.random( #quest_item_locations_list )
      -- Set the position vector with the x, y, and z coordinates:
      local pos = vector( ):set( quest_item_locations_list[i][1], quest_item_locations_list[i][2], quest_item_locations_list[i][3] )
-     -- Extract the level vertex id for the chosen location:
-     local lvid = quest_item_locations_list[i][4]
-     -- Extract the game vertex id:
-     local gvid = quest_item_locations_list[i][5]
      -- Spawn the item at the chosen location:
-     local se_obj = alife_create("jupiter_documents", pos, lvid, gvid )
+     local se_obj = alife_create("jupiter_documents", pos, level_placement.vertices("jupiter", pos) )
      if ( not se_obj ) then
           printe("!ERROR: unable to spawn jupiter_documents" )
      end
@@ -5562,7 +5542,11 @@ function make_a_wish(actor,npc,p)
 --		Goodwill is increased with the Monolith and Zombified faction to ensure they aren't hostile.
 		inc_faction_goodwill_to_actor(db.actor, nil, {"monolith", 5000})
 		inc_faction_goodwill_to_actor(db.actor, nil, {"zombied", 5000})
-		ChangeLevel(vector():set(266.99, 0.00, -131.07), 310937, 181, VEC_ZERO)
+		local pos = vector():set(266.99, 0.00, -131.07)
+		local lvid, gvid = level_placement.vertices("k00_marsh", pos)
+		if lvid then
+			ChangeLevel(pos, lvid, gvid, VEC_ZERO)
+		end
 		return
 	end
 

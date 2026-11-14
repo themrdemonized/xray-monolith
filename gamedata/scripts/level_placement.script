@@ -1,80 +1,12 @@
--- Ids for a position on a named level instead of ids recorded for one all.spawn. A level that does not resolve is
--- logged by the engine and nothing is placed.
-
+-- lvid, gvid for a position on a named level; nothing when the level does not resolve (logged).
 function vertices(level_name, pos)
-	local ids = level_name and game_graph():level_vertices(level_name, pos)
+	if not level_name then
+		printf("! level_placement.vertices: no level name for position %s, %s, %s", pos.x, pos.y, pos.z)
+		callstack()
+		return
+	end
+	local ids = game_graph():level_vertices(level_name, pos)
 	if ids then
 		return ids.level_vertex_id, ids.game_vertex_id
 	end
-end
-
--- t = {x, y, z, lvid, gvid, ...}
-function resolve(t, level_name)
-	local lvid, gvid = vertices(level_name, vector():set(t[1], t[2], t[3]))
-	if not lvid then
-		return false
-	end
-	t[4], t[5] = lvid, gvid
-	return true
-end
-
--- s = "x,y,z,lvid,gvid[,...]"; nil when unresolved
-function resolve_string(s, level_name)
-	local f = {}
-	for field in (s .. ","):gmatch("([^,]*),") do
-		f[#f + 1] = field
-	end
-	local x, y, z = tonumber(f[1]), tonumber(f[2]), tonumber(f[3])
-	if not (x and y and z) then
-		return
-	end
-	local lvid, gvid = vertices(level_name, vector():set(x, y, z))
-	if not lvid then
-		return
-	end
-	f[4], f[5] = tostring(lvid), tostring(gvid)
-	return table.concat(f, ",")
-end
-
--- fn(...) with tbl[key] = value for the duration of the call (restored also on error), so calls made inside fn
--- through tbl[key] reach value
-function with(tbl, key, value, fn, ...)
-	local base = tbl[key]
-	tbl[key] = value
-	local result = { pcall(fn, ...) }
-	tbl[key] = base
-	if not result[1] then
-		error(result[2], 0)
-	end
-	return unpack(result, 2)
-end
-
-local function is_position(v)
-	return type(v) == "userdata" and v.x ~= nil
-end
-
--- fn(...) with alife_create of world objects and ChangeLevel placed on level_name, for base functions whose ids are
--- literals. Possible replacement for with/on_level: copies of those functions calling vertices().
-function on_level(level_name, fn, ...)
-	local base_alife_create, base_change_level = _G.alife_create, _G.ChangeLevel
-
-	local function alife_create(sec, pos, lvid, gvid, id, ...)
-		if id == nil and is_position(pos) then
-			lvid, gvid = vertices(level_name, pos)
-			if not lvid then
-				return
-			end
-		end
-		return base_alife_create(sec, pos, lvid, gvid, id, ...)
-	end
-
-	local function change_level(pos, lvid, gvid, ...)
-		lvid, gvid = vertices(level_name, pos)
-		if not lvid then
-			return
-		end
-		return base_change_level(pos, lvid, gvid, ...)
-	end
-
-	return with(_G, "alife_create", alife_create, with, _G, "ChangeLevel", change_level, fn, ...)
 end

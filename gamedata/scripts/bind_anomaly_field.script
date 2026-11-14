@@ -90,15 +90,19 @@ function ini_settings()
 			result, name, info	= ini_ano:r_line_ex(id,ii,"","")
 			if name and info then
 				local t = str_explode(info,",")
-				if (#t == 6) and (t[1] ~= "NA") then
-					dyn_ano_info[id][name] = {
-						typ = t[1],
-						x = tonumber(t[2]),
-						y = tonumber(t[3]),
-						z = tonumber(t[4]),
-						lvl_id = tonumber(t[5]),
-						gm_id = tonumber(t[6]),
-					}
+				local x, y, z = tonumber(t[2]), tonumber(t[3]), tonumber(t[4])
+				if x and y and z and (t[1] ~= "NA") then
+					local lvl_id, gm_id = level_placement.vertices(id, vector():set(x, y, z))
+					if lvl_id then
+						dyn_ano_info[id][name] = {
+							typ = t[1],
+							x = x,
+							y = y,
+							z = z,
+							lvl_id = lvl_id,
+							gm_id = gm_id,
+						}
+					end
 				end
 			end
 		end

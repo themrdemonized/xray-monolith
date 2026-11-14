@@ -197,10 +197,11 @@ local function on_game_load(binder)
 		config:w_value("character_creation","new_game_map")
 		
 		if start_location and start_location ~= "" then
-			start_pos = {}
-			table.insert(start_pos,ini_map:r_float_ex(start_location, "lvid"))
-			table.insert(start_pos,ini_map:r_float_ex(start_location, "gvid"))
-			table.insert(start_pos,vector():set(ini_map:r_float_ex(start_location,"x"),ini_map:r_float_ex(start_location,"y"),ini_map:r_float_ex(start_location,"z")))
+			local pos = vector():set(ini_map:r_float_ex(start_location,"x"),ini_map:r_float_ex(start_location,"y"),ini_map:r_float_ex(start_location,"z"))
+			local lvid, gvid = level_placement.vertices(ini_map:r_string_ex(start_location, "level"), pos)
+			if lvid then
+				start_pos = {lvid, gvid, pos}
+			end
 		else
 			spawn_path = nil  --patrol("spawn_player_"..faction)
 		end
@@ -1177,10 +1178,15 @@ function UINewGame:LoadMap (rand)
 		table.insert(self.table_map, "random_location")
 	end
 	
+	local in_play = {}
+	for _, name in ipairs(game.level_names()) do
+		in_play[name] = true
+	end
+	
 	local n = ini_map:line_count(self.selected_faction .. "_start_locations") or 0
 	for i=0, n-1 do
 		local result, id, value = ini_map:r_line(self.selected_faction.."_start_locations",i,"","" )
-		if value then
+		if value and in_play[ini_map:r_string_ex(id, "level")] then
 			local tbl = str_explode(value,",")
 			if self.ck_story and self.ck_story:GetCheck() then
 				if (tbl[2] == "true") or (tbl[2] == "false") then

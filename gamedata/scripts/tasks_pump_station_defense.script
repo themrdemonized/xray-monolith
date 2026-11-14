@@ -219,8 +219,9 @@ local _GUNS_FOR_GUARDS = {
 	{"wpn_ak74u","ammo_5.45x39_fmj"},
 	-- {'wpn_lr300_custom','ammo_5.56x45_fmj'},
 }
-function spawn_and_set(kill,sec,x,y,z,lvid,gvid,guard_profile,give_guns)
-	local se = alife_create(sec,vector():set(x,y,z),lvid,gvid)
+function spawn_and_set(kill,sec,x,y,z,guard_profile,give_guns)
+	local pos = vector():set(x,y,z)
+	local se = alife_create(sec,pos,level_placement.vertices("k00_marsh",pos))
 	if kill then 
 		se.angle = vector(0,mr(1,true),0)
 		M.to_release_at_end[se.id] = true
@@ -290,12 +291,12 @@ f_stage[0] = function(tsk,task_id)
 		}
 		
 		M.spawn_points = {
-			{-13.780313491821,0.74562031030655,-40.790405273438,136337,20 },
-			{-0.22422948479652,0.35323888063431,-48.327178955078,142310,20},
-			{54.677856445313,0.60878366231918,34.824234008789,171341,183  },
-			{56.228652954102,0.53593975305557,38.849433898926,172574,183  },
-			{-49.463119506836,0.79843503236771,32.798267364502,116796,335 },
-			{-36.343528747559,0.41626954078674,44.38663482666,124543,335  },
+			{-13.780313491821,0.74562031030655,-40.790405273438 },
+			{-0.22422948479652,0.35323888063431,-48.327178955078},
+			{54.677856445313,0.60878366231918,34.824234008789  },
+			{56.228652954102,0.53593975305557,38.849433898926  },
+			{-49.463119506836,0.79843503236771,32.798267364502 },
+			{-36.343528747559,0.41626954078674,44.38663482666  },
 		}
 		
 		local sm = SIMBOARD.smarts_by_names['mar_smart_terrain_5_8']
@@ -320,32 +321,32 @@ f_stage[0] = function(tsk,task_id)
 		end
 		
 		-- dead sniper
-		M.trigger_id = spawn_and_set(true,'sim_default_csky_3',-5.5388970375061,11.186992645264,20.451383590698,139764,16)
+		M.trigger_id = spawn_and_set(true,'sim_default_csky_3',-5.5388970375061,11.186992645264,20.451383590698)
 		local trig = alife():object(M.trigger_id)
 		local p = trig.position
 		M.trigger_pos = {x=p.x,y=p.y,z=p.z}
 		
 		-- commander
-		M.commander_id = spawn_and_set(false,'sim_default_csky_4',-16.133546829224,4.8830790519714,13.973717689514,135494,16, "commander",true)
+		M.commander_id = spawn_and_set(false,'sim_default_csky_4',-16.133546829224,4.8830790519714,13.973717689514, "commander",true)
 		
 		-- (soon) dead bandits
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),1.9396654367447,1.0203063488007,-13.762584686279,143385,17)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-0.54266440868378,0.73321121931076,-18.496885299683,141978,17)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-4.9029340744019,0.50968080759048,-20.897457122803,140028,19)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-6.0652461051941,0.70677882432938,-27.802486419678,139435,19)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-7.4985198974609,0.43960136175156,-38.498107910156,138848,20)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),21.00622177124,0.6645775437355,14.144376754761,152905,36)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),27.007202148438,0.76654106378555,13.693680763245,156446,35)
-		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-0.24199193716049,4.3560590744019,32.728443145752,142386,65)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),1.9396654367447,1.0203063488007,-13.762584686279)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-0.54266440868378,0.73321121931076,-18.496885299683)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-4.9029340744019,0.50968080759048,-20.897457122803)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-6.0652461051941,0.70677882432938,-27.802486419678)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-7.4985198974609,0.43960136175156,-38.498107910156)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),21.00622177124,0.6645775437355,14.144376754761)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),27.007202148438,0.76654106378555,13.693680763245)
+		spawn_and_set(true ,'sim_default_bandit_'..mr(2,true),-0.24199193716049,4.3560590744019,32.728443145752)
 		
 		-- guards
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),5.0465126037598,3.2883059978485,18.298782348633,144660,36,  1 , true)] = true
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),4.9958162307739,3.2920978069305,12.101389884949,144651,36,  2 , true)] = true
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),3.1273865699768,2.1526610851288,-3.6081943511963,143737,18, 3 , true)] = true
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-0.53463208675385,2.147492647171,-6.2311568260193,141979,18,4 , true)] = true
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-5.9249491691589,3.3302540779114,6.0563468933105,139738,16, 5 , true)] = true
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-8.3903884887695,3.3009197711945,21.665546417236,138572,36, 6 , true)] = true
-		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-19.692607879639,4.9291095733643,16.863489151001,134017,16, 8 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),5.0465126037598,3.2883059978485,18.298782348633,  1 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),4.9958162307739,3.2920978069305,12.101389884949,  2 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),3.1273865699768,2.1526610851288,-3.6081943511963, 3 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-0.53463208675385,2.147492647171,-6.2311568260193,4 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-5.9249491691589,3.3302540779114,6.0563468933105, 5 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-8.3903884887695,3.3009197711945,21.665546417236, 6 , true)] = true
+		M.guards[spawn_and_set(false,'sim_default_csky_'..mr(2,true),-19.692607879639,4.9291095733643,16.863489151001, 8 , true)] = true
 		
 		return
 	end
@@ -409,7 +410,7 @@ f_stage[3] = function(tsk,task_id)
 		pos = vector():set(sp[1], sp[2], sp[3])
 		local sec = M.attackers_sections[math.random(#M.attackers_sections)]
 		
-		local se_attacker = alife_create(sec,pos,sp[4],sp[5])
+		local se_attacker = alife_create(sec,pos,level_placement.vertices("k00_marsh",pos))
 		
 		M.attackers[se_attacker.id] = true
 		M.to_release_at_end[se_attacker.id] = true

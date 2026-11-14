@@ -143,15 +143,19 @@ function init_settings()
 			result, name, info	= ini_dyn:r_line_ex(id,ii,"","")
 			if name and info then
 				local t = str_explode(info,",")
-				if (#t == 6) and (t[1] ~= "NA") then
-					world_itm_info[name] = {
-						typ = t[1],
-						x = tonumber(t[2]),
-						y = tonumber(t[3]),
-						z = tonumber(t[4]),
-						lvl_id = tonumber(t[5]),
-						gm_id = tonumber(t[6]),
-					}
+				local x, y, z = tonumber(t[2]), tonumber(t[3]), tonumber(t[4])
+				if x and y and z and (t[1] ~= "NA") then
+					local lvl_id, gm_id = level_placement.vertices(id, vector():set(x, y, z))
+					if lvl_id then
+						world_itm_info[name] = {
+							typ = t[1],
+							x = x,
+							y = y,
+							z = z,
+							lvl_id = lvl_id,
+							gm_id = gm_id,
+						}
+					end
 				end
 			end
 		end
@@ -354,7 +358,11 @@ function freedom_medic_fix()
 				if se:name() == 'mil_physic_object_0048' then
 					alife():release(se)
 				elseif se:name() == 'sc_freedom_medic_mlr' then
-					alife():teleport_object(i, 2165, 315401, vector():set(27.681089401245, -6.9381303787231, 17.38550567627))
+					local pos = vector():set(27.681089401245, -6.9381303787231, 17.38550567627)
+					local lvid, gvid = level_placement.vertices("l07_military", pos)
+					if lvid then
+						alife():teleport_object(i, gvid, lvid, pos)
+					end
 				end
 			end
 		end

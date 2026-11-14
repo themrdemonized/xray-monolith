@@ -1,9 +1,0 @@
--- Replaces the function: its ids are literals.
-
-local function spawn_1_11_af_medusa_kmb(first_speaker, second_speaker)
-	alife():create_on_level("af_medusa", "l01_escape", vector():set(-249.45230102539, -13.491371154785, -29.858497619629))
-end
-
-function on_game_start()
-	dialogs_mlr.spawn_1_11_af_medusa_kmb = spawn_1_11_af_medusa_kmb
-end

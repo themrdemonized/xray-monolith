@@ -1,5 +1,6 @@
 -----
--- veh_1 = pos.x,pos.y,pos.z,dirH,lvid,gvid,section,must_kill,use_gun
+-- veh_1 = pos.x,pos.y,pos.z,dirH,lvid,gvid,section,must_kill,use_gun (lvid, gvid are not read)
+-- level = level name of all veh_N
 -- status_functor = veh_destroy_sf
 -- target_functor = veh_destroy_tf
 -- desc_functor = veh_destroy_df
@@ -75,8 +76,6 @@ STAGE_F[0] = function(tsk,task_id)
 			y 		= tonumber(s[2]),
 			z 		= tonumber(s[3]),
 			h 		= tonumber(s[4]),
-			lvid 	= tonumber(s[5]),
-			gvid 	= tonumber(s[6]),
 			veh_sec 		 = s[7],
 			must_kill 	     = s[8] == "true",
 		}
@@ -90,7 +89,8 @@ STAGE_F[0] = function(tsk,task_id)
 	
 	local sim = alife()
 	for ii,v in ipairs(DATA[task_id].vehicles) do
-		local se_veh = alife_create(v.veh_sec, vector():set(v.x, v.y, v.z), v.lvid, v.gvid)
+		local pos = vector():set(v.x, v.y, v.z)
+		local se_veh = alife_create(v.veh_sec, pos, level_placement.vertices(settings.level, pos))
 		if not se_veh then 
 			printf('failed to spawn vehicle %s', ii)
 			return "fail"
