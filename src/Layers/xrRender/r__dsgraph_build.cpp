@@ -66,6 +66,23 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	float SSA = CalcSSA(distSQ, Center, pVisual);
 	if (SSA <= r_ssaDISCARD) return;
 
+	// an object the game does not draw goes to the object mask alone
+	if (RI.val_bMaskOnly)
+	{
+		ShaderElement* sh = RI.rimp_select_sh_dynamic(pVisual, distSQ);
+		if (!sh)
+			return;
+		_MatrixItemS& P = (pVisual->dcast_ParticleCustom() ? bus_forward : bus_hidden).emplace_back();
+		P.ssa = SSA;
+		P.pObject = RI.val_pObject;
+		P.pVisual = pVisual;
+		P.Matrix = *RI.val_pTransform;
+		P.se = sh;
+		P.fov = RI.val_fCustomFOV;
+		P.bus_tag = RI.val_busTag;
+		return;
+	}
+
 	// Distortive geometry should be marked and R2 special-cases it
 	// a) Allow to optimize RT order
 	// b) Should be rendered to special distort buffer in another pass
@@ -92,6 +109,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 	item.fov = RI.val_fCustomFOV;
+	item.bus_tag = RI.val_busTag;
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	
@@ -106,6 +124,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
             N->val.fov = RI.val_fCustomFOV;
+			N->val.bus_tag = RI.val_busTag | (RI.val_bHUD ? ShaderBus::hud_lens : 0);
 			return;
 		}
 
@@ -117,6 +136,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
             N->val.fov = RI.val_fCustomFOV;
+			N->val.bus_tag = RI.val_busTag | (RI.val_bHUD ? ShaderBus::hud_lens : 0);
 			return;
 		}
 
@@ -168,6 +188,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
 			N->val.fov = RI.val_fCustomFOV;
+			N->val.bus_tag = RI.val_busTag;
 			/*
 #if RENDER==R_R4
 			if (RImplementation.o.ssfx_core && !sh->passes[0]->ps->hud_disabled)
@@ -241,6 +262,21 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	RI.L_Shadows->add_element(item);
 #endif
 	if (RI.val_bInvisible) return;
+
+	// a tagged world particle or a forward mesh of a mask opened to forward draws also draws into the mask after the forward pass
+	IParticleCustom* bus_particle = pVisual->dcast_ParticleCustom();
+	const u32 bus_tag = bus_particle ? (bus_particle->GetHudMode() ? 0 : RI.val_busTag) : RI.val_busTag & bus_forward_bits;
+	if (bus_tag && RI.phase == CRender::PHASE_NORMAL && sh->flags.iPriority / 2 && !sh->flags.bWmark)
+	{
+		_MatrixItemS& P = bus_forward.emplace_back();
+		P.ssa = SSA;
+		P.pObject = RI.val_pObject;
+		P.pVisual = pVisual;
+		P.Matrix = *RI.val_pTransform;
+		P.se = sh;
+		P.fov = RI.val_fCustomFOV;
+		P.bus_tag = bus_tag;
+	}
 
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F)
@@ -939,7 +975,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			else
 			{
 				pV->CalculateBones(TRUE);
-				if (!get_UI3D()) pV->CalculateWallmarks();
+				if (!get_UI3D() && !val_bMaskOnly) pV->CalculateWallmarks();
 				I = pV->children.begin();
 				E = pV->children.end();
 				for (; I != E; ++I) add_leafs_Dynamic((dxRender_Visual*)*I);

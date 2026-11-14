@@ -1,0 +1,11 @@
+// object mask for an alpha tested mesh, clipped where its own pixel shader clips
+#include "common_defines.h"
+
+Texture2D s_base : register(t0);
+SamplerState smp_base : register(s0);
+
+float4 main(float2 tc : TEXCOORD0) : SV_Target
+{
+	clip(s_base.Sample(smp_base, tc).a - def_aref);
+	return 1.0;
+}

@@ -119,6 +119,12 @@ struct ECORE_API R_constant : public xr_resource
 	shared_str name; // HLSL-name
 	u16 type; // float=0/integer=1/boolean=2
 	u32 destination; // pixel/vertex/(or both)/sampler
+	// the resource dimension, return type and component count a texture entry reflected, 0 for constants
+	u8 dimension = 0;
+	u8 return_type = 0;
+	u8 components = 0;
+	// false while no stage reads the constant, which only DX10 and DX11 reflection reports
+	bool used = true;
 
 	R_constant_load ps;
 	R_constant_load vs;

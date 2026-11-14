@@ -3,6 +3,7 @@
 #include "../../xrEngine/environment.h"
 
 #include "../xrRender/dxEnvironmentRender.h"
+void bus_readback_capture(u32 source, ID3D11Resource* res);
 
 #define STENCIL_CULL 0
 
@@ -45,6 +46,8 @@ void CRenderTarget::phase_combine()
 
 	//	TODO: DX10: Remove half poxel offset
 	bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
+	bus_readback_capture(ShaderBus::readback_light, rt_Accumulator->pSurface);
+	phase_bus(ShaderBus::stage_lighting);
 
 	u32 Offset = 0;
 	Fvector2 p0, p1;
@@ -449,6 +452,9 @@ void CRenderTarget::phase_combine()
 		                                rt_Generic_0_r->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 	}
 
+	phase_bus(ShaderBus::stage_scene);
+
+	bus_readback_capture(ShaderBus::readback_scene, rt_Generic_0->pSurface);
 	// for msaa we need a resolved color buffer - Holger
 	phase_bloom(); // HDR RT invalidated here
 
@@ -731,6 +737,8 @@ void CRenderTarget::phase_combine()
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES) && ps_r2_heatvision == 0) //--DSR-- HeatVision
 		g_pGamePersistent->Environment().RenderFlares(); // lens-flares
 
+	phase_bus(ShaderBus::stage_post);
+
 	//	PP-if required
 	if (PP_Complex)
 	{
@@ -851,6 +859,7 @@ void CRenderTarget::phase_combine()
 	dbg_lines.clear		();
 	dbg_planes.clear	();
 #endif
+	bus_readback_capture(ShaderBus::readback_backbuffer, nullptr);
 }
 
 void CRenderTarget::phase_wallmarks()

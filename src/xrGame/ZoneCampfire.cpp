@@ -3,6 +3,7 @@
 #include "ParticlesObject.h"
 #include "GamePersistent.h"
 #include "../xrEngine/LightAnimLibrary.h"
+#include "../xrEngine/shader_bus.h"
 
 /*
 CZoneCampfire* g_zone = NULL;
@@ -47,7 +48,11 @@ void CZoneCampfire::GoEnabledState()
 	m_disabled_sound.destroy();
 
 	LPCSTR str = pSettings->r_string(cNameSect(), "enabling_particles");
+	// a second turn on replaces the handle without destroying it, so the old effect drops the fire's bits first
+	if (m_pEnablingParticles)
+		ShaderBus::copy_mask(nullptr, m_pEnablingParticles);
 	m_pEnablingParticles = CParticlesObject::Create(str,FALSE);
+	ShaderBus::copy_mask(this, m_pEnablingParticles);
 	m_pEnablingParticles->UpdateParent(XFORM(), zero_vel);
 	m_pEnablingParticles->Play(false);
 }
@@ -59,6 +64,7 @@ void CZoneCampfire::GoDisabledState()
 	R_ASSERT(NULL==m_pDisabledParticles);
 	LPCSTR str = pSettings->r_string(cNameSect(), "disabled_particles");
 	m_pDisabledParticles = CParticlesObject::Create(str,FALSE);
+	ShaderBus::copy_mask(this, m_pDisabledParticles);
 	m_pDisabledParticles->UpdateParent(XFORM(), zero_vel);
 	m_pDisabledParticles->Play(false);
 
@@ -109,6 +115,11 @@ void CZoneCampfire::shedule_Update(u32 dt)
 		        GamePersistent().Environment().wind_strength_factor);
 		m_pIdleParticles->UpdateParent(XFORM(), vel);
 	}
+	// the fire's mask bits follow it onto the particles it keeps while on or off
+	if (m_pEnablingParticles)
+		ShaderBus::copy_mask(this, m_pEnablingParticles);
+	if (m_pDisabledParticles)
+		ShaderBus::copy_mask(this, m_pDisabledParticles);
 	inherited::shedule_Update(dt);
 }
 
