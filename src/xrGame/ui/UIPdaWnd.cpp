@@ -158,17 +158,38 @@ void CUIPdaWnd::RebuildExtraTabs()
 	}
 }
 
+
 void CUIPdaWnd::SetPdaXml(LPCSTR xml)
 {
-	if (m_pActiveDialog) {
-		if (UIMainPdaFrame->IsChild(m_pActiveDialog)) {
-			UIMainPdaFrame->DetachChild(m_pActiveDialog);
-		}
-		m_pActiveDialog->Show(false);
-	}
+    const bool treasuresEnabled =
+        pUITaskWnd ? pUITaskWnd->IsTreasuresEnabled() : true;
+    const bool primaryObjectsEnabled =
+        pUITaskWnd ? pUITaskWnd->IsPrimaryObjectsEnabled() : true;
+    const bool secondaryTasksEnabled =
+        pUITaskWnd ? pUITaskWnd->IsSecondaryTasksEnabled() : true;
+    const bool questNpcsEnabled =
+        pUITaskWnd ? pUITaskWnd->IsQuestNpcsEnabled() : true;
 
-	g_pda_xml_path = xml;
-	Init();
+    if (m_pActiveDialog)
+    {
+        if (UIMainPdaFrame->IsChild(m_pActiveDialog))
+            UIMainPdaFrame->DetachChild(m_pActiveDialog);
+
+        m_pActiveDialog->Show(false);
+    }
+
+    g_pda_xml_path = xml;
+    Init();
+
+    if (pUITaskWnd)
+    {
+        pUITaskWnd->TreasuresEnabled(treasuresEnabled);
+        pUITaskWnd->PrimaryObjectsEnabled(primaryObjectsEnabled);
+        pUITaskWnd->SecondaryTasksEnabled(secondaryTasksEnabled);
+        pUITaskWnd->QuestNpcsEnabled(questNpcsEnabled);
+
+        pUITaskWnd->ReloadTaskInfo();
+    }
 }
 
 void CUIPdaWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)

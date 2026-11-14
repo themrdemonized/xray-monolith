@@ -422,6 +422,9 @@
         // AddTab, which builds the tab fresh.
         bool SetTabIcon(string id, string art)
         void RecalcScroll() // recompute strip geometry; scrolling engages only on overflow
+
+		// Ncenka - remove selection from active tab and allow to select it again.
+		void ResetTab()
     }
 
     class CUIMessagesWindow : CUIWindow {
@@ -1129,12 +1132,17 @@
         function get_artefact_additional_inventory_weight()
         function set_artefact_additional_inventory_weight(float)
 
-		// Devices
-		function set_device_enabled(bool)
-		function is_device_enabled()
+        // Devices
+        function set_device_enabled(bool)
+        function is_device_enabled()
 
-		// Explosive
-		function set_initiator(obj)
+        // PDA
+        function SetPdaBrightness(float)
+        function GetPdaBrightness()
+        function ResetPdaBrightness()
+
+        // Explosive
+        function set_initiator(obj)
 
         // Bones
         u16 get_bone_id(string)

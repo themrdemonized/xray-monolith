@@ -22,7 +22,8 @@ void CUITabControl::script_register(lua_State* L)
 		.def("SetActiveTab", &CUITabControl::SetActiveTab_script)
 		.def("GetButtonById", &CUITabControl::GetButtonById_script)
 		.def("GetEnabled", &CUITabControl::GetAcceleratorsMode)
-		.def("SetEnabled", &CUITabControl::SetAcceleratorsMode),
+		.def("SetEnabled", &CUITabControl::SetAcceleratorsMode)
+        .def("ResetTab", &CUITabControl::ResetTab),
 
 		class_<CUITabButton, CUIButton>("CUITabButton")
 		.def(constructor<>())

@@ -114,6 +114,11 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("psy_factor", SAFE_WRAP(&CScriptGameObject::GetPsyFactor))
 		.def("set_psy_factor", SAFE_WRAP(&CScriptGameObject::SetPsyFactor))
 
+        // Added by Ncenka - allow to change PDA brightness
+        .def("SetPdaBrightness", SAFE_WRAP(&CScriptGameObject::SetPdaBrightness))
+        .def("GetPdaBrightness", SAFE_WRAP(&CScriptGameObject::GetPdaBrightness))
+        .def("ResetPdaBrightness", SAFE_WRAP(&CScriptGameObject::ResetPdaBrightness))
+
 		// Added by Ncenka - allow turn on/off devices
 		.def("is_device_enabled", SAFE_WRAP(&CScriptGameObject::IsDeviceEnabled))
 		.def("set_device_enabled", SAFE_WRAP(&CScriptGameObject::SetDeviceEnabled))

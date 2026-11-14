@@ -130,4 +130,18 @@ public:
 	bool m_PdaEnabled;
 	float m_thumb_rot[2];
 	float m_nearwall_zoomed_range;
+
+    float m_fPdaBrightness;
+    bool m_bPdaBrightnessOverride;
+
+    void SetPdaBrightness(float value)
+    {
+        m_fPdaBrightness = value;
+        clamp(m_fPdaBrightness, 0.f, 1.5f);
+        m_bPdaBrightnessOverride = true;
+    }
+
+    float GetPdaBrightness() const { return m_fPdaBrightness; }
+    void ResetPdaBrightness() { m_bPdaBrightnessOverride = false; m_fPdaBrightness = 1.f; }
+
 };

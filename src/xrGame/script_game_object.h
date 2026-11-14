@@ -228,6 +228,11 @@ public:
 	float GetPsyFactor() const;
 	void SetPsyFactor(float val);
 
+    // Added by Ncenka - allow to change PDA brightness
+    void SetPdaBrightness(float value);
+    float GetPdaBrightness() const;
+    void ResetPdaBrightness();
+
 	// Added by Ncenka - allow turn on/off devices
 	_DECLARE_FUNCTION10(IsDeviceEnabled, bool);
 	_DECLARE_FUNCTION11(SetDeviceEnabled, void, bool);
