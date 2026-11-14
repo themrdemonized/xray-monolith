@@ -152,6 +152,7 @@ struct script_layer
 	Fmatrix blend;
 	u8 m_part;
     shared_str m_pivot_bone;
+	float m_fade_time;
 
 	script_layer(LPCSTR name, u8 part, float speed = 1.f, float power = 1.f, bool looped = true, LPCSTR pivot_bone = nullptr)
 	{
@@ -159,6 +160,7 @@ struct script_layer
 		m_part = part;
 		m_power = power;
 		m_pivot_bone = pivot_bone;
+		m_fade_time = .4f;
 		blend.identity();
 		anm = xr_new<CObjectAnimator>();
 		anm->Load(name);
@@ -210,6 +212,57 @@ struct script_layer
 		// Translation interpolation
 		Fvector t = anm->XFORM().c;
 		t.mul(m_power * eased);
+
+		blend.mk_xform(q, t);
+		return blend;
+	}
+};
+
+struct hud_offset
+{
+	Fvector m_pos;
+	Fvector m_rot;
+	float blend_amount;
+	float m_fade_time;
+	bool active;
+	Fmatrix blend;
+
+	hud_offset()
+	{
+		clear();
+	}
+
+	void clear()
+	{
+		m_pos.set(0.f, 0.f, 0.f);
+		m_rot.set(0.f, 0.f, 0.f);
+		blend_amount = 0.f;
+		m_fade_time = .4f;
+		active = false;
+		blend.identity();
+	}
+
+	const Fmatrix& XFORM()
+	{
+		auto min_jerk_interp = [](float t) {
+			return 10*t*t*t - 15*t*t*t*t + 6*t*t*t*t*t;
+		};
+
+		float eased = min_jerk_interp(blend_amount);
+
+		Fvector ypr = m_rot;
+		ypr.mul(PI / 180.f);
+
+		Fmatrix full;
+		// rotation signs match aim_hud_offset_rot
+		full.setHPB(-ypr.x, -ypr.y, -ypr.z);
+
+		Fquaternion qA; qA.identity();
+		Fquaternion qB; qB.set(full);
+		Fquaternion q; q.slerp(qA, qB, eased);
+
+		Fvector t = m_pos;
+		t.mul(eased);
 
 		blend.mk_xform(q, t);
 		return blend;
@@ -296,6 +349,62 @@ struct hud_item_measures
 	float m_attach_scale;
 };
 
+// hip inertia and strafe values a kept script hand sways on
+struct hud_sway_params
+{
+	float m_tendto_speed;
+	float m_tendto_ret_speed;
+	float m_min_angle;
+	Fvector4 m_offset_LRUD;
+
+	Fvector m_strafe_pos;
+	Fvector m_strafe_rot;
+	float m_strafe_enabled;
+	float m_strafe_time;
+	float m_strafe_cam_limit;
+	float m_strafe_cam_min_angle;
+
+	hud_sway_params();
+	void load(const shared_str& sect_name);
+	void load(const hud_item_measures& measures);
+	void blend(const hud_sway_params& src, float weight);
+};
+
+// per hand sway source weights for hands, item and own values, and the hand's sway factors
+struct hud_sway
+{
+	Fvector m_weights;
+	bool m_custom;
+	bool m_own_valid;
+	hud_sway_params m_own;
+
+	float m_fLR_CameraFactor;
+	float m_fLR_MovingFactor;
+	float m_fLR_InertiaFactor;
+	float m_fUD_InertiaFactor;
+
+	hud_sway()
+	{
+		clear();
+		reset();
+	}
+
+	void clear()
+	{
+		m_weights.set(1.f, 0.f, 0.f);
+		m_custom = false;
+		m_own_valid = false;
+	}
+
+	void reset()
+	{
+		m_fLR_CameraFactor = 0.f;
+		m_fLR_MovingFactor = 0.f;
+		m_fLR_InertiaFactor = 0.f;
+		m_fUD_InertiaFactor = 0.f;
+	}
+};
+
 struct attachable_hud_item
 {
 	player_hud* m_parent;
@@ -369,7 +478,7 @@ public:
 	void load_default() { load("actor_hud_05", true); };
 	void update(const Fmatrix& trans);
 	void updateMovementLayerState();
-	void StopScriptAnim();
+	void StopScriptAnim(bool forced = false);
 	void create_script_anim_item_model(LPCSTR section);
 	void delete_script_anim_item_model();
 	void PlayBlendAnm(LPCSTR name, u8 part = 0, float speed = 1.f, float power = 1.f, bool bLooped = true, bool no_restart = false, LPCSTR pivot_bone = nullptr);
@@ -385,11 +494,24 @@ public:
 	u32 anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part = u16(-1));
 	u32 script_anim_play(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true, float speed = 1.f);
 	const shared_str& section_name() const { return m_sect_name; }
+	bool set_hands_visuals(LPCSTR right_visual, LPCSTR left_visual);
+	bool SetBareHands(LPCSTR section);
+	const shared_str& bare_hands_section() const { return m_bare_hands_sect; }
+	bool bare_hands_active() const;
 	void OnFrame();
 	void net_Relcase(CObject* obj);
 
 	u8 script_anim_part;
+	// the part of the last script motion, kept while the offset blends back out
+	u8 script_anim_last_part;
+	bool script_anim_keep_freelook[2];
+	hud_offset m_hud_offsets[2];
+	hud_sway m_hud_sway[2];
+	hud_sway_params m_hud_sway_hands;
+	shared_str m_hud_sway_hands_sect;
 	Fvector script_anim_offset[2];
+	shared_str script_anim_section;
+	shared_str script_anim_name;
 	u32 script_anim_end;
 	float script_anim_offset_factor;
 	bool m_bStopAtEndAnimIsRunning;
@@ -425,6 +547,20 @@ public:
 	void detach_item(CHudItem* item);
 
 	bool allow_script_anim();
+	int script_anim_blocked_reason();
+	bool need_blend_anm(u8 part);
+
+	void StopBlendAnmFade(LPCSTR name, bool bForce, float fade_time);
+	bool BlendAnmState(LPCSTR name, bool& active, float& blend);
+
+	void SetHudOffset(u8 part, const Fvector& pos, const Fvector& rot, float fade_time);
+	void ClearHudOffset(u8 part, float fade_time);
+	void SetScriptAnimFreelook(u8 part, bool keep);
+	void SetHudSway(u8 part, float hands, float item, float own);
+	void SetHudSwaySection(u8 part, LPCSTR section);
+	void ClearHudSway(u8 part);
+	bool hud_sway_active(u8 hand) const;
+	void update_hud_sway(const Fmatrix& base, const bool* hands, Fmatrix& trans, Fmatrix& trans_2);
 
 	void detach_all_items()
 	{
@@ -449,9 +585,18 @@ public:
 	bool inertion_allowed();
 
 private:
+	void setup_hands(const shared_str& player_hud_sect, bool b_reload);
+	void notify_hands_changed(const shared_str& prev_sect);
+	void update_bare_hands();
+	u8 bare_hands_idle_kind();
 	const Fvector attach_rot(u8 part) const;
 	const Fvector attach_pos(u8 part) const;
 	shared_str m_sect_name;
+	shared_str m_bare_hands_sect;
+	player_hud_motion_container* m_bare_hands_motions;
+	u8 m_bare_hands_idle;
+	bool m_bare_hands_live;
+	bool m_bare_hands_replay;
 	xr_vector<u16> m_ancors;
 	attachable_hud_item* m_attached_items[3];
 	static void _BCL FingerCallback(CBoneInstance* B);
@@ -526,3 +671,7 @@ public:
 };
 
 extern player_hud* g_player_hud;
+
+// -1 follows the console flag, 0 forces the movement blend off, 1 forces it on
+extern int g_blend_move_anims_override;
+bool blend_move_anims_enabled();

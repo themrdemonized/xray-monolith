@@ -1654,6 +1654,7 @@ void reload_language()
 }
 
 #include "player_hud.h"
+#include "../xrEngine/CameraBase.h"
 
 void hud_adj_offs(int off, int idx, float x, float y, float z)
 {
@@ -1749,9 +1750,73 @@ u32 PlayHudMotion(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true,
 	return g_player_hud->script_anim_play(hand, itm_name, anm_name, bMixIn, speed);
 }
 
+// hand 0 is the right, 1 the left, 2 both
+void SetHudMotionFreelook(u8 hand, bool keep)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!set_hud_motion_freelook called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	g_player_hud->SetScriptAnimFreelook(hand, keep);
+}
+
+// weights for the hands hud, held item and own section sway values of a kept hand
+void SetHudSway(u8 hand, float hands, float item, float own)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2 || hands < 0.f || item < 0.f || own < 0.f || !_valid(hands + item + own))
+	{
+		Msg("!set_hud_sway called with part %d and weights %.3f %.3f %.3f, part must be 0, 1 or 2 and weights finite and not negative", hand, hands, item, own);
+		return;
+	}
+
+	g_player_hud->SetHudSway(hand, hands, item, own);
+}
+
+void SetHudSwaySection(u8 hand, LPCSTR section)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!set_hud_sway_section called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	if (!section || !section[0] || !pSettings->section_exist(section))
+	{
+		Msg("!set_hud_sway_section called with missing section [%s]", section ? section : "");
+		return;
+	}
+
+	g_player_hud->SetHudSwaySection(hand, section);
+}
+
+void ClearHudSway(u8 hand)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!clear_hud_sway called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	g_player_hud->ClearHudSway(hand);
+}
+
 void StopHudMotion()
 {
-	g_player_hud->StopScriptAnim();
+	g_player_hud->StopScriptAnim(true);
 }
 
 void SetHudMotionLock(float target, float time)
@@ -1768,6 +1833,65 @@ float MotionLength(LPCSTR section, LPCSTR name, float speed)
 bool AllowHudMotion()
 {
 	return g_player_hud->allow_script_anim();
+}
+
+bool HudMotionExists(LPCSTR section, LPCSTR anm_name)
+{
+	if (!g_player_hud || !g_player_hud->m_model)
+		return false;
+
+	if (!section || !section[0] || !anm_name || !anm_name[0])
+	{
+		Msg("!hud_motion_exists called with an empty section or motion name");
+		return false;
+	}
+
+	if (!pSettings->section_exist(section))
+	{
+		Msg("!hud_motion_exists section [%s] does not exist", section);
+		return false;
+	}
+
+	player_hud_motion_container* pm = g_player_hud->get_hand_motions(section);
+	player_hud_motion* phm = pm ? pm->find_motion(anm_name) : nullptr;
+
+	return phm && !phm->m_animations.empty() && g_player_hud->m_model->ID_Cycle_Safe(phm->m_base_name).valid();
+}
+
+int HudMotionBlockedReason()
+{
+	if (!g_player_hud)
+		return 0;
+
+	return g_player_hud->script_anim_blocked_reason();
+}
+
+::luabind::object HudMotionPart()
+{
+	lua_State* L = ai().script_engine().lua();
+
+	if (g_player_hud && g_player_hud->script_anim_part < 3)
+		return ::luabind::object(L, int(g_player_hud->script_anim_part));
+
+	::luabind::object none(L);
+	lua_pushnil(L);
+	none.set();
+
+	return none;
+}
+
+bool HudNeedsBlend(u8 part)
+{
+	if (!g_player_hud)
+		return false;
+
+	if (part > 1)
+	{
+		Msg("!hud_needs_blend called with part %d, must be 0 or 1", part);
+		return false;
+	}
+
+	return g_player_hud->need_blend_anm(part);
 }
 
 bool MotionExists(LPCSTR model_path, LPCSTR motion_name)
@@ -1800,6 +1924,164 @@ void StopAllBlendAnms(bool bForce)
 float SetBlendAnmTime(LPCSTR name, float time)
 {
 	return g_player_hud->SetBlendAnmTime(name, time);
+}
+
+void StopBlendAnmFade(LPCSTR name, bool bForce, float fade_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	g_player_hud->StopBlendAnmFade(name, bForce, fade_ms / 1000.f);
+}
+
+bool BlendAnmState(LPCSTR name, bool& active, float& blend)
+{
+	if (!g_player_hud)
+	{
+		active = false;
+		blend = 0.f;
+		return false;
+	}
+
+	return g_player_hud->BlendAnmState(name, active, blend);
+}
+
+bool BlendAnmExists(LPCSTR name)
+{
+	if (!name || !name[0])
+	{
+		Msg("!hud_anm_exists called with an empty name");
+		return false;
+	}
+
+	string_path full_path;
+
+	return !!FS.exist(full_path, "$level$", name) || !!FS.exist(full_path, "$game_anims$", name);
+}
+
+void SetBlendMoveAnimsOverride(const ::luabind::object& mode)
+{
+	if (!mode || mode.type() != LUA_TBOOLEAN)
+		g_blend_move_anims_override = -1;
+	else
+		g_blend_move_anims_override = ::luabind::object_cast<bool>(mode) ? 1 : 0;
+
+	if (g_player_hud)
+		g_player_hud->updateMovementLayerState();
+}
+
+bool GetBlendMoveAnims()
+{
+	return blend_move_anims_enabled();
+}
+
+bool SetBareHands(const ::luabind::object& section)
+{
+	if (!g_player_hud)
+		return false;
+
+	if (!section || section.type() != LUA_TSTRING)
+		return g_player_hud->SetBareHands(nullptr);
+
+	return g_player_hud->SetBareHands(::luabind::object_cast<LPCSTR>(section));
+}
+
+::luabind::object GetBareHands()
+{
+	lua_State* L = ai().script_engine().lua();
+
+	if (g_player_hud && g_player_hud->bare_hands_section().size())
+		return ::luabind::object(L, g_player_hud->bare_hands_section().c_str());
+
+	::luabind::object none(L);
+	lua_pushnil(L);
+	none.set();
+
+	return none;
+}
+
+// part 0 is the right hand, 1 the left hand, 2 both, angles in degrees and position in metres
+void SetHudOffset(u8 part, float x, float y, float z, float pitch, float yaw, float roll, float blend_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!set_hud_offset called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	Fvector pos = { x, y, z };
+	Fvector rot = { yaw, pitch, roll };
+
+	g_player_hud->SetHudOffset(part, pos, rot, blend_ms / 1000.f);
+}
+
+void ClearHudOffset(u8 part, float blend_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!clear_hud_offset called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	g_player_hud->ClearHudOffset(part, blend_ms / 1000.f);
+}
+
+// 0 = disabled, 1 = enabling, 2 = enabled, 3 = disabling
+int ActorFreelookState()
+{
+	CActor* actor = g_actor;
+	if (!actor)
+		return 0;
+
+	switch (actor->cam_freelook)
+	{
+	case eflEnabling:
+		return 1;
+	case eflEnabled:
+		return 2;
+	case eflDisabling:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
+// signed radians between the body yaw and the camera yaw
+float ActorFreelookYawSplit()
+{
+	CActor* actor = g_actor;
+	if (!actor || !actor->cam_FirstEye())
+		return 0.f;
+
+	float body_yaw = -angle_normalize_signed(actor->old_torso_yaw);
+	float cam_yaw = -angle_normalize_signed(actor->cam_FirstEye()->yaw);
+
+	return angle_difference_signed(body_yaw, cam_yaw);
+}
+
+// slot 0 is the right hand, 1 the left hand, 2 the scope
+CScriptGameObject* HudAttachedItem(u16 slot)
+{
+	if (!g_player_hud)
+		return nullptr;
+
+	if (slot > SCOPE_ATTACH_IDX)
+	{
+		Msg("!hud_attached_item called with slot %d, must be 0, 1 or 2", slot);
+		return nullptr;
+	}
+
+	attachable_hud_item* item = g_player_hud->attached_item(slot);
+	if (!item || !item->m_parent_hud_item || !item->m_parent_hud_item->has_object())
+		return nullptr;
+
+	return item->m_parent_hud_item->object().lua_game_object();
 }
 
 void block_all_except_movement(bool b)
@@ -3141,6 +3423,8 @@ void CLevel::script_register(lua_State* L)
 			def("hold_action", &LevelHoldAction),
 
 			def("actor_moving_state", &ActorMovingState),
+			def("actor_freelook_state", &ActorFreelookState),
+			def("actor_freelook_yaw_split", &ActorFreelookYawSplit),
 			def("get_env_rads", &get_env_rads),
 			def("get_texture_size", &get_texture_size),
 			def("iterate_nearest", &iterate_nearest),
@@ -3325,15 +3609,33 @@ void CLevel::script_register(lua_State* L)
 		def("set_hand_motion_marks", set_hand_motion_marks),
 		def("set_part_cycle_time", set_part_cycle_time),
 		def("play_hud_motion", PlayHudMotion),
+		def("set_hud_motion_freelook", SetHudMotionFreelook),
+		def("set_hud_sway", SetHudSway),
+		def("set_hud_sway_section", SetHudSwaySection),
+		def("clear_hud_sway", ClearHudSway),
 		def("stop_hud_motion", StopHudMotion),
 		def("set_hud_motion_lock", SetHudMotionLock),
 		def("get_motion_length", MotionLength),
 		def("hud_motion_allowed", AllowHudMotion),
 		def("motion_exists", MotionExists),
+		def("hud_motion_exists", HudMotionExists),
+		def("hud_motion_blocked_reason", HudMotionBlockedReason),
+		def("hud_motion_part", HudMotionPart),
+		def("hud_needs_blend", HudNeedsBlend),
 		def("play_hud_anm", PlayBlendAnm),
 		def("stop_hud_anm", StopBlendAnm),
+		def("stop_hud_anm_fade", StopBlendAnmFade),
 		def("stop_all_hud_anms", StopAllBlendAnms),
 		def("set_hud_anm_time", SetBlendAnmTime),
+		def("hud_anm_state", BlendAnmState, pure_out_value<2>() + pure_out_value<3>()),
+		def("hud_anm_exists", BlendAnmExists),
+		def("hud_attached_item", HudAttachedItem),
+		def("set_blend_move_anims_override", SetBlendMoveAnimsOverride),
+		def("get_blend_move_anims", GetBlendMoveAnims),
+		def("set_bare_hands", SetBareHands),
+		def("get_bare_hands", GetBareHands),
+		def("set_hud_offset", SetHudOffset),
+		def("clear_hud_offset", ClearHudOffset),
 		def("only_allow_movekeys", block_all_except_movement),
 		def("only_movekeys_allowed", only_movement_allowed),
 		def("set_actor_allow_ladder", set_actor_allow_ladder),

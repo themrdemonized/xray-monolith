@@ -224,6 +224,26 @@
         // time is normalized (0..1); a nonzero set_time overrides it with seconds.
         void set_part_cycle_time(number part, number time, number set_time)
 
+        // HUD hands, script motions and blend anms
+        void set_hud_motion_freelook(number hand, bool keep) // hand 0 right, 1 left, 2 both, keep lets freelook stay active while that script motion plays and blends out
+        void set_hud_sway(number hand, number hands, number item, number own) // hand 0 right, 1 left, 2 both, weights of at least 0 for the hands hud, held item and own section sway values of a kept hand, normalised over the sources present, hands values when none is
+        void set_hud_sway_section(number hand, string section) // hand 0 right, 1 left, 2 both, own sway section read with the hip inertion_* and strafe_* keys of a weapon hud section
+        void clear_hud_sway(number hand) // hand 0 right, 1 left, 2 both, drops the weights and own section, a held item then lends its sway and empty hands sway on the hands hud values
+        bool hud_motion_exists(string section, string anm_name) // true when the section defines the motion and the loaded hands model has that cycle
+        number hud_motion_blocked_reason() // 0 nothing blocks, 1 right item pending, 2 right item boring, 3 left item pending, 4 left item boring, 5 a script motion already plays
+        number hud_motion_part() // 0 right, 1 left, 2 both for the script motion playing now, nil when none plays
+        bool hud_needs_blend(number part) // part 0 right, 1 left, true when that hand wants a blend anm this frame
+        void stop_hud_anm_fade(string name, bool bForce, number fade_ms) // fades the layer out over fade_ms milliseconds, a true bForce cuts the layer at once with no fade
+        function hud_anm_state(string name) -> bool found, bool active, number blend // blend runs 0 to 1, found is false when no layer carries that name
+        bool hud_anm_exists(string name) // true when the anm file is found under $level$ or $game_anims$
+        game_object hud_attached_item(number slot) // slot 0 right hand, 1 left hand, 2 scope, nil when the slot is empty
+        void set_hud_offset(number part, number x, number y, number z, number pitch, number yaw, number roll, number blend_ms) // part 0 right, 1 left, 2 both, position in metres, angles in degrees with the aim_hud_offset_rot signs, eased in over blend_ms milliseconds. Unlike hud_adjust.set_hud_offset it leaves the item's hands offsets alone and moves the hand on top of them
+        void clear_hud_offset(number part, number blend_ms) // part 0 right, 1 left, 2 both, eases the offset back out over blend_ms milliseconds
+        void set_blend_move_anims_override(bool mode) // true forces the movement blend anms on, false forces them off, nil returns control to the console flag
+        bool get_blend_move_anims() // the movement blend anm state in effect, override included
+        bool set_bare_hands(string section) // hud section idled when both hands are empty, nil clears it, false when the section is missing or has no anm_idle on the hands model
+        string get_bare_hands() // the bare hands section, nil when none is set
+
         bool model_prefetched(string name)
         table list_lanims() // light-animations
         bool top_input_receiver() // UI dialog owns input
@@ -256,6 +276,8 @@
     get_player_hud() {
         void set_hands(string section)
         void reset_hands()
+        string section_name() // the hud section currently loaded, empty string when none is
+        bool set_hands_visuals(string right_visual, string left_visual) // swaps the hand models inside the loaded section, left falls back to the right visual when empty, false when a visual is missing, is not animated, or lacks the bones the hud binds
     }
 
     namespace ActorMenu {
@@ -721,6 +743,10 @@
         //        air_resistance = 0.2,
         //    }
         //    level.add_bullet(t)
+
+        // Actor freelook
+        number actor_freelook_state() // 0 disabled, 1 enabling, 2 enabled, 3 disabling
+        number actor_freelook_yaw_split() // signed radians between the body yaw and the camera yaw
 
         // Script Attachments
         function add_attachment(string, string)
