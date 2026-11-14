@@ -47,44 +47,45 @@ void CLocatorAPI::auth_runtime(void* params)
 	pSettingsAuth->save_as(writer);
 	m_auth_code = crc32(writer.pointer(), writer.size());
 
-	bool do_break = false;
-
-	for (files_it it = m_files.begin(); it != m_files.end(); ++it)
+	// Snapshot the files to hash under the shared lock, then hash with it
+	// released: FS.r_open() takes m_files_lock itself and SRWLOCK isn't reentrant.
+	xr_vector<xr_string> to_hash;
 	{
-		const file& f = *it;
-
-		// test for skip
-		BOOL bSkip = FALSE;
-		for (u32 s = 0; s < _o->ignore.size(); s++)
+		xrSRWLockGuard guard(m_files_lock, true);
+		for (files_it it = m_files.begin(); it != m_files.end(); ++it)
 		{
-			if (strstr(f.name, _o->ignore[s].c_str()))
-				bSkip = TRUE;
-		}
+			const file& f = *it;
 
-		if (bSkip)
-			continue;
-
-		// test for important
-		for (u32 s = 0; s < _o->important.size(); s++)
-		{
-			if ((f.size_real != 0) && strstr(f.name, _o->important[s].c_str()))
+			// test for skip
+			BOOL bSkip = FALSE;
+			for (u32 s = 0; s < _o->ignore.size(); s++)
 			{
-				// crc for file
-				IReader* r = FS.r_open(f.name);
-				if (!r)
-				{
-					do_break = true;
-					break;
-				}
-				u32 crc = crc32(r->pointer(), r->length());
+				if (strstr(f.name, _o->ignore[s].c_str()))
+					bSkip = TRUE;
+			}
 
-				FS.r_close(r);
-				m_auth_code ^= u64(crc);
+			if (bSkip)
+				continue;
+
+			// test for important
+			for (u32 s = 0; s < _o->important.size(); s++)
+			{
+				if ((f.size_real != 0) && strstr(f.name, _o->important[s].c_str()))
+					to_hash.push_back(f.name);
 			}
 		}
+	}
 
-		if (do_break)
+	for (const xr_string& name : to_hash)
+	{
+		// crc for file
+		IReader* r = FS.r_open(name.c_str());
+		if (!r)
 			break;
+		u32 crc = crc32(r->pointer(), r->length());
+
+		FS.r_close(r);
+		m_auth_code ^= u64(crc);
 	}
 
 	xr_delete(_o);
