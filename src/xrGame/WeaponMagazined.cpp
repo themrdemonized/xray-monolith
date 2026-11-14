@@ -31,7 +31,6 @@ extern ENGINE_API bool g_dedicated_server;
 ENGINE_API extern float psHUD_FOV_def;
 
 BOOL g_auto_reload = FALSE;
-int ps_wpn_use_strict_marks = 0;
 
 CUIXml* pWpnScopeXml = NULL;
 
@@ -207,6 +206,8 @@ void CWeaponMagazined::Load(LPCSTR section)
 	LoadScopeKoeffs();
 
 	empty_click_layer = READ_IF_EXISTS(pSettings, r_string, *hud_sect, "empty_click_anm", nullptr);
+
+	m_bUseStrictReloadMark = READ_IF_EXISTS(pSettings, r_bool, section, "use_strict_reload_mark", false);
 
 	if (empty_click_layer)
 	{
@@ -1764,7 +1765,7 @@ void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M, float mark
     shared_str reloadMarkName = READ_IF_EXISTS(pSettings, r_string, cNameSect(), "motion_mark_reload", "");
 	if (state == eReload && (reloadMarkName.size() == 0 || reloadMarkName == M.name))
 	{
-		if (bClearJamOnly && (!ps_wpn_use_strict_marks || xr_strcmp(M.name.c_str(), "clear_jam") == 0))
+		if (bClearJamOnly && (!m_bUseStrictReloadMark || xr_strcmp(M.name.c_str(), "clear_jam") == 0))
 		{
 			bMisfire = false;
 			bClearJamOnly = false;
@@ -1788,7 +1789,7 @@ void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M, float mark
 		}
 		else
 		{
-			if (m_needReload && (!ps_wpn_use_strict_marks || xr_strcmp(M.name.c_str(), "reload") == 0))
+			if (m_needReload && (!m_bUseStrictReloadMark || xr_strcmp(M.name.c_str(), "reload") == 0))
 				ReloadMagazine();
 
             // Verdatim, fix for lmg with non-(lmg_reload) motion marks causing belts to disappear
