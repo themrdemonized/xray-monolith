@@ -274,7 +274,7 @@ bool ui_core::is_widescreen()
 
 u8 ui_core::screenmode()
 {
-	if ((float(Device.dwWidth) / float(Device.dwHeight)) > 1.8f)
+	if ((float(Device.dwWidth) / float(Device.dwHeight)) > 2.05f) // halfway between 16:9 and 21:9
 		return u8(2);
 	else if ((float(Device.dwWidth) / float(Device.dwHeight)) > (UI_BASE_WIDTH / UI_BASE_HEIGHT + 0.01f))
 		return u8(1);
@@ -319,8 +319,9 @@ shared_str ui_core::get_xml_name(LPCSTR fn)
 		{
 			if (screenmode() == u8(2))
 			{
-				xr_sprintf(str, "%s_16", fn);
-				if (NULL == strext(fn)) xr_strcat(str, "_16.xml");
+				xr_strcpy(str, fn);
+				if (strext(str)) *strext(str) = 0;
+				xr_strcat(str, "_16.xml");
 
 				if (NULL != FS.exist(str_, "$game_config$", "ui\\", str))
 				{
