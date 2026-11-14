@@ -274,6 +274,11 @@ public:
 	void set_force_anti_aim(bool force_anti_aim) { m_force_anti_aim = force_anti_aim; }
 	bool get_force_anti_aim() const { return m_force_anti_aim; }
 
+	// per-instance hearing cap over the species max_hear_dist; < 0 = species value. Not serialized.
+	void set_max_hear_dist(float dist) { m_max_hear_dist_override = dist; }
+	void restore_max_hear_dist() { m_max_hear_dist_override = -1.f; }
+	float max_hear_dist() { return (m_max_hear_dist_override >= 0.f) ? m_max_hear_dist_override : db().m_max_hear_dist; }
+
 	// --------------------------------------------------------------------------------------
 	// Monster Settings 
 	ref_smem<SMonsterSettings> m_base_settings;
@@ -347,6 +352,7 @@ public:
 private:
 	CAnomalyDetector* m_anomaly_detector;
 	bool m_force_anti_aim;
+	float m_max_hear_dist_override;
 
 public:
 	CAnomalyDetector& anomaly_detector() { return (*m_anomaly_detector); }

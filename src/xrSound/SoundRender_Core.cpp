@@ -173,6 +173,30 @@ void CSoundRender_Core::set_handler(sound_event* E)
 	Handler = E;
 }
 
+void CSoundRender_Core::set_ai_range(int game_type, float min_m, float max_m)
+{
+	if (min_m <= 0.f && max_m <= 0.f)
+	{
+		s_ai_ranges.erase(game_type);
+		return;
+	}
+	s_ai_ranges[game_type] = std::make_pair(min_m, max_m);
+}
+
+void CSoundRender_Core::clear_ai_ranges()
+{
+	s_ai_ranges.clear();
+}
+
+float CSoundRender_Core::ai_range(int game_type, float max_ai_distance) const
+{
+	const auto it = s_ai_ranges.find(game_type);
+	if (it == s_ai_ranges.end()) return max_ai_distance;
+	if (it->second.first > 0.f) max_ai_distance = _max(max_ai_distance, it->second.first);
+	if (it->second.second > 0.f) max_ai_distance = _min(max_ai_distance, it->second.second);
+	return max_ai_distance;
+}
+
 void CSoundRender_Core::set_geometry_occ(CDB::MODEL* M)
 {
 	geom_MODEL = M;

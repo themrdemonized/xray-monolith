@@ -275,6 +275,8 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("set_custom_panic_threshold", &CScriptGameObject::set_custom_panic_threshold)
 		.def("set_default_panic_threshold", &CScriptGameObject::set_default_panic_threshold)
 		.def("set_monster_melee_strike", SAFE_WRAP(&CScriptGameObject::set_monster_melee_strike))
+		.def("set_max_hear_dist", SAFE_WRAP(&CScriptGameObject::set_max_hear_dist))
+		.def("restore_max_hear_dist", SAFE_WRAP(&CScriptGameObject::restore_max_hear_dist))
 
 		// inventory owner
 		.def("get_current_outfit", SAFE_WRAP(&CScriptGameObject::GetCurrentOutfit))

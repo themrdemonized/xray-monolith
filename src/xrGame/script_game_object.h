@@ -368,6 +368,8 @@ public:
 	void set_custom_panic_threshold(float value);
 	void set_default_panic_threshold();
 	void set_monster_melee_strike(LPCSTR anim_left, LPCSTR anim_right, float rear_arc_deg);
+	void set_max_hear_dist(float value);
+	void restore_max_hear_dist();
 
 	// CAI_Trader
 	void set_trader_global_anim(LPCSTR anim);
@@ -700,6 +702,10 @@ public:
 	bool vision_enabled() const;
 	void set_sound_threshold(float value);
 	void restore_sound_threshold();
+	void set_sound_threshold_floor(float value);
+	void set_sound_factor(int sound_type, float value);
+	void restore_hearing();
+	float get_sound_threshold() const;
 	//////////////////////////////////////////////////////////////////////////
 	void enable_attachable_item(bool value);
 	bool attachable_item_enabled() const;
