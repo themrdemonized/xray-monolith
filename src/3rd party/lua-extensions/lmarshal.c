@@ -379,7 +379,11 @@ static void mar_decode_value
             dec_buf.size = l;
             dec_buf.head = l;
             dec_buf.seek = 0;
-            lua_load(L, (lua_Reader)buf_read, &dec_buf, "=marshal");
+            if (lua_load(L, (lua_Reader)buf_read, &dec_buf, "=marshal") != 0) {
+                /* Bytecode from another LuaJIT build (2.0 vs 2.1, GC64 vs not) is rejected here.
+                   Raise instead of leaving the error string where a function is expected. */
+                luaL_error(L, "marshal: stored function cannot be loaded (%s)", lua_tostring(L, -1));
+            }
             mar_incr_ptr(l);
 
             lua_pushvalue(L, -1);
