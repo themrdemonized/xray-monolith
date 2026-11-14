@@ -1,0 +1,149 @@
+-----
+-- veh_1 = pos.x,pos.y,pos.z,dirH,lvid,gvid,section,must_kill,use_gun
+-- status_functor = veh_destroy_sf
+-- target_functor = veh_destroy_tf
+-- desc_functor = veh_destroy_df
+-- custom_script = myscript
+-- on complete = veh_destroy_unset(task_id)
+----
+
+local STAGE_F = {}
+local STAGE_TGT_F = {}
+local STAGE_DESC = {}
+local DATA = {}
+
+local parse = utils_data.parse_ini_section_to_array
+local xp = str_explode
+
+function on_game_start()
+	RegisterScriptCallback("save_state",save_state)
+	RegisterScriptCallback("load_state",load_state)
+	RegisterScriptCallback("vehicle_on_death_callback",vehicle_on_death_callback)
+end
+
+function vehicle_on_death_callback(obj)
+	local id = obj:id()
+	for task_id, data in pairs(DATA) do
+		for i,v in ipairs(data.vehicles) do
+			if v.id == id then
+				DATA[task_id].vehicles[i].dead = true
+			end
+		end
+	end
+end
+
+function save_state(md)
+	md.tasks_veh_destroy = DATA
+end
+
+function load_state(md)
+	DATA = md.tasks_veh_destroy or {}
+end
+
+function xr_effects.veh_destroy_unset(a,b,c)
+	if not (c and c[1] and DATA[c[1]]) then return end
+	
+	local sim = alife()
+	
+	for i,v in ipairs(DATA[c[1]].vehicles) do
+		if v.id and sim:object(v.id) then
+			safe_release_manager.release({id = v.id})
+		end
+	end
+	
+	DATA[c[1]] = nil
+end
+
+
+STAGE_F[0] = function(tsk,task_id)
+	local settings = parse(task_manager.task_ini, task_id)
+	local vehicles = {}
+	
+	local i = 1
+	
+	while settings['veh_'..i] do
+		-- printf('line: %s', settings['veh_'..i])
+		local s = xp(settings['veh_'..i],',')
+		-- printf('s: %s', #s)
+		
+		-- for i,v in ipairs(s) do
+			-- printf('%s: %s', i, v)
+		-- end
+		
+		vehicles[i] = {
+			x 		= tonumber(s[1]),
+			y 		= tonumber(s[2]),
+			z 		= tonumber(s[3]),
+			h 		= tonumber(s[4]),
+			lvid 	= tonumber(s[5]),
+			gvid 	= tonumber(s[6]),
+			veh_sec 		 = s[7],
+			must_kill 	     = s[8] == "true",
+		}
+		i = i + 1
+	end
+	
+	DATA[task_id] = {}
+	DATA[task_id].vehicles = vehicles
+	DATA[task_id].settings = settings
+	DATA[task_id].current_target = nil
+	
+	local sim = alife()
+	for ii,v in ipairs(DATA[task_id].vehicles) do
+		local se_veh = alife_create(v.veh_sec, vector():set(v.x, v.y, v.z), v.lvid, v.gvid)
+		if not se_veh then 
+			printf('failed to spawn vehicle %s', ii)
+			return "fail"
+		else
+			DATA[task_id].vehicles[ii].id = se_veh.id
+			se_veh.angle = vector():set(0, v.h, 0)
+			logic_enforcer.assign(se_veh.id,'scripts\\tasks\\veh_idle.ltx','logic','ph_car@idle')
+		end
+	end
+	
+	return 1
+end
+
+STAGE_F[1] = function(tsk,task_id)
+	local sim = alife()
+	for i,v in ipairs(DATA[task_id].vehicles) do
+		if v.must_kill and not v.dead then
+			DATA[task_id].current_target = v.id
+			return
+		end
+	end
+	return 2
+end	
+
+STAGE_TGT_F[1] = function(tsk, task_id)
+	return DATA[task_id].current_target
+end
+
+STAGE_TGT_F[2] = function(tsk, task_id)
+	return tsk.task_giver_id
+end
+
+function task_status_functor.veh_destroy_sf(tsk,task_id)
+	if not (db.actor and tsk) then return end
+	local stage = tsk.stage
+	local ret = STAGE_F[stage] and STAGE_F[stage](tsk,task_id) or stage
+	if tonumber(ret) then
+		tsk.stage = ret
+	else
+		return ret
+	end
+end
+
+function task_functor.veh_destroy_tf(task_id,field,p,tsk)
+	if not (db.actor and tsk) then return nil end
+	local stage = tsk.stage
+	if STAGE_TGT_F[stage] then 
+		return STAGE_TGT_F[stage](tsk,task_id)
+	end
+	return nil
+end
+
+local STAGE_DESC = {}
+function task_functor.veh_destroy_df(task_id,field,p,tsk)
+	return STAGE_DESC[tsk.stage]
+end
