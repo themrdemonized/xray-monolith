@@ -31,6 +31,7 @@ extern ENGINE_API bool g_dedicated_server;
 ENGINE_API extern float psHUD_FOV_def;
 
 BOOL g_auto_reload = FALSE;
+int ps_hud_use_wpn_specific_marks = 0;
 
 CUIXml* pWpnScopeXml = NULL;
 
@@ -1763,7 +1764,7 @@ void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M, float mark
     shared_str reloadMarkName = READ_IF_EXISTS(pSettings, r_string, cNameSect(), "motion_mark_reload", "");
 	if (state == eReload && (reloadMarkName.size() == 0 || reloadMarkName == M.name))
 	{
-		if (bClearJamOnly && xr_strcmp(M.name.c_str(), "clear_jam") == 0)
+		if (bClearJamOnly && (!ps_hud_use_wpn_specific_marks || xr_strcmp(M.name.c_str(), "clear_jam") == 0))
 		{
 			bMisfire = false;
 			bClearJamOnly = false;
@@ -1787,7 +1788,7 @@ void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M, float mark
 		}
 		else
 		{
-			if (m_needReload && xr_strcmp(M.name.c_str(), "reload") == 0)
+			if (m_needReload && (!ps_hud_use_wpn_specific_marks || xr_strcmp(M.name.c_str(), "reload") == 0))
 				ReloadMagazine();
 
             // Verdatim, fix for lmg with non-(lmg_reload) motion marks causing belts to disappear
