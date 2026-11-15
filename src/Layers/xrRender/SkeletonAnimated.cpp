@@ -148,6 +148,14 @@ void CKinematicsAnimated::LL_IterateBlends(IterateBlendsCallback& callback)
 		if (I->blend_state() != CBlend::eFREE_SLOT) callback(*I);
 }
 
+bool CKinematicsAnimated::LL_IsBlendInPool(const CBlend* blend) const
+{
+	for (const CBlend& candidate : blend_pool)
+		if (&candidate == blend)
+			return true;
+	return false;
+}
+
 /*
 LPCSTR CKinematicsAnimated::LL_MotionDefName_dbg	(LPVOID ptr)
 {

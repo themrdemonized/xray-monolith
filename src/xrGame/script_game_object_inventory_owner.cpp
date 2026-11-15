@@ -411,7 +411,7 @@ void CScriptGameObject::ForceUnloadMagazine(bool bKeepAmmo)
 	if (!weapon_magazined)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptGameObject::UnloadMagazine non-CWeaponMagazined object !!!");
+		                                "CScriptGameObject::ForceUnloadMagazine non-CWeaponMagazined object !!!");
 		return;
 	}
 
@@ -597,7 +597,7 @@ void CScriptGameObject::ItemDenyTrade(CScriptGameObject* pItem)
 	if (!owner || !item)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-			"CScriptGameObject::ItemAllowTrade non-CInventoryOwner object !!!");
+			"CScriptGameObject::ItemDenyTrade non-CInventoryOwner object !!!");
 		return;
 	}
 	item->DenyTrade();
@@ -608,7 +608,7 @@ void CScriptGameObject::TransferItem(CScriptGameObject* pItem, CScriptGameObject
 {
 	if (!pItem || !pForWho)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "cannot transfer NULL item");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "TransferItem: cannot transfer NULL item");
 		return;
 	}
 
@@ -616,7 +616,7 @@ void CScriptGameObject::TransferItem(CScriptGameObject* pItem, CScriptGameObject
 
 	if (!pIItem)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "Cannot transfer not CInventoryItem item");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "TransferItem: Cannot transfer not CInventoryItem item");
 		return;
 	}
 
@@ -715,7 +715,7 @@ void CScriptGameObject::TransferMoney(int money, CScriptGameObject* pForWho)
 {
 	if (!pForWho)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "cannot transfer money for NULL object");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "TransferMoney: cannot transfer money for NULL object");
 		return;
 	}
 	CInventoryOwner* pOurOwner = smart_cast<CInventoryOwner*>(&object());
@@ -725,7 +725,7 @@ void CScriptGameObject::TransferMoney(int money, CScriptGameObject* pForWho)
 
 	if (pOurOwner->get_money() < money)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "Character does not have enought money");
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "TransferMoney: Character does not have enought money");
 		return;
 	}
 
@@ -856,7 +856,7 @@ int CScriptGameObject::GetCommunityGoodwill_obj(LPCSTR community)
 	if (!pInventoryOwner)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "GetCommunityGoodwill available only for InventoryOwner");
+		                                "GetCommunityGoodwill_obj: GetCommunityGoodwill available only for InventoryOwner");
 		return 0;
 	}
 	CHARACTER_COMMUNITY c;
@@ -872,7 +872,7 @@ void CScriptGameObject::SetCommunityGoodwill_obj(LPCSTR community, int goodwill)
 	if (!pInventoryOwner)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "SetCommunityGoodwill available only for InventoryOwner");
+		                                "SetCommunityGoodwill_obj: SetCommunityGoodwill available only for InventoryOwner");
 		return;
 	}
 	CHARACTER_COMMUNITY c;
@@ -931,7 +931,7 @@ LPCSTR CScriptGameObject::CharacterIcon()
 	if (!pInventoryOwner)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CharacterIconName available only for InventoryOwner");
+		                                "CharacterIcon available only for InventoryOwner");
 		return NULL;
 	}
 	return pInventoryOwner->IconName();
@@ -1324,7 +1324,7 @@ u32 CScriptGameObject::accessible_nearest(const Fvector& position, Fvector& resu
 	if (!monster)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CRestrictedObject [%s]: cannot access class member accessible!", object().cNameSect().c_str()).c_str());
+		                                make_string("CRestrictedObject [%s]: cannot access class member accessible_nearest!", object().cNameSect().c_str()).c_str());
 		return (u32(-1));
 	}
 	if (monster->movement().restrictions().accessible(position))
@@ -1366,7 +1366,7 @@ void CScriptGameObject::night_vision_allowed(bool value)
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member enable_night_vision!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member night_vision_allowed!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	pActor->SetNightVisionAllowed(value);
@@ -1390,7 +1390,7 @@ bool CScriptGameObject::night_vision_enabled() const
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member enable_night_vision!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member night_vision_enabled!", object().cNameSect().c_str()).c_str());
 		return (false);
 	}
 	return (pActor->GetNightVisionStatus());
@@ -1427,7 +1427,7 @@ void CScriptGameObject::update_torch()
 	if (!torch)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-			make_string("CTorch [%s]: cannot access class member enable_torch!", object().cNameSect().c_str()).c_str());
+			make_string("CTorch [%s]: cannot access class member update_torch!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	torch->UpdateCL();
@@ -2301,7 +2301,7 @@ void CScriptGameObject::Weapon_AddonAttach(CScriptGameObject* item)
 	if (!pItm)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CWeaponMagazined : trying to attach non-CInventoryItem!");
+		                                "Weapon_AddonAttach: CWeaponMagazined : trying to attach non-CInventoryItem!");
 		return;
 	}
 	if (weapon->CanAttach(pItm))
@@ -2449,7 +2449,7 @@ u32 CScriptGameObject::BeltSize() const
 	if (!inventory_owner)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CInventoryOwner [%s]: cannot access class member move_to_belt!", object().cNameSect().c_str()).c_str());
+		                                make_string("CInventoryOwner [%s]: cannot access class member BeltSize!", object().cNameSect().c_str()).c_str());
 		return (0);
 	}
 
@@ -2596,7 +2596,7 @@ void CScriptGameObject::UpdateWeight() const
 	if (!inventory_owner)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-										make_string("CInventoryOwner [%s]: cannot access class member GetTotalWeightForceUpdate!", object().cNameSect().c_str()).c_str());
+										make_string("CInventoryOwner [%s]: cannot access class member UpdateWeight!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	inventory_owner->inventory().CalcTotalWeight();
@@ -2683,7 +2683,7 @@ float CScriptGameObject::GetActorSprintKoef() const
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member GetActorJumpSpeed!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member GetActorSprintKoef!", object().cNameSect().c_str()).c_str());
 		return (false);
 	}
 	return (pActor->m_fSprintFactor);
@@ -2695,7 +2695,7 @@ void CScriptGameObject::SetActorSprintKoef(float sprint_koef)
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member SetActorJumpSpeed!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member SetActorSprintKoef!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	pActor->m_fSprintFactor = sprint_koef;
@@ -2707,7 +2707,7 @@ float CScriptGameObject::GetActorRunCoef() const
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member GetActorJumpSpeed!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member GetActorRunCoef!", object().cNameSect().c_str()).c_str());
 		return (false);
 	}
 	return (pActor->m_fRunFactor);
@@ -2719,7 +2719,7 @@ void CScriptGameObject::SetActorRunCoef(float run_coef)
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member SetActorJumpSpeed!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member SetActorRunCoef!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	pActor->m_fRunFactor = run_coef;
@@ -2731,7 +2731,7 @@ float CScriptGameObject::GetActorRunBackCoef() const
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member GetActorJumpSpeed!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member GetActorRunBackCoef!", object().cNameSect().c_str()).c_str());
 		return (false);
 	}
 	return (pActor->m_fRunBackFactor);
@@ -2743,7 +2743,7 @@ void CScriptGameObject::SetActorRunBackCoef(float run_back_coef)
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                make_string("CActor [%s]: cannot access class member SetActorJumpSpeed!", object().cNameSect().c_str()).c_str());
+		                                make_string("CActor [%s]: cannot access class member SetActorRunBackCoef!", object().cNameSect().c_str()).c_str());
 		return;
 	}
 	pActor->m_fRunBackFactor = run_back_coef;
@@ -3041,7 +3041,7 @@ LPCSTR CScriptGameObject::GetActorDefaultActionForObject()
 	if (!pActor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-			make_string("CActor [%s]: cannot access class member GetDefaultActionForObject!", object().cNameSect().c_str()).c_str());
+			make_string("CActor [%s]: cannot access class member GetActorDefaultActionForObject!", object().cNameSect().c_str()).c_str());
 		return nullptr;
 	}
 	return pActor->GetDefaultActionForObject();

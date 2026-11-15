@@ -14,7 +14,7 @@ void CScriptGameObject::set_trader_global_anim(LPCSTR anim)
 	if (!trader)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "Cannot cast sctipt game object to trader!");
+		                                "set_trader_global_anim: Cannot cast sctipt game object to trader!");
 		return;
 	}
 	trader->animation().set_animation(anim);
@@ -26,7 +26,7 @@ void CScriptGameObject::set_trader_head_anim(LPCSTR anim)
 	if (!trader)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "Cannot cast sctipt game object to trader!");
+		                                "set_trader_head_anim: Cannot cast sctipt game object to trader!");
 		return;
 	}
 	trader->animation().set_head_animation(anim);
@@ -38,7 +38,7 @@ void CScriptGameObject::set_trader_sound(LPCSTR sound, LPCSTR anim)
 	if (!trader)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "Cannot cast sctipt game object to trader!");
+		                                "set_trader_sound: Cannot cast sctipt game object to trader!");
 		return;
 	}
 	trader->animation().set_sound(sound, anim);
@@ -50,7 +50,7 @@ void CScriptGameObject::external_sound_start(LPCSTR sound)
 	if (!trader)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "Cannot cast sctipt game object to trader!");
+		                                "external_sound_start: Cannot cast sctipt game object to trader!");
 		return;
 	}
 	trader->animation().external_sound_start(sound);
@@ -62,7 +62,7 @@ void CScriptGameObject::external_sound_stop()
 	if (!trader)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "Cannot cast sctipt game object to trader!");
+		                                "external_sound_stop: Cannot cast sctipt game object to trader!");
 		return;
 	}
 	trader->animation().external_sound_stop();

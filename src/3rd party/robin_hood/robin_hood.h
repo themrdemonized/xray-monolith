@@ -454,6 +454,19 @@ public:
         swap(mListForFree, other.mListForFree);
     }
 
+    // Diagnostic query: includes retained blocks and recycled hash tables. The callback
+    // returns the size of a live malloc allocation; no bookkeeping is added to the pool.
+    template <typename AllocationSize>
+    size_t allocated_bytes(AllocationSize allocationSize) const {
+        size_t bytes = 0;
+        auto block = mListForFree;
+        while (block) {
+            bytes += allocationSize(block);
+            block = reinterpret_cast_no_cast_align_warning<T**>(*block);
+        }
+        return bytes;
+    }
+
 private:
     // iterates the list of allocated memory to calculate how many to alloc next.
     // Recalculating this each time saves us a size_t member.
@@ -543,6 +556,11 @@ struct NodeAllocator;
 // dummy allocator that does nothing
 template <typename T, size_t MinSize, size_t MaxSize>
 struct NodeAllocator<T, MinSize, MaxSize, true> {
+
+    template <typename AllocationSize>
+    size_t allocated_bytes(AllocationSize) const noexcept {
+        return 0;
+    }
 
     // we are not using the data, so just free it.
     void addOrFree(void* ptr, size_t ROBIN_HOOD_UNUSED(numBytes) /*unused*/) noexcept {
@@ -2105,6 +2123,57 @@ public:
     size_type size() const noexcept { // NOLINT(modernize-use-nodiscard)
         ROBIN_HOOD_TRACE(this)
         return mNumElements;
+    }
+
+    // Dynamic storage only; sizeof(Table) is accounted for by the caller.
+    template <typename AllocationSize>
+    size_t allocated_bytes(AllocationSize allocationSize) const {
+        size_t bytes = DataPool::allocated_bytes(allocationSize);
+        if (mMask != 0) {
+            bytes += allocationSize(mKeyVals);
+        }
+        return bytes;
+    }
+
+    struct bucket_stats {
+        size_t buckets = 0;
+        size_t collisions = 0;
+        size_t max_collisions = 0;
+        size_t max_probe = 0;
+    };
+
+    // Snapshot diagnostics, without allocating or modifying the table. Collisions
+    // count entries beyond the first in each home bucket; max_collisions includes
+    // that first entry, like the length of a bucket in a chained hash table.
+    bucket_stats bucket_statistics() const noexcept {
+        bucket_stats stats;
+        stats.buckets = mMask == 0 ? 0 : mMask + 1;
+        if (empty()) {
+            return stats;
+        }
+
+        size_t previousBucket = (std::numeric_limits<size_t>::max)();
+        size_t bucketSize = 0;
+        const size_t count = calcNumElementsWithBuffer(mMask + 1);
+        for (size_t i = 0; i < count; ++i) {
+            if (mInfo[i] == 0) {
+                continue;
+            }
+            // The upper info bits encode distance + 1. Robin Hood ordering keeps
+            // entries with the same home bucket adjacent, including overflow slots.
+            const size_t distance = mInfo[i] / mInfoInc - 1;
+            const size_t bucket = i - distance;
+            if (bucket == previousBucket) {
+                ++bucketSize;
+                ++stats.collisions;
+            } else {
+                previousBucket = bucket;
+                bucketSize = 1;
+            }
+            stats.max_collisions = (std::max)(stats.max_collisions, bucketSize);
+            stats.max_probe = (std::max)(stats.max_probe, distance);
+        }
+        return stats;
     }
 
     size_type max_size() const noexcept { // NOLINT(modernize-use-nodiscard)
