@@ -1748,12 +1748,13 @@ void CApplication::Level_Set(u32 L)
 	//SECUROM_MARKER_PERFORMANCE_ON(9)
 
 	if (L >= Levels.size()) return;
-	FS.get_path("$level$")->_set(Levels[L].folder);
 
 	static string_path path;
 
 	if (Level_Current != L)
 	{
+		// The level_load worker calls this too (IGame_Level::Load), never re-point $level$ for an unchanged level
+		FS.get_path("$level$")->_set(Levels[L].folder);
 		path[0] = 0;
 
 		Level_Current = L;

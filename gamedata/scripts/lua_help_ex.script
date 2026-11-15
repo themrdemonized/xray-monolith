@@ -205,6 +205,7 @@
         void iterate_objects(function(se_obj))
         void iterate_level_objects_of_clsid(number script_clsid, function(se_obj)) -- walks actor's current-level CSE registry filtered by m_script_clsid; functor returns true to stop early; must not release the currently iterated entity
         void force_update() -- forces an immediate alife scheduled update cycle
+        number objects_per_update() -- current scheduled-update object budget, as last set by set_objects_per_update (initially alife.ltx [alife] objects_per_update)
         cse_abstract create_on_level(string section, string level_name, Fvector position, number level_vertex_id = nil) -- create(section, position, lvid, gvid) with the ids derived: exact on the current level; elsewhere the level's nearest game vertex and level_vertex_id or that vertex's own level vertex, re-snapped to position when the level loads; nil (logged) when the level is not in the game graph
     }
 
@@ -229,12 +230,15 @@
         Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
         Fvector world2ui_with_depth(Fvector pos, bool hud = false, bool allow_offscreen = false) // x and y are screen coordinates, z is the post projection w, negative behind the camera and its magnitude is the view distance in metres
         table world2ui_many(table positions, bool hud, bool allow_offscreen) // projects an array of Fvector in one call, result[i] is the world2ui_with_depth vector for positions[i], stops at the first missing or non vector entry, empty table if the argument is not a table
+        table level_names() // names of the levels in play: game.ltx [levels] entries minus spawn_overlays.ltx [level_cut], sorted; works in the main menu, same list in game
         function ui2world(Fvector2 pos) -> Fvector result, u16 object_id
         function ui2world_offscreen(Fvector2 pos) -> Fvector result, u16 object_id
         change_game_news_show_time(CUIWindow* UIWindow, float show_time)
         update_pda_news_from_uiwindow(CUIWindow* UIWindow)
 
         bool motion_exists(string model_path, string motion_name) -- Loads a HUD model temporarily and checks whether it contains a named cycle motion. Caller must ensure the file exists first — game crashes on a missing path.
+
+        void set_hud_motion_lock(number target, number seconds) -- Ramps lock_to_camera toward target (clamped 0-1, 0 = normal hud, 1 = render cam w/o script/movement layers) from its current value, if seconds is 0 sets target instantly. Target resets to 0 when done with ramping.
     }
 
     ini_file() {

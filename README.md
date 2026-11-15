@@ -239,6 +239,31 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.11.15 (Prerelease)**
+* Main and MT:
+  * Fix lost `SetScale(x, y, z)` export after attachments PR
+  * Fix missing defaults for Modded Exes options 
+  * Stevo88494: Fix stale stash ids
+  * damoldavskiy: Sync animation state with actual animation, motion marks changes under a flag (https://github.com/themrdemonized/xray-monolith/pull/864)
+  * erepb:
+    * feat: expose alife objects\_per\_update getter to lua (https://github.com/themrdemonized/xray-monolith/pull/842)
+    * resolve new-game start locations by level name and position (https://github.com/themrdemonized/xray-monolith/pull/770)
+    * support vanila level replacement (https://github.com/themrdemonized/xray-monolith/pull/774)
+  * nltp-ashes: Feature/actor visible memory (https://github.com/themrdemonized/xray-monolith/pull/785)
+  * shitame0451: Fix line wrapping for multibyte loading screen tips (https://github.com/themrdemonized/xray-monolith/pull/843)
+  * vacwave: Add lock\_to\_camera option for script hand motions (https://github.com/themrdemonized/xray-monolith/pull/766)
+
+* MT:
+  * Possible fix to https://github.com/themrdemonized/xray-monolith/issues/854
+    * IK safety improvements
+    * Validates blend ownership/state, motion slot/index, timing, weights, and foot-contact intervals before evaluation.
+    * On failure, skips IK for that update, preserves the animated pose, and clears cached IK history.
+    * cvar `print_ik_warnings` to enable Logs for NPC identity, visual, animation, motion ID, and timing—at most once every five seconds per NPC.
+  * DissidentEast: Remove register keyword (C5033) (https://github.com/themrdemonized/xray-monolith/pull/803)
+  * dsesclei: MT: Faster animation/model loading (https://github.com/themrdemonized/xray-monolith/pull/777)
+  * noisethanks: ui: release keyboard capture when the capturing window is detached (https://github.com/themrdemonized/xray-monolith/pull/814)
+  * TheLostInPlace: render fix: texture eviction no longer unloads weather env cubes and color maps (mt) (https://github.com/themrdemonized/xray-monolith/pull/840)
+  * vacwave: (MT) Fix double free of $level$ path during parallel level load (https://github.com/themrdemonized/xray-monolith/pull/845)
 
 **2026.11.09 (Prerelease)**
 * Main and MT:

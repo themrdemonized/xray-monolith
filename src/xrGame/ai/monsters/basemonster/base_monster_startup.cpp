@@ -488,16 +488,18 @@ void CBaseMonster::settings_load(LPCSTR section)
 
 void CBaseMonster::settings_overrides()
 {
-	SMonsterSettings* data;
-	data = *m_base_settings;
+	SMonsterSettings data;
+	// Preserve the complete shared representation, including padding, for CRC/deduplication.
+	// Apply overrides to this local copy so other monsters and the map key stay unchanged.
+	CopyMemory(&data, *m_base_settings, sizeof(data));
 
 	if (spawn_ini() && spawn_ini()->section_exist("settings_overrides"))
 	{
-		settings_read(spawn_ini(), "settings_overrides", (*data));
+		settings_read(spawn_ini(), "settings_overrides", data);
 	}
 
-	u32 crc = crc32(data, sizeof(SMonsterSettings));
-	m_current_settings.create(crc, 1, data);
+	u32 crc = crc32(&data, sizeof(data));
+	m_current_settings.create(crc, 1, &data);
 }
 
 void CBaseMonster::on_before_sell(CInventoryItem* item)

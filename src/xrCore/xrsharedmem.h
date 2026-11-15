@@ -14,45 +14,77 @@ struct XRCORE_API smem_value
 	u8 value[];
 };
 
-// generic predicate for "less"
-IC bool smem_sort(const smem_value* A, const smem_value* B)
-{
-	if (A->dwCRC < B->dwCRC) return true;
-	if (A->dwCRC > B->dwCRC) return false;
-	if (A->dwLength < B->dwLength) return true;
-	if (A->dwLength > B->dwLength) return false;
-	return memcmp(A->value, B->value, A->dwLength) < 0;
-};
-
-// predicate for insertion - just a quick estimate
-IC bool smem_search(const smem_value* A, const smem_value* B)
-{
-	if (A->dwCRC < B->dwCRC) return true;
-	if (A->dwCRC > B->dwCRC) return false;
-	return A->dwLength < B->dwLength;
-};
-
-// predicate for exact (byte level) comparition
-IC bool smem_equal(const smem_value* A, u32 dwCRC, u32 dwLength, u8* ptr)
-{
-	if (A->dwCRC != dwCRC) return false;
-	if (A->dwLength != dwLength) return false;
-	return 0 == memcmp(A->value, ptr, dwLength);
-};
 #pragma warning(pop)
 
 //////////////////////////////////////////////////////////////////////////
 class XRCORE_API smem_container
 {
 private:
-	typedef xr_vector<smem_value*> cdb;
+	struct key
+	{
+		u32 crc, length;
+		const u8* bytes;
+		size_t content_hash;
+		bool operator==(const key& other) const noexcept
+		{
+			return content_hash == other.content_hash && crc == other.crc && length == other.length &&
+				memcmp(bytes, other.bytes, length) == 0;
+		}
+	};
+	struct hash
+	{
+		size_t operator()(const key& value) const noexcept { return value.content_hash ^ value.crc; }
+	};
+#ifdef USE_ROBINHOOD
+	typedef xr_unordered_flat_map<key, smem_value*, hash> cdb;
+#else
+	// Rebinding preserves the counter for every STL allocation, including buckets,
+	// nodes and debug proxies. The underlying engine allocator remains unchanged.
+	template <class T>
+	struct index_allocator
+	{
+		using value_type = T;
+		size_t* used = nullptr;
+
+		index_allocator() noexcept = default;
+		explicit index_allocator(size_t* counter) noexcept : used(counter) {}
+		template <class U>
+		index_allocator(const index_allocator<U>& other) noexcept : used(other.used) {}
+
+		T* allocate(size_t count)
+		{
+			T* ptr = xalloc<T>().allocate(count);
+			*used += count * sizeof(T);
+			return ptr;
+		}
+		void deallocate(T* ptr, size_t count) noexcept
+		{
+			xalloc<T>().deallocate(ptr, count);
+			*used -= count * sizeof(T);
+		}
+		template <class U>
+		bool operator==(const index_allocator<U>& other) const noexcept { return used == other.used; }
+		template <class U>
+		bool operator!=(const index_allocator<U>& other) const noexcept { return !(*this == other); }
+	};
+	using cdb = xr_unordered_flat_map<key, smem_value*, hash, std::equal_to<key>,
+		index_allocator<std::pair<const key, smem_value*>>>;
+#endif
 	xrCriticalSection cs;
+#ifdef USE_ROBINHOOD
 	cdb container;
+#else
+	// Declared before container so the counter outlives allocator deallocation.
+	size_t index_bytes = 0;
+	cdb container{cdb::allocator_type(&index_bytes)};
+#endif
 public:
 	smem_value* dock(u32 dwCRC, u32 dwLength, void* ptr);
 	void clean();
 	void dump();
-	u32 stat_economy();
+	// Signed net savings in bytes versus one payload per reference. Includes block
+	// headers and all retained index allocations; excludes heap-private metadata.
+	s64 stat_economy(size_t* memory_usage = nullptr);
 #ifdef PROFILE_CRITICAL_SECTIONS
     smem_container ():cs(MUTEX_PROFILE_ID(smem_container)) {}
 #endif // PROFILE_CRITICAL_SECTIONS

@@ -31,7 +31,8 @@ private:
 	float LegLengthShiftLimit(float current_shift, const SCalculateData cd[max_size]);
 	bool PredictObjectShift(const SCalculateData cd[max_size]);
 	void ObjectShift(float static_shift, const SCalculateData cd[max_size]);
-	void LimbUpdate(CIKLimb& L);
+	bool LimbUpdate(CIKLimb& L, ik_anim_error& error);
+	void SkipAnimation(const ik_anim_error& error);
 	void LimbSetup();
 
 private:
@@ -43,6 +44,8 @@ private:
 	xr_vector<CIKLimb> _bone_chains;
 	object_shift _object_shift;
 	extrapolation::points _pose_extrapolation;
+	u32 m_last_animation_error_time = 0;
+	bool m_animation_error_logged = false;
 
 #ifdef	DEBUG
 	LPCSTR			anim_name;
