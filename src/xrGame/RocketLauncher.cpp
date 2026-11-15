@@ -68,12 +68,11 @@ void CRocketLauncher::DetachRocket(u16 rocket_id, bool bLaunch)
 {
 	CObject* obj = Level().Objects.net_Find(rocket_id);
 	if (!obj) return;
+	CCustomRocket* pRocket = smart_cast<CCustomRocket*>(obj);
+	if (pRocket)
+		pRocket->m_bLaunched = bLaunch;
 	obj->H_SetParent(nullptr);
-
-	CCustomRocket* pRocket = smart_cast<CCustomRocket*>(Level().Objects.net_Find(rocket_id));
 	if (!pRocket) return;
-
-	VERIFY(pRocket);
 	ROCKETIT It = std::find(m_rockets.begin(), m_rockets.end(), pRocket);
 	ROCKETIT It_l = std::find(m_launched_rockets.begin(), m_launched_rockets.end(), pRocket);
 
@@ -85,13 +84,11 @@ void CRocketLauncher::DetachRocket(u16 rocket_id, bool bLaunch)
 
 	if (It != m_rockets.end())
 	{
-		(*It)->m_bLaunched = bLaunch;
 		m_rockets.erase(It);
 	};
 
 	if (It_l != m_launched_rockets.end())
 	{
-		(*It_l)->m_bLaunched = bLaunch;
 		m_launched_rockets.erase(It_l);
 	}
 }

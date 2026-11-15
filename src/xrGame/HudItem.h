@@ -121,6 +121,7 @@ public:
 		float m_fPreviousMotionTime;
 		float m_fCurrentMotionTime;
 		float m_fCurrentMotionLength;
+		float m_fCurrentMotionEnd;
 		float m_fCurrentMotionSpeed;
 	};
 
@@ -150,7 +151,7 @@ public:
 	IC bool IsPending() const { return !!m_huditem_flags.test(fl_pending); }
 	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 
-    IC float MotionTimeLeft() const { return m_fCurrentMotionSpeed > 0.f ? _max(m_fCurrentMotionLength - m_fCurrentMotionTime, 0.f) / m_fCurrentMotionSpeed : 0.f; }
+    IC float MotionTimeLeft() const { return m_fCurrentMotionSpeed > 0.f ? _max(m_fCurrentMotionEnd - m_fCurrentMotionTime, 0.f) / m_fCurrentMotionSpeed : 0.f; }
 
 	virtual void DeleteHudItemData();
 

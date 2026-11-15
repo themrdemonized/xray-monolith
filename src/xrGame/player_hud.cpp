@@ -83,6 +83,11 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 
 				_GetItem(anm.c_str(), 2, str_item);
 				pm->m_anim_speed = atof(str_item);
+				if (item_count >= 4)
+				{
+					_GetItem(anm.c_str(), 3, str_item);
+					pm->m_anim_end = atof(str_item);
+				}
 				break;
 			}
 
