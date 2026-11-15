@@ -660,7 +660,8 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 	player_hud_motion* anm = find_motion(anm_name_b);
 	rnd_idx = (u8)Random.randI(anm->m_animations.size());
 	const motion_descr& M = anm->m_animations[rnd_idx];
-	speed *= anm->m_anim_speed;
+	if (speed == 1.f)
+		speed = anm->m_anim_speed != 0.f ? anm->m_anim_speed : 1.f;
 
 	u32 ret = 0;
 	if (m_attach_place_idx != SCOPE_ATTACH_IDX) {
