@@ -244,7 +244,9 @@ How to compile exes:
   * Fix lost `SetScale(x, y, z)` export after attachments PR
   * Fix missing defaults for Modded Exes options 
   * Stevo88494: Fix stale stash ids
-  * damoldavskiy: Sync animation state with actual animation, motion marks changes under a flag (https://github.com/themrdemonized/xray-monolith/pull/864)
+  * damoldavskiy: 
+    * Sync animation state with actual animation, motion marks changes under a flag (https://github.com/themrdemonized/xray-monolith/pull/864)
+    * Rocket launcher and anim end fix (https://github.com/themrdemonized/xray-monolith/pull/865)
   * erepb:
     * feat: expose alife objects\_per\_update getter to lua (https://github.com/themrdemonized/xray-monolith/pull/842)
     * resolve new-game start locations by level name and position (https://github.com/themrdemonized/xray-monolith/pull/770)

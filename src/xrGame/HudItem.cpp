@@ -40,6 +40,7 @@ CHudItem::CHudItem()
 	m_fPreviousMotionTime = 0.f;
 	m_fCurrentMotionTime = 0.f;
 	m_fCurrentMotionLength = 0.f;
+	m_fCurrentMotionEnd = 0.f;
 	m_fCurrentMotionSpeed = 0.f;
 
 	m_fLR_CameraFactor = 0.f;
@@ -583,7 +584,7 @@ void CHudItem::UpdateCL()
 		m_fPreviousMotionTime = m_fCurrentMotionTime;
 		m_fCurrentMotionTime += Device.fTimeDelta * m_fCurrentMotionSpeed;
 
-		if (m_fCurrentMotionTime > (m_fCurrentMotionLength - .033343f))
+		if (m_fCurrentMotionTime > m_fCurrentMotionEnd)
 		{
 			if (m_bStopAtEndAnimIsRunning)
 			{
@@ -754,7 +755,25 @@ u32 CHudItem::PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, f
 	m_fPreviousMotionTime = 0.f;
 	m_fCurrentMotionTime = 0.f;
 	m_fCurrentMotionLength = anim_time / 1000.f;
+	m_fCurrentMotionEnd = m_fCurrentMotionLength - .033343f;
 	m_startedMotionState = state;
+
+	if (m_bStopAtEndAnimIsRunning && m_fCurrentMotionSpeed > 0.f)
+	{
+		const float duration = m_fCurrentMotionLength / m_fCurrentMotionSpeed;
+		anim_time = iFloor(duration * 1000.f + 0.5f);
+
+		if (IsAttachedToHUD())
+		{
+			const float alias_end = HudItemData()->find_motion(M)->m_anim_end;
+			if (alias_end != 0.f)
+				end = alias_end;
+		}
+		if (g_end_modif != 0.f)
+			end = g_end_modif;
+		if (end != 0.f)
+			m_fCurrentMotionEnd = _max(0.f, duration - end) * m_fCurrentMotionSpeed;
+	}
 
 	return anim_time;
 }
@@ -790,6 +809,7 @@ void CHudItem::StopCurrentAnimWithoutCallback()
 	m_fPreviousMotionTime = 0.f;
 	m_fCurrentMotionTime = 0.f;
 	m_fCurrentMotionLength = 0.f;
+	m_fCurrentMotionEnd = 0.f;
 	m_fCurrentMotionSpeed = 0.f;
 	m_bStopAtEndAnimIsRunning = false;
 	m_current_motion_def = nullptr;

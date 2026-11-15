@@ -24,6 +24,7 @@ struct player_hud_motion
 	shared_str m_base_name;
 	shared_str m_additional_name;
 	float m_anim_speed = 1.f;
+	float m_anim_end = 0.f;
 	xr_vector<motion_descr> m_animations;
 };
 
