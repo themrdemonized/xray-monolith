@@ -32,6 +32,8 @@ namespace spawn_overlays
 		SPAWN_GRAPH& spawns;
 		NAME_INDEX index;
 		STemplateIds ids;
+		// file each template added after load came from (fragment, pack, ltx); base templates have none
+		xr_map<ALife::_SPAWN_ID, shared_str> sources;
 
 		explicit STemplates(SPAWN_GRAPH& spawns);
 	};

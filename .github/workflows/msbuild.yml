@@ -4,14 +4,32 @@
 # documentation.
 
 name: MSBuild
+run-name: >-
+  ${{ (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && format('MSBuild PR #{0} @ {1} ({2})', github.event.pull_request.number || inputs.pr_number, github.event.pull_request.head.sha || inputs.pr_head_sha, github.base_ref || github.ref_name) || format('MSBuild {0}', github.ref_name) }}
 
 on:
   push:
     branches: [ "all-in-one-vs2022-wpo", "dev", "dev-mt" ]
   pull_request:
-    branches: [ "all-in-one-vs2022-wpo" ]
+    branches: [ "dev", "dev-mt" ]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request to build after retargeting
+        required: true
+        type: string
+      pr_head_sha:
+        description: Expected PR head commit
+        required: true
+        type: string
 
-permissions: write-all
+permissions:
+  contents: read
+
+concurrency:
+  group: msbuild-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}-${{ github.event.pull_request.head.sha || inputs.pr_head_sha || github.sha }}-${{ github.base_ref || github.ref_name }}
+  cancel-in-progress: true
 
 env:
   # Path to the solution file relative to the root of the project.
@@ -31,8 +49,92 @@ env:
   PACK_GAMEDATA_NAME: 00_modded_exes_gamedata.db0
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      base: ${{ steps.source.outputs.base }}
+      ref: ${{ steps.source.outputs.ref }}
+    steps:
+    - name: Resolve build source
+      id: source
+      shell: python
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_head_sha }}
+      run: |
+        import json
+        import os
+        import re
+        import subprocess
+        import time
+
+        def output(**values):
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
+                for name, value in values.items():
+                    stream.write(f"{name}={value}\n")
+
+        def api(endpoint):
+            return json.loads(subprocess.check_output(["gh", "api", endpoint], text=True))
+
+        event_name = os.environ["GITHUB_EVENT_NAME"]
+        if event_name == "push":
+            output(base=os.environ["GITHUB_REF_NAME"], ref=os.environ["GITHUB_SHA"])
+            raise SystemExit(0)
+
+        number = os.environ["PR_NUMBER"]
+        if not re.fullmatch(r"[1-9][0-9]*", number):
+            raise SystemExit("PR number must be a positive integer")
+        repo = os.environ["GITHUB_REPOSITORY"]
+        endpoint = f"repos/{repo}/pulls/{number}"
+        if event_name == "pull_request":
+            with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as stream:
+                pull = json.load(stream)["pull_request"]
+        else:
+            pull = api(endpoint)
+        if pull["state"] != "open":
+            print("PR is closed; skipping the build")
+            raise SystemExit(0)
+        base = pull["base"]["ref"]
+        head = pull["head"]["sha"]
+        if base not in ("dev", "dev-mt"):
+            raise SystemExit("PR must target dev or dev-mt")
+        if not re.fullmatch(r"[0-9a-f]{40}", head):
+            raise SystemExit("Invalid PR head SHA")
+        if head != os.environ["PR_HEAD_SHA"]:
+            raise SystemExit("PR head changed before the build started")
+        if event_name == "workflow_dispatch" and base != os.environ["GITHUB_REF_NAME"]:
+            raise SystemExit("PR target changed before the build started")
+        output(base=base)
+        if event_name == "pull_request":
+            output(ref=os.environ["GITHUB_SHA"])
+            raise SystemExit(0)
+
+        # Retargeting regenerates the test merge asynchronously. Check both
+        # parents so a stale merge from the old target cannot be built.
+        for attempt in range(12):
+            if attempt:
+                time.sleep(5)
+                pull = api(endpoint)
+            if pull["state"] != "open" or pull["base"]["ref"] != base or pull["head"]["sha"] != head:
+                raise SystemExit("PR changed while preparing the build")
+            if pull.get("mergeable") is False:
+                raise SystemExit("PR has merge conflicts with its target branch")
+            merge_sha = pull.get("merge_commit_sha")
+            if pull.get("mergeable") is True and merge_sha:
+                commit = api(f"repos/{repo}/git/commits/{merge_sha}")
+                base_head = api(f"repos/{repo}/git/ref/heads/{base}")["object"]["sha"]
+                parents = [parent["sha"] for parent in commit["parents"]]
+                if parents == [base_head, head]:
+                    output(ref=merge_sha)
+                    raise SystemExit(0)
+        raise SystemExit("Timed out waiting for the PR's updated merge commit")
+
   pack_gamedata:
-    if: github.ref == 'refs/heads/all-in-one-vs2022-wpo' || github.base_ref == 'all-in-one-vs2022-wpo'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/all-in-one-vs2022-wpo'
     name: pack_gamedata
     runs-on: windows-latest
 
@@ -67,7 +169,8 @@ jobs:
         retention-days: 1
         
   build:
-    if: github.ref != 'refs/heads/dev-mt'
+    needs: prepare
+    if: needs.prepare.outputs.base != '' && needs.prepare.outputs.base != 'dev-mt'
     name: build-job
     runs-on: windows-latest
 
@@ -90,8 +193,9 @@ jobs:
         
     - name: Checkout repo
       uses: actions/checkout@v4
-      # with:
-      #   ref: all-in-one-vs2022
+      with:
+        ref: ${{ needs.prepare.outputs.ref }}
+        persist-credentials: false
       
     - name: Init submodules
       uses: snickerbockers/submodules-init@v4
@@ -176,7 +280,8 @@ jobs:
         retention-days: 1
 
   build_mt:
-    if: github.ref != 'refs/heads/dev'
+    needs: prepare
+    if: needs.prepare.outputs.base != '' && needs.prepare.outputs.base != 'dev'
     name: build-mt-job
     runs-on: windows-latest
 
@@ -200,7 +305,8 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.ref == 'refs/heads/dev-mt' && github.sha || 'all-in-one-vs2022-wpo-mt' }}
+        ref: ${{ needs.prepare.outputs.base == 'all-in-one-vs2022-wpo' && 'all-in-one-vs2022-wpo-mt' || needs.prepare.outputs.ref }}
+        persist-credentials: false
 
     - name: Init submodules
       uses: snickerbockers/submodules-init@v4
@@ -285,10 +391,13 @@ jobs:
         retention-days: 1
 
   release:
-    if: github.ref == 'refs/heads/all-in-one-vs2022-wpo' || github.base_ref == 'all-in-one-vs2022-wpo'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/all-in-one-vs2022-wpo'
     needs: [pack_gamedata, build, build_mt]
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
     steps:
     - uses: actions/checkout@v4
       # with:
@@ -296,7 +405,7 @@ jobs:
     
     - name: Get Datetime
       id: datetime
-      run: echo "::set-output name=today::$(date +'%-Y.%-m.%-d')"
+      run: echo "today=$(date +'%-Y.%-m.%-d')" >> "$GITHUB_OUTPUT"
         
     # Use the output from the `datetime` step
     - name: Get Version

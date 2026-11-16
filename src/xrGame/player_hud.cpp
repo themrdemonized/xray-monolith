@@ -83,6 +83,11 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 
 				_GetItem(anm.c_str(), 2, str_item);
 				pm->m_anim_speed = atof(str_item);
+				if (item_count >= 4)
+				{
+					_GetItem(anm.c_str(), 3, str_item);
+					pm->m_anim_end = atof(str_item);
+				}
 				break;
 			}
 
@@ -660,7 +665,8 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 	player_hud_motion* anm = find_motion(anm_name_b);
 	rnd_idx = (u8)Random.randI(anm->m_animations.size());
 	const motion_descr& M = anm->m_animations[rnd_idx];
-	speed *= anm->m_anim_speed;
+	if (speed == 1.f)
+		speed = anm->m_anim_speed != 0.f ? anm->m_anim_speed : 1.f;
 
 	u32 ret = 0;
 	if (m_attach_place_idx != SCOPE_ATTACH_IDX) {
@@ -753,6 +759,7 @@ player_hud::player_hud()
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
 	script_anim_offset_factor = 0.f;
+	script_anim_lock_camera = 0.f;
 	m_item_pos.identity();
 	script_override_arms = false;
 	script_anim_item_model = nullptr;
@@ -1723,6 +1730,16 @@ void player_hud::update(const Fmatrix& cam_trans)
 		}
 	}
 
+	if (script_anim_lock_camera > 0.f) // lock_to_camera, animated arm(s) blend toward render camera without script and movement layers.
+	{
+		Fmatrix cam, locked;
+		Actor()->Cameras().camera_Matrix(cam);
+		if (script_anim_part == 0 || script_anim_part == 2)
+			m_transform.inertion(locked.mul(cam, m_attach_offset), 1.f - script_anim_lock_camera);
+		if (script_anim_part == 1 || script_anim_part == 2)
+			m_transform_2.inertion(locked.mul(cam, m_attach_offset_2), 1.f - script_anim_lock_camera);
+	}
+
 	if (m_attached_items[0])
 		m_attached_items[0]->update(true);
 
@@ -1739,6 +1756,8 @@ void player_hud::update(const Fmatrix& cam_trans)
 	if (script_anim_part != u8(-1))
 	{
 		script_anim_offset_factor += Device.fTimeDelta * 2.5f;
+		float lock_step = script_anim_lock_camera_time > 0.f ? Device.fTimeDelta / script_anim_lock_camera_time : 1.f;
+		script_anim_lock_camera += clampr(script_anim_lock_camera_target - script_anim_lock_camera, -lock_step, lock_step);
 
 		if (m_bStopAtEndAnimIsRunning && Device.dwTimeGlobal >= script_anim_end)
 			StopScriptAnim();
@@ -2003,6 +2022,7 @@ void player_hud::StopScriptAnim()
 	script_anim_part = u8(-1);
 	delete_script_anim_item_model();
 	script_anim_lead_gun = false;
+	script_anim_lock_camera = 0.f;
 
 	updateMovementLayerState();
 
@@ -2120,6 +2140,11 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 	script_anim_offset[0] = offs;
 	script_anim_offset[1] = rrot;
+	script_anim_lock_camera_target = clampr(READ_IF_EXISTS(pSettings, r_float, section, "lock_to_camera", 0.f), 0.f, 1.f); // lock_to_camera target strength, 0 = normal hud, 1 = locked to render
+	script_anim_lock_camera_time = READ_IF_EXISTS(pSettings, r_float, section, "lock_to_camera_time", 0.f); // seconds for a 0-1 ramp, starting from 0.
+	script_anim_lock_camera = script_anim_lock_camera_time > 0.f ? 0.f : script_anim_lock_camera_target;
+	if (script_anim_lock_camera > 0.f)
+		script_anim_offset_factor = 1.f;
 	script_anim_part = hand;
 
 	player_hud_motion_container* pm = get_hand_motions(section);

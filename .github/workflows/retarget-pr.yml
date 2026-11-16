@@ -6,22 +6,28 @@ on:
 
 permissions:
   pull-requests: write
+  actions: write
 
 jobs:
   retarget:
+    if: github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     steps:
       - name: Enforce allowed target branches
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_CHANGED: ${{ github.event.changes.base != null }}
         run: |
           endpoint="repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER"
           base=$(gh api "$endpoint" --jq '.base.ref')
 
           case "$base" in
             dev|dev-mt)
-              exit 0
+              if [[ "$BASE_CHANGED" != "true" ]]; then
+                exit 0
+              fi
+              target="$base"
               ;;
             all-in-one-vs2022-wpo-mt)
               target=dev-mt
@@ -31,4 +37,12 @@ jobs:
               ;;
           esac
 
-          gh api --method PATCH "$endpoint" -f base="$target"
+          if [[ "$base" != "$target" ]]; then
+            gh api --method PATCH "$endpoint" -f base="$target"
+          fi
+
+          # GITHUB_TOKEN-generated base edits do not trigger pull_request builds.
+          # Dispatch the trusted target branch's workflow explicitly instead.
+          head_sha=$(gh api "$endpoint" --jq '.head.sha')
+          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/msbuild.yml/dispatches" \
+            -f ref="$target" -f "inputs[pr_number]=$PR_NUMBER" -f "inputs[pr_head_sha]=$head_sha"

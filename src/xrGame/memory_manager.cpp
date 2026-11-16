@@ -252,12 +252,7 @@ u32 CMemoryManager::memory_time(const CObject* object) const
 	const CGameObject* game_object = smart_cast<const CGameObject*>(object);
 	VERIFY(game_object);
 
-	{
-		xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
-		                                                        object_id(object));
-		if (visual().objects().end() != I)
-			result = (*I).m_level_time;
-	}
+	result = visual().memory_time(object);
 
 	{
 		xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
@@ -286,15 +281,8 @@ Fvector CMemoryManager::memory_position(const CObject* object) const
 	const CGameObject* game_object = smart_cast<const CGameObject*>(object);
 	VERIFY(game_object);
 
-	{
-		xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
-		                                                        object_id(object));
-		if (visual().objects().end() != I)
-		{
-			time = (*I).m_level_time;
-			result = (*I).m_object_params.m_position;
-		}
-	}
+	time = visual().memory_time(object);
+	result = visual().memory_position(object);
 
 	{
 		xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),

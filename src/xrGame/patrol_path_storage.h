@@ -29,6 +29,11 @@ public:
 
 protected:
 	PATROL_REGISTRY m_registry;
+	// names loaded from the spawn's compiled chunk (load) and still holding that path
+	xr_set<shared_str> m_compiled;
+
+private:
+	u32 erase_on_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id, bool compiled_only);
 
 public:
 	IC CPatrolPathStorage();
@@ -50,6 +55,8 @@ public:
 	void approximate_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
 	// Erases the paths on level_id (CPatrolPath::on_level); returns their count.
 	u32 erase_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
+	// Erases the compiled paths (load) on level_id; config, fragment and pack paths stay. Returns their count.
+	u32 erase_compiled_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
 	IC const CPatrolPath* path(shared_str patrol_name, bool no_assert = false) const;
 	IC const PATROL_REGISTRY& patrol_paths() const;
 };
