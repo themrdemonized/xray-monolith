@@ -482,9 +482,10 @@ bool CControlManagerCustom::script_try_jump(const Fvector& position, float facto
 		ctrl_data->flags.or(SControlJumpData::eUseTargetPosition);
 	}
 
-	// can_jump after ePrepareSkip is set (its trace reads the flag); the aggressive mode is the species' call, as in jump_if_possible
+	// can_jump after ePrepareSkip is set (its trace reads the flag); the aggressive mode is the species' call, as in jump_if_possible.
+	// A species whose jump band never loaded (the bloodsucker registers the ability after the manager's load) has no band to refuse on.
 	bool const aggressive_jump = enemy ? m_object->can_use_agressive_jump(enemy) : false;
-	if (!m_jump->can_jump(position, aggressive_jump))
+	if (m_jump->is_config_loaded() && !m_jump->can_jump(position, aggressive_jump))
 	{
 		m_man->release(this, ControlCom::eControlJump);
 		return false;

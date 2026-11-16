@@ -49,6 +49,8 @@ void CControlJump::load(LPCSTR section)
 
 	if (pSettings->line_exist(section, "jump_auto_aim_factor"))
 		m_auto_aim_factor = pSettings->r_float(section, "jump_auto_aim_factor");
+
+	m_config_loaded = true;
 }
 
 bool CControlJump::check_start_conditions()
