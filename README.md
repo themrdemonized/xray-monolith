@@ -244,6 +244,7 @@ How to compile exes:
   * Fix lost `SetScale(x, y, z)` export after attachments PR
   * Fix missing defaults for Modded Exes options 
   * Stevo88494: Fix stale stash ids
+  * `snd_music_next` console command to skip current music track for the next one, fix https://github.com/themrdemonized/xray-monolith/issues/708
   * damoldavskiy: 
     * Sync animation state with actual animation, motion marks changes under a flag (https://github.com/themrdemonized/xray-monolith/pull/864)
     * Rocket launcher and anim end fix (https://github.com/themrdemonized/xray-monolith/pull/865)
