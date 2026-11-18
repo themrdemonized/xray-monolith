@@ -47,10 +47,12 @@ class CLevelSoundManager
 	U32Vec m_PlayedMusicIndices; //Already played music array
 	u32 m_NextTrackTime;
 	int m_CurrentTrack;
+	xr_atomic_bool m_SkipMusicTrack{false};
 public:
 	CLevelSoundManager();
 	void Load();
 	void Unload();
+	void SkipMusicTrack() { m_SkipMusicTrack.store(true, std::memory_order_relaxed); }
 	void __stdcall Update();
 };
 

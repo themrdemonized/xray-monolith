@@ -995,6 +995,12 @@ void CLevel::MakeReconnect()
 	}
 }
 
+void CLevel::SkipMusicTrack()
+{
+	if (m_level_sound_manager)
+		m_level_sound_manager->SkipMusicTrack();
+}
+
 void CLevel::OnFrame()
 {
 	PROF_EVENT("CLevel::OnFrame()");

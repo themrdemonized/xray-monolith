@@ -1278,6 +1278,23 @@ public:
 	}
 };
 
+class CCC_MusicNext : public IConsole_Command
+{
+public:
+	CCC_MusicNext(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = true; }
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (*args)
+		{
+			InvalidSyntax();
+			return;
+		}
+		if (g_pGameLevel)
+			Level().SkipMusicTrack();
+	}
+};
+
 class CCC_FlushLog : public IConsole_Command
 {
 public:
@@ -2906,6 +2923,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_use_tracers", &psActorFlags, AF_USE_TRACERS);
 	CMD3(CCC_Mask, "g_autopickup", &psActorFlags, AF_AUTOPICKUP);
 	CMD3(CCC_Mask, "g_dynamic_music", &psActorFlags, AF_DYNAMIC_MUSIC);
+	CMD1(CCC_MusicNext, "snd_music_next");
 	psActorFlags.set(AF_IMPORTANT_SAVE, TRUE);
 	CMD3(CCC_Mask, "g_important_save", &psActorFlags, AF_IMPORTANT_SAVE);
 
