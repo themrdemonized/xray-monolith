@@ -6,6 +6,7 @@
         step_particle_distance [10; 100] // max distance at which step particle effects are played, hard cut-off, default 50
         snd_max_distance_multiplier [0.2; 2.0] // multiplier for maximum sound distance before it fade into being inaudbile due to low volume, default 1.0 (base values are configured on a per ogg file basis)
         snd_max_ai_distance_multiplier [0.2; 2.0] // multiplier for maximum distance AI reacts to sounds, default 1.0 (base values are configured on a per ogg file basis)
+        snd_music_next // Skip current music track for the next one
 
         bus_list // Print every shader bus lane with its owner, value, state, counters and the frame a shader last bound it
         bus_get <id> // Print one shader bus lane
