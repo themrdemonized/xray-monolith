@@ -284,4 +284,7 @@ public:
 	virtual ~CDetailManager();
 };
 
+extern bool details_reload_pending;
+void details_reload(CDetailManager*& D);
+
 #endif //DetailManagerH
