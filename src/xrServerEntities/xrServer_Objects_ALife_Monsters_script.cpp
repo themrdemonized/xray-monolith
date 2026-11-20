@@ -38,6 +38,22 @@ void set_character_name_script(CSE_ALifeTraderAbstract* ta, LPCSTR str)
 	}
 }
 
+static void set_character_display_name_script(CSE_ALifeTraderAbstract* ta, LPCSTR name)
+{
+	if (name && *name)
+		ta->m_character_name = name;
+	else
+		ta->m_character_name = TranslateName(ta->m_character_name_str.c_str());
+
+	auto* object = ta->base()->cast_alife_dynamic_object();
+	if (!g_pGameLevel || !object || !object->m_bOnline)
+		return;
+
+	auto* owner = smart_cast<CInventoryOwner*>(g_pGameLevel->Objects.net_Find(object->ID));
+	if (owner)
+		owner->SetDisplayName(ta->m_character_name.c_str());
+}
+
 LPCSTR character_name_script(CSE_ALifeTraderAbstract* ta)
 {
 	return ta->m_character_name.c_str();
@@ -74,6 +90,7 @@ void CSE_ALifeTraderAbstract::script_register(lua_State* L)
 		.def("character_name", &character_name_script)
 		.def("character_name_str", &character_name_str_script)
 		.def("set_character_name", &set_character_name_script)
+		.def("set_character_display_name", &set_character_display_name_script)
 		.def("rank", &Rank)
 		.def("set_rank", &SetRank)
 		.def("reputation", &Reputation)
