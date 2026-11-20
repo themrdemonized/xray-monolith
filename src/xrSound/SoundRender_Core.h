@@ -129,6 +129,7 @@ public:
 
 	virtual float get_occlusion_to(const Fvector& hear_pt, const Fvector& snd_pt, float dispersion = 0.2f);
 	float get_occlusion(Fvector& P, float R, Fvector* occ) override;
+	bool get_output_loudness(float&, float&, float&) override { return false; }
 	CSoundRender_Environment* get_environment(const Fvector& P);
 
 	void env_load();

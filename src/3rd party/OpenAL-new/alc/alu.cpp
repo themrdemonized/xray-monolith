@@ -2106,7 +2106,147 @@ uint DeviceBase::renderSamples(const uint numSamples)
     if(DitherDepth > 0.0f)
         ApplyDither(RealOut.Buffer, &DitherSeed, DitherDepth, samplesToDo);
 
+    /* Measure the final output, once a reader has started the meter. */
+    if(mLoudnessEnabled.load(std::memory_order_relaxed)) UNLIKELY
+        measureLoudness(samplesToDo);
+
     return samplesToDo;
+}
+
+/* ITU-R BS.1770 K-weighting and EBU R128 momentary (400 ms) and short-term
+ * (3 s) loudness over RealOut, plus the sample peak of the last 400 ms. The
+ * filter coefficients come from the analog prototype for the device rate.
+ */
+void DeviceBase::measureLoudness(const uint samplesToDo) noexcept
+{
+    auto &meter = mLoudness;
+    const size_t numchans{std::min(RealOut.Buffer.size(), size_t{MaxChannels})};
+    if(meter.Frequency != Frequency || meter.Channels != numchans)
+    {
+        const double rate{static_cast<double>(Frequency)};
+        double k{std::tan(al::numbers::pi * 1681.974450955533 / rate)};
+        double q{0.7071752369554196};
+        const double vh{std::pow(10.0, 3.999843853973347 / 20.0)};
+        const double vb{std::pow(vh, 0.4996667741545416)};
+        double a0{1.0 + k/q + k*k};
+        meter.Pb0 = (vh + vb*k/q + k*k) / a0;
+        meter.Pb1 = 2.0 * (k*k - vh) / a0;
+        meter.Pb2 = (vh - vb*k/q + k*k) / a0;
+        meter.Pa1 = 2.0 * (k*k - 1.0) / a0;
+        meter.Pa2 = (1.0 - k/q + k*k) / a0;
+        k = std::tan(al::numbers::pi * 38.13547087602444 / rate);
+        q = 0.5003270373238773;
+        a0 = 1.0 + k/q + k*k;
+        meter.Ra1 = 2.0 * (k*k - 1.0) / a0;
+        meter.Ra2 = (1.0 - k/q + k*k) / a0;
+
+        /* Channel weights: surround 1.41, LFE left out, the rest 1. */
+        meter.Weight.fill(1.0);
+        for(const Channel chan : {SideLeft, SideRight, BackLeft, BackRight, BackCenter})
+        {
+            const uint idx{RealOut.ChannelIndex[chan]};
+            if(idx < numchans) meter.Weight[idx] = 1.41;
+        }
+        const uint lfe{RealOut.ChannelIndex[LFE]};
+        if(lfe < numchans) meter.Weight[lfe] = 0.0;
+
+        meter.Frequency = Frequency;
+        meter.Channels = numchans;
+        meter.BlockSize = maxu(Frequency / 10u, 1u);
+        meter.BlockFill = 0u;
+        meter.Head = 0u;
+        meter.Count = 0u;
+        meter.State = {};
+        meter.Energy = 0.0;
+        meter.Peak = 0.0f;
+        mLoudnessReady.store(false, std::memory_order_release);
+    }
+    /* Ambisonic output carries no speaker feeds to weigh. */
+    if(FmtChans == DevFmtAmbi3D)
+        return;
+
+    uint done{0u};
+    while(done < samplesToDo)
+    {
+        const uint todo{minu(samplesToDo - done, meter.BlockSize - meter.BlockFill)};
+        for(size_t c{0};c < numchans;++c)
+        {
+            const float *src{RealOut.Buffer[c].data() + done};
+            for(uint i{0};i < todo;++i)
+                meter.Peak = std::max(meter.Peak, std::abs(src[i]));
+            if(meter.Weight[c] == 0.0)
+                continue;
+
+            auto &state = meter.State[c];
+            double sum{0.0};
+            for(uint i{0};i < todo;++i)
+            {
+                const double x{src[i]};
+                const double y1{meter.Pb0*x + state[0]};
+                state[0] = meter.Pb1*x - meter.Pa1*y1 + state[1];
+                state[1] = meter.Pb2*x - meter.Pa2*y1;
+                const double y2{y1 + state[2]};
+                state[2] = -2.0*y1 - meter.Ra1*y2 + state[3];
+                state[3] = y1 - meter.Ra2*y2;
+                sum += y2*y2;
+            }
+            meter.Energy += sum * meter.Weight[c];
+        }
+        done += todo;
+        meter.BlockFill += todo;
+        if(meter.BlockFill < meter.BlockSize)
+            continue;
+
+        /* A 100 ms block is complete: store its mean energy and peak. */
+        constexpr size_t numblocks{LoudnessMeter::NumBlocks};
+        meter.Blocks[meter.Head] = meter.Energy / meter.BlockSize;
+        meter.Peaks[meter.Head] = meter.Peak;
+        meter.Head = (meter.Head+1) % numblocks;
+        meter.Count = std::min(meter.Count+1, numblocks);
+        meter.Energy = 0.0;
+        meter.Peak = 0.0f;
+        meter.BlockFill = 0u;
+        if(meter.Count < numblocks)
+            continue;
+
+        double momentary{0.0}, shortterm{0.0};
+        float peak{0.0f};
+        for(size_t b{1};b <= numblocks;++b)
+        {
+            const size_t idx{(meter.Head + numblocks - b) % numblocks};
+            shortterm += meter.Blocks[idx];
+            if(b <= 4)
+            {
+                momentary += meter.Blocks[idx];
+                peak = std::max(peak, meter.Peaks[idx]);
+            }
+        }
+        auto to_lufs = [](const double energy) noexcept -> float
+        {
+            if(!(energy > 0.0)) return -70.0f;
+            return static_cast<float>(std::max(-0.691 + 10.0*std::log10(energy), -70.0));
+        };
+        mLoudnessMomentary.store(to_lufs(momentary / 4.0), std::memory_order_relaxed);
+        mLoudnessShortTerm.store(to_lufs(shortterm / numblocks), std::memory_order_relaxed);
+        mLoudnessPeak.store((peak > 0.0f) ? std::max(20.0f*std::log10(peak), -70.0f) : -70.0f,
+            std::memory_order_relaxed);
+        mLoudnessReady.store(true, std::memory_order_release);
+    }
+}
+
+bool DeviceBase::readLoudness(float *values) noexcept
+{
+    if(!mLoudnessEnabled.load(std::memory_order_acquire))
+    {
+        mLoudnessEnabled.store(true, std::memory_order_release);
+        return false;
+    }
+    if(!mLoudnessReady.load(std::memory_order_acquire))
+        return false;
+    values[0] = mLoudnessMomentary.load(std::memory_order_relaxed);
+    values[1] = mLoudnessShortTerm.load(std::memory_order_relaxed);
+    values[2] = mLoudnessPeak.load(std::memory_order_relaxed);
+    return true;
 }
 
 void DeviceBase::renderSamples(const al::span<float*> outBuffers, const uint numSamples)

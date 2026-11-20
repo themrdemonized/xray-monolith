@@ -282,6 +282,33 @@ struct DeviceBase {
      */
     RefCount MixCount{0u};
 
+    /* Output loudness meter (EBU R128 momentary and short-term, sample peak)
+     * over RealOut, off until the first read. The mixer writes, any thread
+     * reads the atomics.
+     */
+    std::atomic<bool> mLoudnessEnabled{false};
+    std::atomic<bool> mLoudnessReady{false};
+    std::atomic<float> mLoudnessMomentary{-70.0f};
+    std::atomic<float> mLoudnessShortTerm{-70.0f};
+    std::atomic<float> mLoudnessPeak{-70.0f};
+    struct LoudnessMeter {
+        static constexpr size_t NumBlocks{30}; /* 100 ms blocks, 3 s */
+        uint Frequency{0u};
+        size_t Channels{0u};
+        uint BlockSize{0u};
+        uint BlockFill{0u};
+        size_t Head{0u};
+        size_t Count{0u};
+        /* K-weighting: a high shelf (Pb, Pa) then a high-pass (1,-2,1 over Ra). */
+        double Pb0{}, Pb1{}, Pb2{}, Pa1{}, Pa2{}, Ra1{}, Ra2{};
+        std::array<std::array<double,4>,MaxChannels> State{};
+        std::array<double,MaxChannels> Weight{};
+        double Energy{0.0};
+        float Peak{0.0f};
+        std::array<double,NumBlocks> Blocks{};
+        std::array<float,NumBlocks> Peaks{};
+    } mLoudness;
+
     // Contexts created on this device
     std::atomic<al::FlexArray<ContextBase*>*> mContexts{nullptr};
 
@@ -315,6 +342,12 @@ struct DeviceBase {
     void renderSamples(const al::span<float*> outBuffers, const uint numSamples);
     void renderSamples(void *outBuffer, const uint numSamples, const size_t frameStep);
 
+    /* Writes momentary and short-term loudness (LUFS) and sample peak (dBFS)
+     * to values[0..2]. The first call starts the meter; false until it holds
+     * 3 s of output.
+     */
+    bool readLoudness(float *values) noexcept;
+
     /* Caller must lock the device state, and the mixer must not be running. */
 #ifdef __USE_MINGW_ANSI_STDIO
     [[gnu::format(gnu_printf,2,3)]]
@@ -334,6 +367,7 @@ struct DeviceBase {
 
 private:
     uint renderSamples(const uint numSamples);
+    void measureLoudness(const uint samplesToDo) noexcept;
 };
 
 /* Must be less than 15 characters (16 including terminating null) for

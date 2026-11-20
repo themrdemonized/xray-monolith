@@ -1095,6 +1095,13 @@ void set_music_volume(float v) {
 	clamp(psSoundVMusicFactor, 0.0f, 1.0f);
 }
 
+// EBU R128 loudness of the final mix. Lua: local ok, momentary, short_term, peak = level.get_output_loudness()
+bool get_output_loudness(float& momentary, float& short_term, float& peak)
+{
+	momentary = short_term = peak = -70.0f;
+	return ::Sound && ::Sound->get_output_loudness(momentary, short_term, peak);
+}
+
 #include "actor_statistic_mgr.h"
 
 void add_actor_points(LPCSTR sect, LPCSTR detail_key, int cnt, int pts)
@@ -3097,6 +3104,7 @@ void CLevel::script_register(lua_State* L)
 			def("set_snd_volume", &set_snd_volume),
 			def("get_music_volume", &get_music_volume),
 			def("set_music_volume", &set_music_volume),
+			def("get_output_loudness", &get_output_loudness, pure_out_value<1>() + pure_out_value<2>() + pure_out_value<3>()),
 
 			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool, bool))& set_cam_position_direction)),

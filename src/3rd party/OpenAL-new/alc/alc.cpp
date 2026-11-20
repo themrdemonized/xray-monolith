@@ -304,6 +304,7 @@ const struct {
     DECL(alcResetDeviceSOFT),
 
     DECL(alcGetInteger64vSOFT),
+    DECL(alcGetOutputLoudnessDMN),
 
     DECL(alcReopenDeviceSOFT),
 
@@ -3202,6 +3203,24 @@ START_API_FUNC
             std::copy_n(ivals.begin(), got, values);
         break;
     }
+}
+END_API_FUNC
+
+ALC_API ALCboolean ALC_APIENTRY alcGetOutputLoudnessDMN(ALCdevice *device, ALCfloat *values)
+START_API_FUNC
+{
+    DeviceRef dev{VerifyDevice(device)};
+    if(!dev || dev->Type == DeviceType::Capture)
+    {
+        alcSetError(dev.get(), ALC_INVALID_DEVICE);
+        return ALC_FALSE;
+    }
+    if(!values)
+    {
+        alcSetError(dev.get(), ALC_INVALID_VALUE);
+        return ALC_FALSE;
+    }
+    return dev->readLoudness(values) ? ALC_TRUE : ALC_FALSE;
 }
 END_API_FUNC
 
