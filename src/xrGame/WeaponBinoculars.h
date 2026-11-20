@@ -5,7 +5,7 @@
 
 class CUIFrameWindow;
 class CUIStatic;
-class CBinocularsVision;
+class CUIBinocularsVision;
 
 class CWeaponBinoculars : public CWeaponCustomPistol
 {
@@ -41,9 +41,8 @@ public:
 	virtual bool use_crosshair() const { return false; }
 	virtual CWeaponBinoculars* cast_weapon_binoculars() { return this; }
 	virtual bool GetBriefInfo(II_BriefInfo& info);
-	virtual void net_Relcase(CObject* object);
 protected:
-	CBinocularsVision* m_binoc_vision;
+	CUIBinocularsVision* m_binoc_vision;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };
