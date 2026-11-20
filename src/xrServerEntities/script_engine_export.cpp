@@ -119,6 +119,7 @@ void export_classes	(lua_State *L)
 	CScriptMonsterHitInfo::script_register(L);
 	CScriptMonsterEnemyInfo::script_register(L);
 	CScriptMonsterHomeInfo::script_register(L);
+	CScriptMonsterMovementInfo::script_register(L);
 	CScriptMovementAction::script_register(L);
 	CScriptObjectAction::script_register(L);
 	CScriptParticles::script_register(L);
