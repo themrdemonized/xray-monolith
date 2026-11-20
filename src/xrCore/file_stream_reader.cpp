@@ -9,15 +9,14 @@ void CFileStreamReader::construct(LPCSTR file_name, const u32& window_size)
 	u32 file_size = (u32)GetFileSize(m_file_handle, NULL);
 
 	HANDLE file_mapping_handle = CreateFileMapping(m_file_handle, 0, PAGE_READONLY, 0, 0, 0);
-	VERIFY(file_mapping_handle != INVALID_HANDLE_VALUE);
+	R_ASSERT(file_mapping_handle != NULL);
 
-	inherited::construct(file_mapping_handle, 0, file_size, file_size, window_size);
+	xr_shared_ptr<void> mapping = xr_make_shared_with_deleter(file_mapping_handle, [](void* handle) { CloseHandle(handle); });
+	inherited::construct(file_mapping_handle, 0, file_size, file_size, window_size, mapping);
 }
 
 void CFileStreamReader::destroy()
 {
-	HANDLE file_mapping_handle = this->file_mapping_handle();
 	inherited::destroy();
-	CloseHandle(file_mapping_handle);
 	CloseHandle(m_file_handle);
 }

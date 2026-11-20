@@ -6,10 +6,12 @@ void CStreamReader::construct(
 	const u32& start_offset,
 	const u32& file_size,
 	const u32& archive_size,
-	const u32& window_size
+	const u32& window_size,
+	const xr_shared_ptr<void>& mapping_owner
 )
 {
 	m_file_mapping_handle = file_mapping_handle;
+	m_mapping_owner = mapping_owner;
 	m_start_offset = start_offset;
 	m_file_size = file_size;
 	m_archive_size = archive_size;
@@ -21,6 +23,7 @@ void CStreamReader::construct(
 void CStreamReader::destroy()
 {
 	unmap();
+	m_mapping_owner.reset();
 }
 
 void CStreamReader::map(const u32& new_offset)
@@ -120,7 +123,8 @@ CStreamReader* CStreamReader::open_chunk(const u32& chunk_id)
 
 	R_ASSERT2(!compressed, "cannot use CStreamReader on compressed chunks");
 	CStreamReader* result = xr_new<CStreamReader>();
-	result->construct(file_mapping_handle(), m_start_offset + tell(), size, m_archive_size, m_window_size);
+	// A child may outlive both this reader and the mounted archive.
+	result->construct(file_mapping_handle(), m_start_offset + tell(), size, m_archive_size, m_window_size, m_mapping_owner);
 	return (result);
 }
 
