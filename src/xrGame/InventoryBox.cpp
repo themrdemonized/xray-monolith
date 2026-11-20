@@ -58,7 +58,9 @@ void CInventoryBox::OnEvent(NET_Packet& P, u16 type)
 			u16 id;
 			P.r_u16(id);
 			CObject* itm = Level().Objects.net_Find(id);
-			VERIFY(itm);
+			// The item's client spawn may still be deferred by spawn antifreeze.
+			if (!itm)
+				break;
 			xr_vector<u16>::iterator it;
 			it = std::find(m_items.begin(), m_items.end(), id);
 			VERIFY(it!=m_items.end());

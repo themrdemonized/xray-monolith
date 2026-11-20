@@ -14,7 +14,9 @@
 
 CStateManagerPsyDog::CStateManagerPsyDog(CAI_PseudoDog* monster) : inherited(monster)
 {
-	//	add_state(eStateAttack_Psy,	 xr_new<CStatePsyDogPsyAttack<CAI_PseudoDog> >	 (monster));
+	// dormant: no ladder branch selects it; the inherited pseudodog selector honors a
+	// monster_on_combat_action proposal for it through this registration
+	add_state(eStateAttack_Psy, xr_new<CStatePsyDogPsyAttack<CAI_PseudoDog>>(monster));
 }
 
 void CStateManagerPsyDog::execute()

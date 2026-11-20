@@ -26,7 +26,10 @@ public:
 		//класс анимированного физического объекта
 		cbNCClassAnimated = 1 << 11,
 		//свойство игнорирования класса анимированного физического объекта
-		cbNone = 1 << 12
+		cbClassFrozen = 1 << 12,
+		//shells frozen by script ignore each other
+		cbNCClassFrozen = 1 << 13,
+		cbNone = 1 << 14
 	};
 
 	static CGID RegisterGroup();

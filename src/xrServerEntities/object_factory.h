@@ -87,6 +87,7 @@ public:
 	IC		SERVER_BASE_CLASS			*server_object					(const CLASS_ID &clsid, LPCSTR section) const;
 #endif
 
+    IC int script_clsid(LPCSTR classname);
 	IC int script_clsid(const CLASS_ID& clsid) const;
 	void register_script() const;
 	void register_script_class(LPCSTR client_class, LPCSTR server_class, LPCSTR clsid, LPCSTR script_clsid);

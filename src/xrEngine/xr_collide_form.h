@@ -4,8 +4,13 @@
 #include "../xrcdb/xr_collide_defs.h"
 
 // refs
-class ENGINE_API CObject;
-class ENGINE_API CInifile;
+class CObject;
+class CInifile;
+class script_attachment;
+
+bool RAYvsOBB(const Fmatrix& IM, const Fvector& b_hsize, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
+bool RAYvsSPHERE(const Fsphere& s_sphere, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
+bool RAYvsCYLINDER(const Fcylinder& c_cylinder, const Fvector& S, const Fvector& D, float& R, BOOL bCull);
 
 // t-defs
 const u32 clGET_TRIS = (1 << 0);
@@ -90,6 +95,7 @@ class ENGINE_API ICollisionForm
 	friend class CObjectSpace;
 protected:
 	CObject* owner; // владелец
+	script_attachment* owner_attachment;
 	u32 dwQueryID;
 protected:
 	Fbox bv_box; // (Local) BBox объекта
@@ -98,6 +104,7 @@ private:
 	ECollisionFormType m_type;
 public:
 	ICollisionForm(CObject* _owner, ECollisionFormType tp);
+	ICollisionForm(script_attachment* _owner, ECollisionFormType tp);
 	virtual ~ICollisionForm();
 
 	virtual BOOL _RayQuery(const collide::ray_defs& Q, collide::rq_results& R) = 0;
@@ -150,17 +157,18 @@ public:
 	};
 
 	DEFINE_VECTOR(SElement, ElementVec, ElementVecIt);
-private:
+protected:
 	u64 vis_mask;
 	ElementVec elements;
 
 	u32 dwFrame; // The model itself
 	u32 dwFrameTL; // Top level
 
-	void BuildState();
-	void BuildTopLevel();
+	virtual void BuildState();
+	virtual void BuildTopLevel();
 public:
 	CCF_Skeleton(CObject* _owner);
+	CCF_Skeleton(script_attachment* _owner);
 
 	virtual BOOL _RayQuery(const collide::ray_defs& Q, collide::rq_results& R);
 	bool _ElementCenter(u16 elem_id, Fvector& e_center);

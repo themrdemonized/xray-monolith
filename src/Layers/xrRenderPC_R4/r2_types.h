@@ -71,6 +71,10 @@
 
 #define		r2_RT_dof			"$user$dof"
 #define		r2_RT_ui			"$user$ui"
+#define		r2_RT_ui_3d_icons		"$user$ui_3d_icons"
+#define		r2_RT_ui_3d_icons_raw	"$user$ui_3d_icons_raw"
+#define		r2_RT_ui_3d_icons_raw_msaa "$user$ui_3d_icons_raw_msaa"
+#define		r2_RT_ui_3d_icons_depth	"$user$ui_3d_icons_depth"
 
 #define		r2_RT_scopert		"$user$scopeRT" //crookr
 #define		r2_RT_heat			"$user$heat" //--DSR-- HeatVision

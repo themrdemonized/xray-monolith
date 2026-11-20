@@ -20,6 +20,7 @@ public:
 	IC		void	draw_aabb		(const Fvector &center, const float &half_radius_x, const float &half_radius_y, const float &half_radius_z, const u32 &color, bool bHud);
 			void	draw_obb		(const Fmatrix &matrix, const u32 &color, bool bHud);
 			void	draw_obb		(const Fmatrix &matrix, const Fvector &half_size, const u32 &color, bool bHud);
+			void	draw_cylinder	(const Fmatrix &matrix, const float &length, const float &radius, const u32 &color, bool bHud);
 			void	draw_ellipse	(const Fmatrix &matrix, const u32 &color, bool bHud);
 };
 

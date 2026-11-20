@@ -430,6 +430,17 @@ static class s3ds_param_4 : public R_constant_setup
 	}
 }    s3ds_param_4;
 
+// Reflex Sights
+extern Fvector4 ps_reflex_param;
+
+static class reflex_param : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_reflex_param.x, ps_reflex_param.y, ps_reflex_param.z, ps_reflex_param.w);
+	}
+}    reflex_param;
+
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
 {
@@ -1607,6 +1618,9 @@ void CBlender_Compile::SetMapping()
 	r_Constant("s3ds_param_2", &s3ds_param_2);
 	r_Constant("s3ds_param_3", &s3ds_param_3);
 	r_Constant("s3ds_param_4", &s3ds_param_4);
+
+	// Reflex Sights
+	r_Constant("reflex_param", &reflex_param);
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);

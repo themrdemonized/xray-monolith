@@ -1,6 +1,8 @@
 #include "pch_script.h"
 #include "UIStatic.h"
 #include "UIAnimatedStatic.h"
+#include "UI3dStatic.h"
+#include "script_game_object.h"
 
 using namespace luabind;
 
@@ -45,6 +47,10 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetColorAnimation", &CUIStatic::SetColorAnimation)
 		.def("ResetColorAnimation", &CUIStatic::ResetColorAnimation)
 		.def("RemoveColorAnimation", &CUIStatic::RemoveColorAnimation)
+		.def("SetOnlyHeadingPivot", &CUIStatic::SetOnlyHeadingPivot)
+		.def("GetOnlyHeadingPivot", &CUIStatic::GetOnlyHeadingPivot)
+		.def("SetOnlyHeadingOffset", &CUIStatic::SetOnlyHeadingOffset)
+		.def("GetOnlyHeadingOffset", &CUIStatic::GetOnlyHeadingOffset)
 		,
 
 		class_<CUITextWnd, CUIWindow>("CUITextWnd")
@@ -64,6 +70,13 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetEllipsis", &CUITextWnd::SetEllipsis)
 		.def("SetTextOffset", &CUITextWnd::SetTextOffset),
 		//		.def("",					&CUITextWnd::)
+
+		class_<CUI3dStatic, CUIStatic>("CUI3dStatic")
+		.def(constructor<>())
+		.def("SetObject", &CUI3dStatic::SetObject)
+		.def("SetVisual", &CUI3dStatic::SetVisual)
+		.def("SetRotation", &CUI3dStatic::SetRotation)
+		.def("SetScale", &CUI3dStatic::SetScale),
 
 		class_<CUISleepStatic, CUIStatic>("CUISleepStatic")
 		.def(constructor<>())

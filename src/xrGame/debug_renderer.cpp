@@ -43,6 +43,40 @@ void CDebugRenderer::draw_obb		(const Fmatrix &matrix, const Fvector &half_size,
 	draw_obb						(mL2W_Transform,color,bHud);
 }
 
+constexpr float cyl_mul(.70710678f);
+
+void CDebugRenderer::draw_cylinder	(const Fmatrix &matrix, const float &length, const float &radius, const u32 &color, bool bHud)
+{
+    float halfsize = length * 0.5;
+	float cyl_rad = radius * cyl_mul;
+
+	Fvector cyl[16];
+	matrix.transform_tiny(cyl[0], Fvector().set(-cyl_rad, halfsize, cyl_rad));
+	matrix.transform_tiny(cyl[1], Fvector().set(-radius, halfsize, 0));
+	matrix.transform_tiny(cyl[2], Fvector().set(-cyl_rad, halfsize, -cyl_rad));
+	matrix.transform_tiny(cyl[3], Fvector().set(0, halfsize, -radius));
+	matrix.transform_tiny(cyl[4], Fvector().set(cyl_rad, halfsize, -cyl_rad));
+	matrix.transform_tiny(cyl[5], Fvector().set(radius, halfsize, 0));
+	matrix.transform_tiny(cyl[6], Fvector().set(cyl_rad, halfsize, cyl_rad));
+	matrix.transform_tiny(cyl[7], Fvector().set(0, halfsize, radius));
+
+	matrix.transform_tiny(cyl[8], Fvector().set(-cyl_rad, -halfsize, cyl_rad));
+	matrix.transform_tiny(cyl[9], Fvector().set(-radius, -halfsize, 0));
+	matrix.transform_tiny(cyl[10], Fvector().set(-cyl_rad, -halfsize, -cyl_rad));
+	matrix.transform_tiny(cyl[11], Fvector().set(0, -halfsize, -radius));
+	matrix.transform_tiny(cyl[12], Fvector().set(cyl_rad, -halfsize, -cyl_rad));
+	matrix.transform_tiny(cyl[13], Fvector().set(radius, -halfsize, 0));
+	matrix.transform_tiny(cyl[14], Fvector().set(cyl_rad, -halfsize, cyl_rad));
+	matrix.transform_tiny(cyl[15], Fvector().set(0, -halfsize, radius));
+
+	u16 cyl_id[12 * 4] = {
+		0,1,  1,2,  2,3,  3,4,  4,5,  5,6,  6,7,  7,0,  8,9,  9,10,  10,11,  11,12,  12,13,  13,14,  14,15,  15,8,
+		0,8,  1,9,  2,10,  3,11,  4,12,  5,13,  6,14,  7,15
+	};
+
+	add_lines(cyl, sizeof(cyl) / sizeof(Fvector), &cyl_id[0], sizeof(cyl_id) / (2 * sizeof(u16)), color, bHud);
+}
+
 void CDebugRenderer::draw_ellipse	(const Fmatrix &matrix, const u32 &color, bool bHud)
 {
 	float vertices[114*3]			= {

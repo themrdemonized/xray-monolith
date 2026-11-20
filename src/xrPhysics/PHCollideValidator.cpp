@@ -12,9 +12,10 @@ void CPHCollideValidator::Init()
 	freeGroupID = 0;
 	NonTypeFlags.set(cbNCGroupObject,TRUE);
 
-	ClassFlags.set(cbClassDynamic | cbClassCharacter | cbClassSmall | cbClassRagDoll | cbClassAnimated,TRUE);
-	ClassNCFlags.set(cbNCClassCharacter | cbNCClassSmall | cbNCClassDynamic | cbNCClassRagDoll | cbNCClassAnimated,
-	                 TRUE);
+	ClassFlags.set(cbClassDynamic | cbClassCharacter | cbClassSmall | cbClassRagDoll | cbClassAnimated | cbClassFrozen,
+	               TRUE);
+	ClassNCFlags.set(cbNCClassCharacter | cbNCClassSmall | cbNCClassDynamic | cbNCClassRagDoll | cbNCClassAnimated |
+	                 cbNCClassFrozen, TRUE);
 }
 
 CGID CPHCollideValidator::RegisterGroup()

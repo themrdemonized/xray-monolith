@@ -106,15 +106,23 @@ void CObjectFactory::register_script() const
 	lua_setglobal(L, "clsid_table"); // это представление можно обработать как таблицу :)
 }
 
+CObjectFactory* get_object_factory()
+{
+    return g_object_factory;
+}
+
 #pragma optimize("s",on)
 void CObjectFactory::script_register(lua_State* L)
 {
 	module(L)
 	[
-		class_<CObjectFactory>("object_factory")
-		.def("register",
-		     (void (CObjectFactory::*)(LPCSTR, LPCSTR, LPCSTR, LPCSTR))(&CObjectFactory::register_script_class))
-		.def("register", (void (CObjectFactory::*)(LPCSTR, LPCSTR, LPCSTR))(&CObjectFactory::register_script_class))
+        class_<CObjectFactory>("object_factory")
+        .def("register",
+            (void (CObjectFactory::*)(LPCSTR, LPCSTR, LPCSTR, LPCSTR))(&CObjectFactory::register_script_class))
+        .def("register", (void (CObjectFactory::*)(LPCSTR, LPCSTR, LPCSTR))(&CObjectFactory::register_script_class))
+        .def("script_clsid", (int (CObjectFactory::*)(LPCSTR)) &CObjectFactory::script_clsid),
+
+        def("get_object_factory", &get_object_factory)
 	];
 }
 

@@ -203,13 +203,14 @@ namespace Feel
 			//
 			Fvector D, OP = I->cp_LAST;
 			D.sub(OP, P);
-			if (fis_zero(D.magnitude()))
+            float f = D.magnitude();
+			if (fis_zero(f))
 			{
 				I->fuzzy = 1.f;
 				continue;
 			}
 
-			float f = D.magnitude() + .2f;
+			
 			if (f > fuzzy_guaranteed)
 			{
 				D.div(f);

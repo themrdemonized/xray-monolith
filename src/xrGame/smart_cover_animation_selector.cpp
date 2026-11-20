@@ -18,6 +18,7 @@
 #include "inventory.h"
 #include "smart_cover.h"
 #include "huditem.h"
+#include "Weapon.h"
 
 float g_smart_cover_animation_speed_factor = 1.f;
 
@@ -77,6 +78,8 @@ action_base* animation_selector::current_operator() const
 MotionID animation_selector::select_animation(bool& animation_movement_controller)
 {
 	animation_movement_controller = true;
+
+	modify_animation(m_object->animation().global().blend());
 
 	if (m_callback_called)
 	{
@@ -201,6 +204,20 @@ void animation_selector::modify_animation(CBlend* blend)
 	CMotionDef* motion_def = m_skeleton_animated->LL_GetMotionDef(blend->motionID);
 	VERIFY(motion_def);
 	blend->speed = motion_def->Speed() * g_smart_cover_animation_speed_factor;
+
+	if (!m_planner->initialized() || (m_planner->current_action_id() != StalkerDecisionSpace::eWorldOperatorSmartCoverReload))
+		return;
+
+	CWeapon* const weapon = smart_cast<CWeapon*>(m_object->best_weapon());
+	if (!weapon || (weapon->GetState() != CWeapon::eReload))
+		return;
+
+	float const weapon_left = weapon->MotionTimeLeft();
+	if (weapon_left <= 0.f)
+		return;
+
+	float const animation_left = _max(blend->timeTotal - blend->timeCurrent - SAMPLE_SPF, 0.f);
+	blend->speed = _min(blend->speed, animation_left / (weapon_left + .1f));
 }
 
 void animation_selector::save(NET_Packet& packet)

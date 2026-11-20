@@ -54,8 +54,8 @@ CScriptThread::CScriptThread(LPCSTR caNamespaceName, bool do_string, bool reload
 		else
 		{
 			m_script_name = "console command";
-			xr_sprintf(S, "function %s()\n%s\nend\n", main_function, caNamespaceName);
-			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S, xr_strlen(S), "@console_command");
+			xr_string body = xr_string("function ") + main_function + "()\n" + caNamespaceName + "\nend\n";
+			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), body.c_str(), body.size(), "@console_command");
 			if (!l_iErrorCode)
 			{
 				l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);

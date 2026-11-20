@@ -51,14 +51,15 @@ CEnemyManager::CEnemyManager(CCustomMonster* object)
 	m_smart_cover_enemy = 0;
 	m_visible_enemy_bias_actor = -1.f;
 	m_visible_enemy_bias_npc = -1.f;
+    m_last_enemy = nullptr;
+    m_hit_redirect_max = -1.f;
+    m_hit_redirect_falloff = 60.f;
 }
 
 void CEnemyManager::set_visible_enemy_bias(float actor_bias, float npc_bias)
 {
 	m_visible_enemy_bias_actor = actor_bias;
 	m_visible_enemy_bias_npc = npc_bias;
-	m_hit_redirect_max = -1.f;
-	m_hit_redirect_falloff = 60.f;
 }
 
 void CEnemyManager::set_hit_redirect(float max, float falloff)

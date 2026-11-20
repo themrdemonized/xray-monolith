@@ -13,9 +13,13 @@ light::light(void) : ISpatial(g_SpatialSpace)
 	flags.bShadow = false;
 	flags.bVolumetric = false;
 	flags.bHudMode = false;
-	position.set(0, -1000, 0);
-	direction.set(0, -1, 0);
-	right.set(0, 0, 0);
+	flags.bOrtho = false;
+	position_internal.set(0, -1000, 0);
+	position.set(position_internal);
+	direction_internal.set(0, -1, 0);
+	direction.set(direction_internal);
+	right_internal.set(0, 0, 0);
+	right.set(right_internal);
 	range = 8.f;
 	cone = deg2rad(60.f);
 	color.set(1, 1, 1, 1);
@@ -109,6 +113,26 @@ void light::set_texture(LPCSTR name)
 }
 #endif
 
+void light::set_hud_mode(bool b)
+{
+	bool prev = !!flags.bHudMode;
+	if (prev == b) return;
+	flags.bHudMode = b;
+
+	if (b)
+	{
+		position.hud_to_world();
+		direction.hud_to_world_dir();
+		right.hud_to_world_dir();
+	}
+	else
+	{
+		position.set(position_internal);
+		direction.set(direction_internal);
+		right.set(right_internal);
+	}
+}
+
 void light::set_active(bool a)
 {
 	if (a)
@@ -138,8 +162,10 @@ void light::set_active(bool a)
 
 void light::set_position(const Fvector& P, const float eps)
 {
-	if (position.similar(P, eps))return;
-	position.set(P);
+	if (position_internal.similar(P, eps))return;
+	position_internal.set(P);
+	position.set(position_internal);
+	if (get_hud_mode()) position.hud_to_world();
 	spatial_move();
 }
 
@@ -161,12 +187,17 @@ void light::set_cone(float angle)
 
 void light::set_rotation(const Fvector& D, const Fvector& R, const float eps)
 {
-	Fvector old_D = direction;
-	direction.normalize(D);
-	right.normalize(R);
-
-	if (!fsimilar(1.f, old_D.dotproduct(D), eps))
-		spatial_move();
+	Fvector old_D = direction_internal;
+	direction_internal.normalize(D);
+	right_internal.normalize(R);
+	direction.set(direction_internal);
+	right.set(right_internal);
+	if (get_hud_mode())
+	{
+		direction.hud_to_world_dir();
+		right.hud_to_world_dir();
+	}
+	if (!fsimilar(1.f, old_D.dotproduct(D), eps)) spatial_move();
 }
 
 void light::spatial_move()

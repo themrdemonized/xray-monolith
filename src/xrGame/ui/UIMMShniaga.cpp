@@ -2,6 +2,7 @@
 
 #include "UIMMShniaga.h"
 #include "UICursor.h"
+#include "UIDialogWnd.h"
 #include "UIStatic.h"
 #include "UIScrollView.h"
 #include "UIXmlInit.h"
@@ -256,6 +257,20 @@ bool CUIMMShniaga::IsButton(CUIWindow* st)
 	return false;
 }
 
+bool CUIMMShniaga::IsFrozenByModal()
+{
+	CUIDialogWnd* owner = smart_cast<CUIDialogWnd*>(GetTop());
+	if (!owner)
+		return false;
+
+	CDialogHolder* holder = owner->GetHolder();
+	if (!holder)
+		return false;
+
+	CUIDialogWnd* tir = holder->TopInputReceiver();
+	return tir && tir != owner;
+}
+
 void CUIMMShniaga::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 {
 	CUIWindow::SendMessage(pWnd, msg, pData);
@@ -336,6 +351,9 @@ void CUIMMShniaga::Update()
 
 
 	ProcessEvent(E_Update);
+
+	if (IsFrozenByModal())
+		return;
 
 	CUIWindow::Update();
 }

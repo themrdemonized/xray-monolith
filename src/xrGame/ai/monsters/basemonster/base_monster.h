@@ -535,8 +535,15 @@ public:
 	bool is_jumping();
 	virtual bool can_be_seen() const { return true; }
 
-	// ask Lua for a proposed attack substate; u32(-1) = no subscriber or no proposal
+	// ask Lua for a proposed combat state; u32(-1) = no subscriber or no proposal.
+	// Memoized per frame so nested selectors (state manager + attack tree) share one Lua call.
 	u32 script_combat_substate();
+
+private:
+	u32 m_script_substate_frame = u32(-1);
+	u32 m_script_substate_cache = u32(-1);
+
+public:
 
 #ifdef DEBUG
 	bool							is_paused		() const;

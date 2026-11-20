@@ -209,6 +209,12 @@ u32 CGameGraphBuilder::set_level_offset(const GameGraph::_LEVEL_ID level_id, con
 		if (vertex.data.level_id() == level_id)
 			vertex.data.tGlobalPoint.add(delta);
 
+	m_dirty = true;
+	return reweight_cross_edges(level_id);
+}
+
+u32 CGameGraphBuilder::reweight_cross_edges(const GameGraph::_LEVEL_ID level_id)
+{
 	u32 reweighted = 0;
 	for (SVertex& vertex : m_vertices)
 	{
@@ -222,8 +228,6 @@ u32 CGameGraphBuilder::set_level_offset(const GameGraph::_LEVEL_ID level_id, con
 			++reweighted;
 		}
 	}
-
-	m_dirty = true;
 	return reweighted;
 }
 
@@ -350,7 +354,7 @@ bool CGameGraphBuilder::append_level(const CGameGraph& pack, const GameGraph::_L
 	return true;
 }
 
-bool CGameGraphBuilder::substitute_level(const CGameGraph& pack, const GameGraph::_LEVEL_ID pack_level_id, xr_vector<u32>& vertex_map, GameGraph::_LEVEL_ID& level_id, string256& reason)
+bool CGameGraphBuilder::substitute_level(const CGameGraph& pack, const GameGraph::_LEVEL_ID pack_level_id, xr_vector<u32>& vertex_map, GameGraph::_LEVEL_ID& level_id, u32& reused, u32& added, u32& placeholders, string256& reason)
 {
 	const GameGraph::SLevel& source = pack.header().level(pack_level_id);
 	auto target = m_header.m_levels.begin();
@@ -372,44 +376,48 @@ bool CGameGraphBuilder::substitute_level(const CGameGraph& pack, const GameGraph
 	if (vertex_map.size() != pack_count)
 		vertex_map.assign(pack_count, u32(-1));
 
-	xr_vector<u32> ours;
+	xr_vector<u32> ours, theirs;
 	for (u32 i = 0, n = m_vertices.size(); i < n; ++i)
 		if (m_vertices[i].data.level_id() == level_id)
 			ours.push_back(i);
-	xr_vector<bool> taken;
-	taken.assign(ours.size(), false);
-	u32 matched = 0;
 	for (u32 i = 0; i < pack_count; ++i)
+		if (pack.vertex(i)->level_id() == pack_level_id)
+			theirs.push_back(i);
+	if (theirs.empty())
 	{
-		const GameGraph::CVertex* vertex = pack.vertex(i);
-		if (vertex->level_id() != pack_level_id)
-			continue;
-		u32 found = u32(-1);
-		for (u32 j = 0, n = ours.size(); j < n; ++j)
-		{
-			if (taken[j] || !m_vertices[ours[j]].data.level_point().similar(vertex->level_point(), .05f))
-				continue;
-			found = j;
-			break;
-		}
-		if (found == u32(-1))
-		{
-			clear_vertex_map(pack, pack_level_id, vertex_map);
-			xr_sprintf(reason, "graph points differ (pack vertex at [%.1f,%.1f,%.1f] has no counterpart)", VPUSH(vertex->level_point()));
-			return false;
-		}
-		taken[found] = true;
-		vertex_map[i] = ours[found];
-		++matched;
+		xr_strcpy(reason, "level has no graph vertices");
+		return false;
 	}
-	if (matched != ours.size())
+	const u32 shared = _min(ours.size(), theirs.size());
+	if (m_vertices.size() + (theirs.size() - shared) > u32(GameGraph::_GRAPH_ID(-1)))
 	{
-		clear_vertex_map(pack, pack_level_id, vertex_map);
-		xr_sprintf(reason, "graph points differ (%d in the pack, %d in the graph)", matched, ours.size());
+		xr_strcpy(reason, "game graph vertex limit reached");
 		return false;
 	}
 
-	// AI nodes, death points and intra-level edges come from the pack; cross-level edges stay
+	// Paired by order: the pack's k-th vertex of the level takes the level's k-th vertex id
+	const Fvector& offset = target->second.offset();
+	for (u32 k = 0, n = theirs.size(); k < n; ++k)
+	{
+		if (k < shared)
+			vertex_map[theirs[k]] = ours[k];
+		else
+		{
+			vertex_map[theirs[k]] = m_vertices.size();
+			m_vertices.push_back(SVertex());
+		}
+
+		const GameGraph::CVertex* vertex = pack.vertex(theirs[k]);
+		SVertex& slot = m_vertices[vertex_map[theirs[k]]];
+		slot.data = *vertex;
+		slot.data.tLevelID = level_id;
+		slot.data.tGlobalPoint.add(vertex->level_point(), offset);
+		CGameGraph::const_spawn_iterator p_begin, p_end;
+		pack.begin_spawn(theirs[k], p_begin, p_end);
+		slot.points.assign(p_begin, p_end);
+	}
+
+	// Intra-level edges come from the pack; cross-level edges stay
 	u32 intra_removed = 0;
 	for (const u32 our : ours)
 	{
@@ -427,17 +435,8 @@ bool CGameGraphBuilder::substitute_level(const CGameGraph& pack, const GameGraph
 	}
 	m_edge_count -= intra_removed;
 
-	for (u32 i = 0; i < pack_count; ++i)
+	for (const u32 i : theirs)
 	{
-		if (pack.vertex(i)->level_id() != pack_level_id)
-			continue;
-		const GameGraph::CVertex* vertex = pack.vertex(i);
-		SVertex& target_vertex = m_vertices[vertex_map[i]];
-		target_vertex.data.tNodeID = vertex->level_vertex_id();
-		CGameGraph::const_spawn_iterator p_begin, p_end;
-		pack.begin_spawn(i, p_begin, p_end);
-		target_vertex.points.assign(p_begin, p_end);
-
 		CGameGraph::const_iterator e, e_end;
 		pack.begin(i, e, e_end);
 		for (; e != e_end; ++e)
@@ -448,6 +447,17 @@ bool CGameGraphBuilder::substitute_level(const CGameGraph& pack, const GameGraph
 		}
 	}
 
+	// Ids the pack has no vertex for stand in for the level's first vertex, with a one-way edge to it
+	for (u32 k = shared, n = ours.size(); k < n; ++k)
+	{
+		SVertex& placeholder = m_vertices[ours[k]];
+		placeholder.data = m_vertices[ours[0]].data;
+		placeholder.points = m_vertices[ours[0]].points;
+		add_edge(ours[k], ours[0], 0.f);
+	}
+
+	reweight_cross_edges(level_id);
+
 	(*target).second.m_guid = source.guid();
 	SCrossTable entry{};
 	entry.data = table;
@@ -455,7 +465,24 @@ bool CGameGraphBuilder::substitute_level(const CGameGraph& pack, const GameGraph
 	m_level_cross_tables[level_id] = entry;
 	m_appended = true;
 	m_dirty = true;
+	reused = shared;
+	added = theirs.size() - shared;
+	placeholders = ours.size() - shared;
 	return true;
+}
+
+u32 CGameGraphBuilder::level_node_count(const GameGraph::_LEVEL_ID level_id) const
+{
+	const auto table = m_level_cross_tables.find(level_id);
+	if (table == m_level_cross_tables.end() || !table->second.data)
+		return 0;
+	return reinterpret_cast<const CGameLevelCrossTable::CHeader*>(table->second.data + 1)->level_vertex_count();
+}
+
+u32 CGameGraphBuilder::level_node_count(const CGameGraph& graph, const GameGraph::_LEVEL_ID level_id)
+{
+	const u32* table = level_cross_table(graph, level_id);
+	return table ? reinterpret_cast<const CGameLevelCrossTable::CHeader*>(table + 1)->level_vertex_count() : 0;
 }
 
 u32 CGameGraphBuilder::append_edges(const CGameGraph& pack, const xr_vector<u32>& vertex_map, const float tolerance, u32& no_level, u32& unresolved)

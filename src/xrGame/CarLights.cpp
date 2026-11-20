@@ -185,7 +185,9 @@ bool CCarLights::findLight(u16 bone_id, SCarLight* & light)
 	SCarLight find_light;
 	find_light.bone_id = bone_id;
 	i = std::find_if(m_lights.begin(), e, SFindLightPredicate(&find_light));
-	light = *i;
+	// no light on that bone: i == end(), which must not be dereferenced (it read one pointer past the
+	// vector's storage: ASAN heap-buffer-overflow when a script acts on a car bone that is not a light)
+	light = (i != e) ? *i : NULL;
 	return i != e;
 }
 

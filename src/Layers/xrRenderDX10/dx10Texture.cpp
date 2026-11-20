@@ -525,25 +525,32 @@ _DDS:
 			}
 			LoadInfo.pSrcInfo = &IMG;
 
+         HRESULT textureLoadResult;
 #ifdef USE_DX11
-			R_CHK2(D3DX11CreateTextureFromMemory
-			       (
-				       HW.pDevice,S->pointer(),S->length(),
-				       &LoadInfo,
-				       0,
-				       &pTexture2D,
-				       0
-			       ), fn);
+            textureLoadResult = D3DX11CreateTextureFromMemory
+								(
+									HW.pDevice,S->pointer(),S->length(),
+									&LoadInfo,
+									0,
+									&pTexture2D,
+									0
+								);
 #else
-			R_CHK2(D3DX10CreateTextureFromMemory
-			       (
-				       HW.pDevice,S->pointer(),S->length(),
-				       &LoadInfo,
-				       0,
-				       &pTexture2D,
-				       0
-			       ), fn);
+            textureLoadResult = D3DX10CreateTextureFromMemory
+								(
+									HW.pDevice,S->pointer(),S->length(),
+									&LoadInfo,
+									0,
+									&pTexture2D,
+									0
+									);
 #endif
+          if (FAILED(textureLoadResult))
+			{
+				HRESULT deviceRemovedReason = HW.pDevice->GetDeviceRemovedReason();
+				Msg("! Texture load HRESULT: 0x%08X; GetDeviceRemovedReason: 0x%08X", (u32)textureLoadResult, (u32)deviceRemovedReason);
+			}
+			R_CHK2(textureLoadResult, fn);
 			FS.r_close(S);
 			mip_cnt = IMG.MipLevels;
 			// OK

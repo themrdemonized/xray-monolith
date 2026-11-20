@@ -12,6 +12,7 @@ const int lt_hemisamples = 26;
 
 class CROS_impl : public IRender_ObjectSpecific
 {
+    friend class script_attachment;
 public:
 	enum CubeFaces
 	{

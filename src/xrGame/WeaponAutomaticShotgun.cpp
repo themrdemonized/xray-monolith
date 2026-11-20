@@ -277,14 +277,14 @@ bool CWeaponAutomaticShotgun::HaveCartridgeInInventory(u8 cnt)
 }
 
 
-void CWeaponAutomaticShotgun::OnMotionMark(u32 state, const motion_marks& M)
+void CWeaponAutomaticShotgun::OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end)
 {
     // edited by Verdatim 18.4.2026
     // changed to allow motion marks on automatic shotgun reloads
     // what the fuckkkk
 
     //Msg("motion mark detected on reload!");
-    inherited::OnMotionMark(state, M);
+    inherited::OnMotionMark(state, M, mark_start, mark_end);
     
     if (state == eIdle)
     {

@@ -19,7 +19,7 @@ protected:
 	void switch2_Attacking(u32 state);
 
 	virtual void OnAnimationEnd(u32 state);
-	virtual void OnMotionMark(u32 state, const motion_marks&);
+	virtual void OnMotionMark(u32 state, const motion_marks&, float mark_start, float mark_end);
 	virtual void OnStateSwitch(u32 S, u32 oldState);
 
 	void state_Attacking(float dt);

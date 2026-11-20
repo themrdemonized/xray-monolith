@@ -34,6 +34,10 @@
 #include "../xrengine/xr_collide_form.h"
 #include "script_attachment_manager.h"
 #include "player_hud.h"
+#include "CharacterPhysicsSupport.h"
+#include "debug_renderer.h"
+#include "../xrPhysics/PHElement.h"
+
 extern MagicBox3 MagicMinBox(int iQuantity, const Fvector* akPoint);
 
 #pragma warning(push)
@@ -62,6 +66,7 @@ CGameObject::CGameObject()
 
 	m_callbacks = xr_new<CALLBACK_MAP>();
 	m_anim_mov_ctrl = 0;
+	m_instance_holder = nullptr;
 }
 
 CGameObject::~CGameObject()
@@ -134,6 +139,8 @@ void CGameObject::net_Destroy()
 	m_script_clsid = -1;
 	if (Visual() && smart_cast<IKinematics*>(Visual()))
 		smart_cast<IKinematics*>(Visual())->Callback(0, 0);
+
+	if (m_instance_holder) m_instance_holder->ClearModelInstance();
 
 	inherited::net_Destroy();
 	setReady(FALSE);
@@ -748,6 +755,9 @@ void			CGameObject::dbg_DrawSkeleton	()
 void CGameObject::renderable_Render()
 {
 	inherited::renderable_Render();
+
+    if (m_instance_holder && !m_instance_holder->ModelInstanceMultirender()) return;
+
 	::Render->set_Transform(&XFORM());
 	::Render->add_Visual(Visual());
 	Visual()->getVisData().hom_frame = Device.dwFrame;
@@ -756,29 +766,16 @@ void CGameObject::renderable_Render()
 
 void CGameObject::RenderAttachments()
 {
-	if (m_script_attachments.size())
-	{
 		for (auto& pair : m_script_attachments)
 		{
 			script_attachment* att = pair.second;
-			if (att->GetType() == eSA_World)
-			{
-				att->Render(Visual()->dcast_PKinematics(), &XFORM());
+		if (att->GetType() != eSA_World) continue;
 
-				if (::Render->get_generation() == ::Render->GENERATION_R1)
-					g_pGamePersistent->AttachmentUIsToRender.push_back(att);
-				else
+        att->UpdateXFORM(Visual()->dcast_PKinematics(), &XFORM());
+		att->renderable_Render();
 					att->RenderUI();
 			}
 		}
-	}
-}
-
-//#define DEBUG_VISBOX
-
-#ifdef DEBUG_VISBOX
-#include "debug_renderer.h"
-#endif
 
 static void update_visbox(IKinematics* k)
 {
@@ -807,8 +804,9 @@ static void update_visbox(IKinematics* k)
 			kbox.getsphere(kshere.P, kshere.R);
 		}
 	}
-	
-#ifdef DEBUG_VISBOX
+
+	if (psDeviceFlags2.test(rsDBGDrawVisBoxes))
+	{
 	Fmatrix box, cent;
 	cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
 	box.mul(obj->XFORM(), cent);
@@ -818,7 +816,7 @@ static void update_visbox(IKinematics* k)
 	kbox.getradius(radius);
 	CDebugRenderer& render = Level().debug_renderer();
 	render.draw_obb(box, radius, D3DCOLOR_XRGB(0, 255, 0), false);
-#endif
+	}
 }
 
 static void update_visbox_hud(IKinematics* k)
@@ -849,7 +847,8 @@ static void update_visbox_hud(IKinematics* k)
 		}
 	}
 	
-#ifdef DEBUG_VISBOX
+	if (psDeviceFlags2.test(rsDBGDrawVisBoxes))
+	{
 	Fmatrix box, cent;
 	cent.translate(k->dcast_RenderVisual()->getVisData().sphere.P);
 	box.mul(obj->HudItemData()->m_item_transform, cent);
@@ -859,7 +858,31 @@ static void update_visbox_hud(IKinematics* k)
 	kbox.getradius(radius);
 	CDebugRenderer& render = Level().debug_renderer();
 	render.draw_obb(box, radius, D3DCOLOR_XRGB(100, 100, 0), true);
-#endif
+	}
+}
+
+void CGameObject::RefreshAttachmentVisBox(u16 type)
+{
+	IKinematics* kinematics = nullptr;
+
+	if (type == eSA_World)
+	{
+		if (Visual())
+			kinematics = Visual()->dcast_PKinematics();
+	}
+	else if (type == eSA_HUD)
+	{
+		CHudItem* hud = smart_cast<CHudItem*>(this);
+		attachable_hud_item* hud_data = hud ? hud->HudItemData() : nullptr;
+		if (hud_data)
+			kinematics = hud_data->m_model;
+	}
+
+	if (!kinematics)
+		return;
+
+	kinematics->CalculateBones_Invalidate();
+	kinematics->CalculateBones(TRUE);
 }
 
 script_attachment* CGameObject::add_attachment(LPCSTR name, script_attachment* att)
@@ -871,13 +894,12 @@ script_attachment* CGameObject::add_attachment(LPCSTR name, script_attachment* a
 	{
 		add_visual_callback(update_visbox);
 
-#ifdef ATTACHMENT_HUD_VISBOX
 		CHudItem* hud = smart_cast<CHudItem*>(this);
 		if (hud) hud->add_visual_callback(update_visbox_hud);
-#endif
 	}
 
 	m_script_attachments.emplace(mk_pair(name, att));
+	RefreshAttachmentVisBox(att->GetType());
 	return att;
 }
 
@@ -898,6 +920,9 @@ void CGameObject::remove_child(LPCSTR name, bool destroy)
 	script_attachment* attachment = get_attachment(name);
 	if (!attachment)
 		return;
+	const u16 attachment_type = attachment->GetType();
+
+	attachment->OnParentDestroyPhysicsShell();
 
 	if (destroy)
 		xr_delete(attachment);
@@ -908,11 +933,11 @@ void CGameObject::remove_child(LPCSTR name, bool destroy)
 	{
 		remove_visual_callback(update_visbox);
 
-#ifdef ATTACHMENT_HUD_VISBOX
 		CHudItem* hud = smart_cast<CHudItem*>(this);
 		if (hud) hud->remove_visual_callback(update_visbox_hud);
-#endif
 	}
+
+	RefreshAttachmentVisBox(attachment_type);
 }
 
 void CGameObject::remove_attachment(script_attachment* child)
@@ -1281,10 +1306,10 @@ void CGameObject::UpdateCL()
 {
 	inherited::UpdateCL();
 
-	if (m_script_attachments.size())
+    for (auto& pair : m_script_attachments)
 	{
-		for (auto& pair : m_script_attachments)
-			pair.second->Update();
+        script_attachment* att = pair.second;
+        att->Update();
 	}
 
 	if (H_Parent())
@@ -1302,6 +1327,78 @@ void CGameObject::on_matrix_change(const Fmatrix& previous)
 void CGameObject::FootStepCallback(float power, bool b_play, bool b_on_ground, bool b_hud_view)
 {
 	this->callback(GameObject::eOnFootStep)(this->lua_game_object(), power, b_play, b_on_ground, b_hud_view);
+}
+
+extern Flags32 psDeviceFlags2;
+
+void CGameObject::DBGDrawPhysicsShell()
+{
+	CPhysicsShell* shell;
+	CPhysicsShellHolder* holder = cast_physics_shell_holder();
+	if (!holder) return;
+	
+	shell = holder->m_pPhysicsShell;
+	if (!shell) return;
+
+	if (psDeviceFlags2.test(rsDBGDrawPHShapes))
+	{
+		for (auto& elem : shell->Elements())
+		{
+			Fmatrix cent_mat;
+			cent_mat.translate(elem->mass_Center());
+			cent_mat.mulB_43(Fmatrix().scale(0.025, 0.025, 0.025));
+			Level().debug_renderer().draw_ellipse(cent_mat, color_xrgb(213, 61, 165), false);
+
+			for (int i = 0; i < elem->numberOfGeoms(); ++i)
+			{
+				CODEGeom* geom = elem->Geom(i);
+				if (!geom) continue;
+
+				CBoxGeom* box = smart_cast<CBoxGeom*>(geom);
+				CSphereGeom* sphere = smart_cast<CSphereGeom*>(geom);
+				CCylinderGeom* cylinder = smart_cast<CCylinderGeom*>(geom);
+
+				if (box)
+				{
+					Fmatrix xform;
+					Fvector sz;
+					box->get_Box(xform, sz);
+					sz.div(2);
+					Level().debug_renderer().draw_obb(xform, sz, color_xrgb(255, 0, 0), false);
+					continue;
+				}
+
+				if (sphere)
+				{
+					Fmatrix xform;
+					sphere->get_xform(xform);
+					float rad = sphere->radius();
+					xform.mulB_43(Fmatrix().scale(rad,rad,rad));
+					Level().debug_renderer().draw_ellipse(xform, color_xrgb(0, 0, 255), false);
+					continue;
+				}
+
+				if (cylinder)
+				{
+					Fmatrix xform;
+					cylinder->get_Box(xform, Fvector());
+					Level().debug_renderer().draw_cylinder(xform, cylinder->height(), cylinder->radius(), color_xrgb(255, 0, 255), false);
+					continue;
+				}
+			}
+		}
+	}
+
+	if (psDeviceFlags2.test(rsDBGDrawPHBones))
+	{
+		for (const auto& bone : *Visual()->dcast_PKinematics()->LL_Bones())
+		{
+			Fmatrix bone_mat;
+			bone_mat.mul_43(XFORM(), Visual()->dcast_PKinematics()->LL_GetTransform(bone.second));
+			bone_mat.mulB_43(Fmatrix().scale(0.025, 0.025, 0.025));
+			Level().debug_renderer().draw_ellipse(bone_mat, color_xrgb(0, 255, 0), false);
+		}
+	}
 }
 
 #ifdef DEBUG

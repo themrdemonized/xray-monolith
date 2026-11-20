@@ -48,6 +48,18 @@ u32 time_continual(const CRenderDevice* self)
 	return (self->dwTimeContinual);
 }
 
+extern ENGINE_API float psCamAttachedFOV;
+
+void set_cam_attached_fov(CRenderDevice* self, float deg)
+{
+	psCamAttachedFOV = deg > 0.f ? _min(_max(deg, 5.f), 170.f) : 83.f;
+}
+
+float get_cam_attached_fov(const CRenderDevice* self)
+{
+	return psCamAttachedFOV;
+}
+
 #pragma optimize("s",on)
 void CScriptRenderDevice::script_register(lua_State* L)
 {
@@ -69,6 +81,8 @@ void CScriptRenderDevice::script_register(lua_State* L)
 		.def_readonly("aspect_ratio", &CRenderDevice::fASPECT)
 		.def("time_global", &time_global)
 		.def("time_continual", &time_continual)
+		.def("set_cam_attached_fov", &set_cam_attached_fov)
+		.def("get_cam_attached_fov", &get_cam_attached_fov)
 		.def_readonly("precache_frame", &CRenderDevice::dwPrecacheFrame)
 		.def_readonly("frame", &CRenderDevice::dwFrame)
 		.def("is_paused", &is_device_paused)

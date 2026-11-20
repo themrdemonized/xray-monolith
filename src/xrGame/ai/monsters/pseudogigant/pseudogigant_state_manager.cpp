@@ -41,12 +41,23 @@ void CStateManagerGigant::execute()
 
 		if (enemy)
 		{
-			switch (object->EnemyMan.get_danger_type())
+			// a Lua-proposed state is taken only if registered and its own start conditions pass
+			u32 proposed = object->script_combat_substate();
+			CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+			if (proposed_state && proposed_state->check_start_conditions())
 			{
-			case eStrong: state_id = eStatePanic;
-				break;
-			case eWeak: state_id = eStateAttack;
-				break;
+				state_id = proposed;
+			}
+			else
+			{
+				switch (object->EnemyMan.get_danger_type())
+				{
+				case eStrong: state_id = eStatePanic;
+					break;
+				case eWeak: state_id = eStateAttack;
+					break;
+				}
 			}
 		}
 		else if (object->HitMemory.is_hit())

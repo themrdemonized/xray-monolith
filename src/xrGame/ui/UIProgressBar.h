@@ -64,6 +64,8 @@ public:
 	float GetProgressPos() { return m_ProgressPos.y; }
     void SnapProgressPos() { m_ProgressPos.x = m_ProgressPos.y; }
 
+	void SetProgressPosInstant(float _Pos);
+
     CUIStatic& GetProgressStatic() { return m_UIProgressItem; }
 
 	void ShowBackground(bool status) { m_bBackgroundPresent = status; }

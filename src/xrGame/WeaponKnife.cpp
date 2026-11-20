@@ -196,9 +196,9 @@ void CWeaponKnife::MakeShot(Fvector const& pos, Fvector const& dir, float const 
 	                                  SendHit);
 }
 
-void CWeaponKnife::OnMotionMark(u32 state, const motion_marks& M)
+void CWeaponKnife::OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end)
 {
-	inherited::OnMotionMark(state, M);
+	inherited::OnMotionMark(state, M, mark_start, mark_end);
 	if (state == eFire)
 	{
 		m_hit_dist = m_Hit1Distance;

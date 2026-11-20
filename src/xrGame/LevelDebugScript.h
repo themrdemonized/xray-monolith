@@ -1,5 +1,6 @@
 #pragma once
 
+class DBG_ScriptCylinder;
 class DBG_ScriptSphere;
 class DBG_ScriptBox;
 class DBG_ScriptLine;
@@ -9,6 +10,7 @@ enum DebugRenderType
 	eDBGLine = 0,
 	eDBGSphere,
 	eDBGBox,
+    eDBGCylinder,
 	eDBGUndef
 };
 
@@ -28,9 +30,11 @@ public:
 
 	virtual ~DBG_ScriptObject() {}
 
+    virtual DBG_ScriptObject* cast_dbg_obj() { return this; }
 	virtual DBG_ScriptSphere* cast_dbg_sphere() { return nullptr; }
 	virtual DBG_ScriptBox* cast_dbg_box() { return nullptr; }
 	virtual DBG_ScriptLine* cast_dbg_line() { return nullptr; }
+	virtual DBG_ScriptCylinder* cast_dbg_cyl() { return nullptr; }
 
 	virtual void Render() {}
 };
@@ -87,4 +91,23 @@ public:
 	virtual DBG_ScriptLine* cast_dbg_line() { return this; }
 
 	virtual void Render();
+};
+class DBG_ScriptCylinder : public DBG_ScriptObject
+{
+public:
+    Fmatrix m_mat;
+    float m_length, m_radius;
+
+    DBG_ScriptCylinder()
+    {
+        m_mat = Fidentity;
+        m_length = 1.f;
+        m_radius = 1.f;
+    }
+
+    virtual ~DBG_ScriptCylinder() {}
+
+    virtual DBG_ScriptCylinder* cast_dbg_cyl() { return this; }
+
+    virtual void Render();
 };

@@ -62,7 +62,7 @@ void cphysics_shell_scripted::freeze()
 	{
 		get_ElementByStoreOrder(i)->Fix();
 	}
-	physics_impl().collide_class_bits().set(2, TRUE); //cbNCStatic
+	physics_impl().collide_class_bits().set((1 << 1) | (1 << 12) | (1 << 13), TRUE); //cbNCStatic | cbClassFrozen | cbNCClassFrozen
 }
 
 void cphysics_shell_scripted::unfreeze()
@@ -72,7 +72,23 @@ void cphysics_shell_scripted::unfreeze()
 	{
 		get_ElementByStoreOrder(i)->ReleaseFixed();
 	}
-	physics_impl().collide_class_bits().set(2, FALSE); //cbNCStatic
+	physics_impl().collide_class_bits().set((1 << 1) | (1 << 12) | (1 << 13), FALSE); //cbNCStatic | cbClassFrozen | cbNCClassFrozen
+}
+
+void cphysics_shell_scripted::SetScale(Fvector scale)
+{
+	physics_impl().SetScale(scale);
+	physics_impl().Enable();
+}
+
+Fvector cphysics_shell_scripted::GetScale()
+{
+	return physics_impl().GetScale();
+}
+
+float cphysics_shell_scripted::GetMass()
+{
+    return physics_impl().getMass();
 }
 
 #pragma optimize("s",on)
@@ -89,6 +105,8 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 			(void (cphysics_shell_scripted::*)(float, float, float))(&cphysics_shell_scripted::applyTorque))
 
 		.def("set_force_exact_integration", &cphysics_shell_scripted::setForceExactIntegration)
+		.def("apply_rel_torque",
+			(void (cphysics_shell_scripted::*)(float, float, float))(&cphysics_shell_scripted::applyRelTorque))
 
 		.def("get_element_by_bone_name",
 		     (cphysics_element_scripted*(cphysics_shell_scripted::*)(LPCSTR))(&cphysics_shell_scripted::get_Element))
@@ -114,6 +132,11 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 		.def("set_angular_vel", &cphysics_shell_scripted::set_AngularVel)
 		.def("freeze", &cphysics_shell_scripted::freeze)
 		.def("unfreeze", &cphysics_shell_scripted::unfreeze)
+		.def("set_scale", (void (cphysics_shell_scripted::*)(Fvector)) & cphysics_shell_scripted::SetScale)
+		.def("set_scale", (void (cphysics_shell_scripted::*)(float)) & cphysics_shell_scripted::SetScale)
+		.def("get_scale", &cphysics_shell_scripted::GetScale)
+		.def("get_mass", &cphysics_shell_scripted::GetMass)
+		.def("set_dynamic_limits", &cphysics_shell_scripted::set_DynamicLimits)
 	];
 }
 

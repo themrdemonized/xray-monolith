@@ -46,6 +46,7 @@ class CFlashlight;
 class IKinematics;
 class script_attachment;
 class CMissile;
+class CHudItem;
 
 template <typename _return_type>
 class CScriptCallbackEx;
@@ -70,29 +71,30 @@ public:
 	virtual ~CGameObject();
 public:
 	//functions used for avoiding most of the smart_cast
-	virtual CAttachmentOwner* cast_attachment_owner() { return NULL; }
-	virtual CInventoryOwner* cast_inventory_owner() { return NULL; }
-	virtual CInventoryItem* cast_inventory_item() { return NULL; }
-	virtual CEntity* cast_entity() { return NULL; }
-	virtual CEntityAlive* cast_entity_alive() { return NULL; }
-	virtual CActor* cast_actor() { return NULL; }
+	virtual CAttachmentOwner* cast_attachment_owner() { return nullptr; }
+	virtual CInventoryOwner* cast_inventory_owner() { return nullptr; }
+	virtual CInventoryItem* cast_inventory_item() { return nullptr; }
+	virtual CEntity* cast_entity() { return nullptr; }
+	virtual CEntityAlive* cast_entity_alive() { return nullptr; }
+	virtual CActor* cast_actor() { return nullptr; }
 	virtual CGameObject* cast_game_object() { return this; }
-	virtual CCustomZone* cast_custom_zone() { return NULL; }
-	virtual CPhysicsShellHolder* cast_physics_shell_holder() { return NULL; }
-	virtual IInputReceiver* cast_input_receiver() { return NULL; }
-	virtual CParticlesPlayer* cast_particles_player() { return NULL; }
-	virtual CArtefact* cast_artefact() { return NULL; }
-	virtual CCustomMonster* cast_custom_monster() { return NULL; }
-	virtual CAI_Stalker* cast_stalker() { return NULL; }
-	virtual CScriptEntity* cast_script_entity() { return NULL; }
-	virtual CWeapon* cast_weapon() { return NULL; }
-	virtual CMissile* cast_missile() { return NULL; }
-	virtual CFlashlight* cast_flashlight() { return NULL; }
-	virtual CExplosive* cast_explosive() { return NULL; }
-	virtual CSpaceRestrictor* cast_restrictor() { return NULL; }
-	virtual CAttachableItem* cast_attachable_item() { return NULL; }
-	virtual CHolderCustom* cast_holder_custom() { return NULL; }
-	virtual CBaseMonster* cast_base_monster() { return NULL; }
+	virtual CCustomZone* cast_custom_zone() { return nullptr; }
+	virtual CPhysicsShellHolder* cast_physics_shell_holder() { return nullptr; }
+	virtual IInputReceiver* cast_input_receiver() { return nullptr; }
+	virtual CParticlesPlayer* cast_particles_player() { return nullptr; }
+	virtual CArtefact* cast_artefact() { return nullptr; }
+	virtual CCustomMonster* cast_custom_monster() { return nullptr; }
+	virtual CAI_Stalker* cast_stalker() { return nullptr; }
+	virtual CScriptEntity* cast_script_entity() { return nullptr; }
+	virtual CWeapon* cast_weapon() { return nullptr; }
+	virtual CMissile* cast_missile() { return nullptr; }
+	virtual CFlashlight* cast_flashlight() { return nullptr; }
+	virtual CExplosive* cast_explosive() { return nullptr; }
+	virtual CSpaceRestrictor* cast_restrictor() { return nullptr; }
+	virtual CAttachableItem* cast_attachable_item() { return nullptr; }
+	virtual CHolderCustom* cast_holder_custom() { return nullptr; }
+	virtual CBaseMonster* cast_base_monster() { return nullptr; }
+	virtual CHudItem* cast_hud_item() { return nullptr; }
 
 public:
 	virtual bool feel_touch_on_contact(CObject*) { return TRUE; }
@@ -188,6 +190,10 @@ public:
 	virtual void remove_attachment(LPCSTR name) { remove_child(name, true); }
 	virtual void remove_attachment(script_attachment* child);
 	virtual void iterate_attachments(::luabind::functor<bool> functor);
+	void RefreshAttachmentVisBox(u16 type);
+	xr_map<shared_str, script_attachment*>* GetAttachments() { return &m_script_attachments; }
+
+	script_attachment* m_instance_holder;
 
 private:
 	bool m_bCrPr_Activated;
@@ -345,9 +351,10 @@ public:
 	}
 
 	virtual void on_matrix_change(const Fmatrix& previous);
+    const Fmatrix& XFORM_prev() { return m_previous_matrix; }
 
 	void FootStepCallback(float power, bool b_play, bool b_on_ground, bool b_hud_view);
-	xr_map<shared_str, script_attachment*>* GetAttachments() { return &m_script_attachments; }
+	void DBGDrawPhysicsShell();
 };
 
 #endif // !defined(AFX_GAMEOBJECT_H__3DA72D03_C759_4688_AEBB_89FA812AA873__INCLUDED_)

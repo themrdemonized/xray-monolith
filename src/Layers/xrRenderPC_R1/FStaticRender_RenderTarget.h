@@ -8,6 +8,8 @@ class CRenderTarget : public IRender_Target
 public:
 	ref_rt rt_secondVP; //--#SM+#-- +SecondVP+
 	ref_rt rt_ui_pda;
+	ref_shader s_ui_icons[6]; // SKIN_NONE, SKIN_0 ... SKIN_4
+	IDirect3DSurface9* ui_icons_depth = nullptr; // Reused; never clear scene depth for icons.
 	
 private:
 	BOOL bAvailable;

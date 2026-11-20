@@ -37,7 +37,24 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 {
 	CRender& RI = RImplementation;
 
-	if (pVisual->vis.marker == RI.marker) return;
+#if RENDER != R_R4
+	if (RI.get_UI3D())
+	{
+		// Menu icons have no level lighting/projector and must not enter world passes.
+		// Do not stamp the world visibility marker: the same mesh can occur in several icons.
+		VERIFY(pVisual->shader._get());
+		mapSorted_Node* N = mapUI3DSorted.insertInAnyWay(Device.vCameraPosition.distance_to_sqr(Center));
+		N->val.ssa = 1.f;
+		N->val.pObject = nullptr;
+		N->val.pVisual = pVisual;
+		N->val.Matrix = *RI.val_pTransform;
+		N->val.se = nullptr; // sorted_UI3D binds the dedicated icon shader.
+		N->val.fov = 0.f;
+		return;
+	}
+#endif
+
+	if (!pVisual->vis.skip_marker && pVisual->vis.marker == RI.marker) return;
 	pVisual->vis.marker = RI.marker;
 
 #if RENDER==R_R1
@@ -56,23 +73,25 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	ShaderElement* sh_d = &*pVisual->shader->E[4];
 	if (RImplementation.o.distortion && sh_d && sh_d->flags.bDistort && pmask[sh_d->flags.iPriority / 2])
 	{
-		mapSorted_T& test = RI.val_bHUD ? mapHUDDistort : mapDistort;
+		mapSorted_T& test = RI.val_fCustomFOV ? mapCustomFOVDistort : RI.val_bHUD ? mapHUDDistort : mapDistort;
 		mapSorted_Node* N = test.insertInAnyWay(distSQ);
 		N->val.ssa = SSA;
 		N->val.pObject = RI.val_pObject;
 		N->val.pVisual = pVisual;
 		N->val.Matrix = *RI.val_pTransform;
 		N->val.se = sh_d; // 4=L_special
+		N->val.fov = RI.val_fCustomFOV;
 	}
 
 	// Select shader
 	ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
 	if (0 == sh) return;
-	if (!pmask[sh->flags.iPriority / 2]) return;
+	if (!pmask[sh->flags.iPriority / 2] && !RI.get_UI3D()) return;
 
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
+	item.fov = RI.val_fCustomFOV;
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	
@@ -80,43 +99,35 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			break;
 
 		case 1: {
-			mapHUD_Node* N = mapHUD.insertInAnyWay(EPS);
+			mapHUD_Node* N = RI.val_bCamAttached ? mapCamAttached.insertInAnyWay(EPS) : mapHUD.insertInAnyWay(EPS);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
-
-			// SSS: Deprecated
-			/*if (!sh->passes[0]->ps->hud_disabled)
-			{
-				HUDMask_Node* N2 = HUDMask.insertInAnyWay(EPS);
-				N2->val.ssa = SSA;
-				N2->val.pObject = RI.val_pObject;
-				N2->val.pVisual = pVisual;
-				N2->val.Matrix = *RI.val_pTransform;
-				N2->val.se = sh;
-			}*/
+            N->val.fov = RI.val_fCustomFOV;
 			return;
 		}
 
 		case 2: {
-			mapHUD_Node * N = mapScopeHUD.insertInAnyWay(distSQ);
+			mapHUD_Node * N = RI.val_bCamAttached ? mapScopeCamAttached.insertInAnyWay(distSQ) : mapScopeHUD.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
+            N->val.fov = RI.val_fCustomFOV;
 			return;
 		}
 
 		case 3: {
-			mapSorted_Node * N = mapScopeHUDSorted.insertInAnyWay(distSQ);
+			mapSorted_Node * N = RI.val_bCamAttached ? mapScopeCamAttachedSorted.insertInAnyWay(distSQ) : mapScopeHUDSorted.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
+            N->val.fov = RI.val_fCustomFOV;
 			return;
 		}
 	}
@@ -130,30 +141,33 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #if RENDER!=R_R1
 			if (sh->flags.bEmissive)
 			{
-				mapSorted_Node* N = RI.val_bCamAttached ? mapCamAttachedEmissive.insertInAnyWay(distSQ) : mapHUDEmissive.insertInAnyWay(distSQ);
+				mapSorted_Node* N = RI.val_fCustomFOV ? mapCustomFOVEmissive.insertInAnyWay(distSQ) : RI.val_bCamAttached ? mapCamAttachedEmissive.insertInAnyWay(distSQ) : mapHUDEmissive.insertInAnyWay(distSQ);
 				N->val.ssa = SSA;
 				N->val.pObject = RI.val_pObject;
 				N->val.pVisual = pVisual;
 				N->val.Matrix = *RI.val_pTransform;
 				N->val.se = &*pVisual->shader->E[4]; // 4=L_special
+				N->val.fov = RI.val_fCustomFOV;
 			}
 #endif // RENDER!=R_R1
-			mapSorted_Node* N = RI.val_bCamAttached ? mapCamAttachedSorted.insertInAnyWay(distSQ) : mapHUDSorted.insertInAnyWay(distSQ);
+			mapSorted_Node* N = RI.val_fCustomFOV ? mapCustomFOVSorted.insertInAnyWay(distSQ) : RI.val_bCamAttached ? mapCamAttachedSorted.insertInAnyWay(distSQ) : mapHUDSorted.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
+			N->val.fov = RI.val_fCustomFOV;
 			return;
 		}
 		else
 		{
-			mapHUD_Node* N = RI.val_bCamAttached ? mapCamAttached.insertInAnyWay(distSQ) : mapHUD.insertInAnyWay(distSQ);
+			mapHUD_Node* N = RI.val_fCustomFOV ? mapCustomFOV.insertInAnyWay(distSQ) : RI.val_bCamAttached ? mapCamAttached.insertInAnyWay(distSQ) : mapHUD.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
+			N->val.fov = RI.val_fCustomFOV;
 			/*
 #if RENDER==R_R4
 			if (RImplementation.o.ssfx_core && !sh->passes[0]->ps->hud_disabled)
@@ -170,12 +184,52 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #if RENDER!=R_R1
 			if (sh->flags.bEmissive)
 			{
-				mapSorted_Node* N = RI.val_bCamAttached ? mapCamAttachedEmissive.insertInAnyWay(distSQ) : mapHUDEmissive.insertInAnyWay(distSQ);
+				mapSorted_Node* N = RI.val_fCustomFOV ? mapCustomFOVEmissive.insertInAnyWay(distSQ) : RI.val_bCamAttached ? mapCamAttachedEmissive.insertInAnyWay(distSQ) : mapHUDEmissive.insertInAnyWay(distSQ);
 				N->val.ssa = SSA;
 				N->val.pObject = RI.val_pObject;
 				N->val.pVisual = pVisual;
 				N->val.Matrix = *RI.val_pTransform;
 				N->val.se = &*pVisual->shader->E[4]; // 4=L_special
+				N->val.fov = RI.val_fCustomFOV;
+			}
+#endif	//	RENDER!=R_R1
+			return;
+		}
+	}
+
+	// UI rendering
+	if (RI.val_bUI3D)
+	{
+		if (sh->flags.bStrictB2F)
+		{
+			mapSorted_Node* N = mapUI3DSorted.insertInAnyWay(distSQ);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+			N->val.fov = 0.f;
+			return;
+		}
+		else
+		{
+			mapHUD_Node* N = mapUI3D.insertInAnyWay(distSQ);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+			N->val.fov = 0.f;
+#if RENDER!=R_R1
+			if (sh->flags.bEmissive)
+			{
+				mapSorted_Node* N_ = mapUI3DEmissive.insertInAnyWay(distSQ);
+				N_->val.ssa = SSA;
+				N_->val.pObject = RI.val_pObject;
+				N_->val.pVisual = pVisual;
+				N_->val.Matrix = *RI.val_pTransform;
+				N_->val.se = &*pVisual->shader->E[4];		// 4=L_special
+				N_->val.fov = 0.f;
 			}
 #endif	//	RENDER!=R_R1
 			return;
@@ -191,12 +245,13 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F)
 	{
-		mapSorted_Node* N = mapSorted.insertInAnyWay(distSQ);
+		mapSorted_Node* N = RI.val_fCustomFOV ? mapCustomFOVSorted.insertInAnyWay(distSQ) : mapSorted.insertInAnyWay(distSQ);
 		N->val.ssa = SSA;
 		N->val.pObject = RI.val_pObject;
 		N->val.pVisual = pVisual;
 		N->val.Matrix = *RI.val_pTransform;
 		N->val.se = sh;
+		N->val.fov = RI.val_fCustomFOV;
 		return;
 	}
 
@@ -208,12 +263,13 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// d) Should be rendered to accumulation buffer in the second pass
 	if (sh->flags.bEmissive)
 	{
-		mapSorted_Node* N = mapEmissive.insertInAnyWay(distSQ);
+		mapSorted_Node* N = RI.val_fCustomFOV ? mapCustomFOVEmissive.insertInAnyWay(distSQ) : mapEmissive.insertInAnyWay(distSQ);
 		N->val.ssa = SSA;
 		N->val.pObject = RI.val_pObject;
 		N->val.pVisual = pVisual;
 		N->val.Matrix = *RI.val_pTransform;
 		N->val.se = &*pVisual->shader->E[4]; // 4=L_special
+		N->val.fov = RI.val_fCustomFOV;
 	}
 	if (sh->flags.bWmark && pmask_wmark)
 	{
@@ -223,6 +279,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 		N->val.pVisual = pVisual;
 		N->val.Matrix = *RI.val_pTransform;
 		N->val.se = sh;
+		N->val.fov = RI.val_fCustomFOV;
 		return;
 	}
 #endif
@@ -867,7 +924,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			// Add all children, doesn't perform any tests
 			CKinematics* pV = (CKinematics*)pVisual;
 			BOOL _use_lod = FALSE;
-			if (pV->m_lod)
+			if (pV->m_lod && !get_UI3D())
 			{
 				Fvector Tpos;
 				float D;
@@ -882,7 +939,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			else
 			{
 				pV->CalculateBones(TRUE);
-				pV->CalculateWallmarks(); //. bug?
+				if (!get_UI3D()) pV->CalculateWallmarks();
 				I = pV->children.begin();
 				E = pV->children.end();
 				for (; I != E; ++I) add_leafs_Dynamic((dxRender_Visual*)*I);

@@ -18,3 +18,7 @@ void DBG_ScriptLine::Render()
 {
 	Level().debug_renderer().draw_line(Fidentity, m_point_a, m_point_b, m_color.get(), m_hud);
 }
+void DBG_ScriptCylinder::Render()
+{
+    Level().debug_renderer().draw_cylinder(m_mat, m_length, m_radius, m_color.get(), m_hud);
+}

@@ -112,6 +112,7 @@ public:
 };
 
 class CGameObject;
+class Iscript_attachment;
 
 struct dxGeomUserData
 {
@@ -120,6 +121,7 @@ struct dxGeomUserData
 	CDB::TRI *neg_tri, *b_neg_tri;
 	CPHObject* ph_object;
 	IPhysicsShellHolder* ph_ref_object;
+	Iscript_attachment* ph_ref_attachment;
 	u16 material;
 	u16 tri_material;
 	ContactCallbackFun* callback;
@@ -198,6 +200,7 @@ IC void dGeomCreateUserData(dxGeom* geom)
 	(dGeomGetUserData(geom))->callback = NULL;
 	(dGeomGetUserData(geom))->object_callbacks = NULL;
 	(dGeomGetUserData(geom))->ph_ref_object = NULL;
+	(dGeomGetUserData(geom))->ph_ref_attachment = NULL;
 	(dGeomGetUserData(geom))->element_position = u16(-1);
 	(dGeomGetUserData(geom))->bone_id = u16(-1);
 	(dGeomGetUserData(geom))->callback_data = NULL;
@@ -240,6 +243,11 @@ IC void dGeomUserDataSetPhObject(dxGeom* geom, CPHObject* phObject)
 IC void dGeomUserDataSetPhysicsRefObject(dxGeom* geom, IPhysicsShellHolder* phRefObject)
 {
 	(dGeomGetUserData(geom))->ph_ref_object = phRefObject;
+}
+
+IC void dGeomUserDataSetPhysicsRefAttachment(dxGeom* geom, Iscript_attachment* phRefAttachment)
+{
+	(dGeomGetUserData(geom))->ph_ref_attachment = phRefAttachment;
 }
 
 IC void dGeomUserDataSetContactCallback(dxGeom* geom, ContactCallbackFun* callback)

@@ -127,6 +127,7 @@ public:
 	IC const CPHMovementControl* movement() const { return m_PhysicMovementControl; }
 	IC CPHSoundPlayer* ph_sound_player() { return &m_ph_sound_player; }
 	IC CIKLimbsController* ik_controller() { return m_ik_controller; }
+	CPhysicsShell* physics_shell() { return m_pPhysicsShell; }
 	bool interactive_motion();
 	bool can_drop_active_weapon();
 	void SetRemoved();
@@ -153,6 +154,7 @@ public:
 	void in_Hit(SHit& H, bool is_killing = false);
 	void in_NetSave(NET_Packet& P);
 	void in_ChangeVisual();
+	void RecreateSkeleton();
 	void in_Die(bool hit = true);
 	void on_create_anim_mov_ctrl();
 	void on_destroy_anim_mov_ctrl();
@@ -187,6 +189,8 @@ private:
 	void ActivateShell(CObject* who);
 	void CreateShell(CObject* who, Fvector& dp, Fvector& velocity);
 	void AddActiveWeaponCollision();
+	void AddAllAttachmentsCollision();
+	void RemoveAllAttachmentsCollision();
 	void RemoveActiveWeaponCollision();
 	void bone_chain_disable(u16 bone, u16 r_bone, IKinematics& K);
 	void bone_fix_clear();

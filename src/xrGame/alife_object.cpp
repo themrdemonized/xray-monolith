@@ -39,6 +39,10 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 	// No need to spawn ammo, this will automatically spawn 1 box for weapon and if ammo_type is specficied it will spawn that type
 	// count is used only for ammo boxes (ie wpn_pm = 3) will spawn 3 boxes, not 3 wpn_pm
 	// Usage: to create random weapon loadouts
+	// loadout_buf holds the name of the next [spawn_loadoutN] section, which the while condition reads
+	// after the loop body has ended, so it has to live outside the body (it used to be declared inside
+	// it: ASAN stack-use-after-scope in section_exist)
+	string32 loadout_buf;
 	LPCSTR loadout_section = "spawn_loadout";
 	u8 iItr = 1;
 	while (ini.section_exist(loadout_section))
@@ -137,8 +141,7 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 		}
 
 		iItr++;
-		string32 buf;
-		loadout_section = strconcat(sizeof(buf), buf, "spawn_loadout", std::to_string(iItr).c_str());
+		loadout_section = strconcat(sizeof(loadout_buf), loadout_buf, "spawn_loadout", std::to_string(iItr).c_str());
 	}
 	//-Alundaio 
 

@@ -82,6 +82,13 @@ public:
 		return *this;
 	}
 
+	IC SelfRef sub(const T _x, const T _y)
+	{
+		x -= _x;
+		y -= _y;
+		return *this;
+	}
+
 	IC SelfRef sub(const Self& p)
 	{
 		x -= p.x;
@@ -107,6 +114,13 @@ public:
 	{
 		x += p;
 		y += p;
+		return *this;
+	}
+
+	IC SelfRef add(const T _x, const T _y)
+	{
+		x += _x;
+		y += _y;
 		return *this;
 	}
 
@@ -282,6 +296,9 @@ public:
 		else
 			return (-atanf(x / y));
 	}
+	
+	// PrivatePirate: heading angle relative to +x axis
+	IC float getH_X(void) const	{return atan2f(-y, x); }
 };
 
 typedef _vector2<float> Fvector2;

@@ -199,6 +199,24 @@ u32 CVisualMemoryManager::visible_object_time_last_seen(const CObject* object) c
 		return u32(-1);
 }
 
+u32 CVisualMemoryManager::memory_time(const CObject* object) const
+{
+	VISIBLES::const_iterator I = std::find(m_objects->begin(), m_objects->end(), object_id(object));
+	if (I != m_objects->end())
+		return (I->m_level_time);
+	else
+		return (0);
+}
+
+Fvector CVisualMemoryManager::memory_position(const CObject* object) const
+{
+	VISIBLES::const_iterator I = std::find(m_objects->begin(), m_objects->end(), object_id(object));
+	if (I != m_objects->end())
+		return (I->m_object_params.m_position);
+	else
+		return (Fvector().set(0.f, 0.f, 0.f));
+}
+
 bool CVisualMemoryManager::visible_right_now(const CGameObject* game_object) const
 {
 	if (!m_objects)

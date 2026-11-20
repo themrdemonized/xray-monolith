@@ -40,7 +40,7 @@ public:
 	virtual void OnEvent(NET_Packet& P, u16 type);
 
 	virtual void OnAnimationEnd(u32 state);
-	virtual void OnMotionMark(u32 state, const motion_marks&);
+	virtual void OnMotionMark(u32 state, const motion_marks&, float mark_start, float mark_end);
 
 
 	virtual void Throw();

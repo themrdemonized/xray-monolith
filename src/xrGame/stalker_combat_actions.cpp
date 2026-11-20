@@ -783,8 +783,7 @@ void CStalkerActionLookOut::execute()
 	object().best_cover(mem_object.m_object_params.m_position);
 	//-Alundaio
 
-	float dist_to_enemy = object().Position().distance_to(mem_object.m_object_params.m_position);
-	if (current_cover(m_object) >= dist_to_enemy)
+	if (current_cover(m_object) >= 3.f)
 	{
 		object().movement().set_nearest_accessible_position();
 		m_storage->set_property(eWorldPropertyLookedOut, true);

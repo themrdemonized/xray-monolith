@@ -38,12 +38,23 @@ void CStateManagerBurer::execute()
 
 	if (object->EnemyMan.get_enemy())
 	{
-		switch (object->EnemyMan.get_danger_type())
+		// a Lua-proposed state is taken only if registered and its own start conditions pass
+		u32 proposed = object->script_combat_substate();
+		CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+		if (proposed_state && proposed_state->check_start_conditions())
 		{
-		case eStrong: state = eStatePanic;
-			break;
-		case eWeak: state = eStateAttack;
-			break;
+			state = proposed;
+		}
+		else
+		{
+			switch (object->EnemyMan.get_danger_type())
+			{
+			case eStrong: state = eStatePanic;
+				break;
+			case eWeak: state = eStateAttack;
+				break;
+			}
 		}
 	}
 	else if (object->HitMemory.is_hit() && (object->HitMemory.get_last_hit_time() + 10000 > Device.dwTimeGlobal))

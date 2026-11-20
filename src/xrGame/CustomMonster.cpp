@@ -268,6 +268,11 @@ void CCustomMonster::mk_orientation(Fvector& dir, Fmatrix& mR)
 	}
 }
 
+BOOL CCustomMonster::net_Relevant()
+{
+	return inherited::net_Relevant() && !NET.empty(); // NET is filled at end of net_Spawn, skip export until then
+}
+
 void CCustomMonster::net_Export(NET_Packet& P) // export to server
 {
 	R_ASSERT(Local());

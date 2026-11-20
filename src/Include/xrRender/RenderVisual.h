@@ -31,6 +31,8 @@ public:
 	virtual shared_str	_BCL	getDebugName() = 0;
 #endif
 	virtual u32 _BCL getID() { return 1; }
+    virtual shared_str	_BCL getDebugName() { return nullptr; }
+
 	virtual LPCSTR _BCL getDebugShader() { return nullptr; }
 	virtual LPCSTR _BCL getDebugTexture() { return nullptr; }
 	

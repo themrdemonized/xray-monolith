@@ -73,6 +73,7 @@ enum
 class ISpatial_NODE;
 class IRender_Sector;
 class ISpatial_DB;
+class ICollidable;
 
 namespace Feel
 {
@@ -118,6 +119,7 @@ public:
 	};
 
 	virtual CObject* dcast_CObject() { return 0; }
+	virtual ICollidable* dcast_Collidable() { return 0; }
 	virtual Feel::Sound* dcast_FeelSound() { return 0; }
 	virtual IRenderable* dcast_Renderable() { return 0; }
 	virtual IRender_Light* dcast_Light() { return 0; }

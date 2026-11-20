@@ -134,6 +134,19 @@ bool CScriptGameObject::Alive() const
 	return (!!entity->g_Alive());
 }
 
+xrTime CScriptGameObject::GameDeathTime()
+{
+    CEntity* entity = smart_cast<CEntity*>(&object());
+    if (!entity)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CSciptEntity : cannot access class member GameDeathTime!");
+        return xrTime(0);
+    }
+
+    return xrTime(entity->GetGameDeathTime());
+}
+
 ALife::ERelationType CScriptGameObject::GetRelationType(CScriptGameObject* who)
 {
 	CEntityAlive* l_tpEntityAlive1 = smart_cast<CEntityAlive*>(&object());

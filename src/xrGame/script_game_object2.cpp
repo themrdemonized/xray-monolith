@@ -67,6 +67,19 @@ void CScriptGameObject::explode(u32 level_time)
 	}
 }
 
+void CScriptGameObject::set_initiator(u16 id)
+{
+    CExplosive* explosive = smart_cast<CExplosive*>(&object());
+    if (!explosive)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CExplosive : cannot access class member explode!");
+        return;
+    }
+    
+    explosive->SetInitiator(id);
+}
+
 bool CScriptGameObject::active_zone_contact(u16 id)
 {
 	CScriptZone* script_zone = smart_cast<CScriptZone*>(&object());
@@ -233,28 +246,28 @@ CScriptGameObject* CScriptGameObject::GetBestItem()
 
 u32 CScriptGameObject::memory_time(const CScriptGameObject& lua_game_object)
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptEntity : cannot access class member memory!");
-		return (0);
-	}
-	else
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->memory_time(&lua_game_object.object()));
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 		return (monster->memory().memory_time(&lua_game_object.object()));
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CScriptEntity : cannot access class member memory!");
+	return (0);
 }
 
 Fvector CScriptGameObject::memory_position(const CScriptGameObject& lua_game_object)
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptEntity : cannot access class member memory!");
-		return (Fvector().set(0.f, 0.f, 0.f));
-	}
-	else
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->memory_position(&lua_game_object.object()));
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 		return (monster->memory().memory_position(&lua_game_object.object()));
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CScriptEntity : cannot access class member memory!");
+	return (Fvector().set(0.f, 0.f, 0.f));
 }
 
 void CScriptGameObject::enable_memory_object(CScriptGameObject* game_object, bool enable)
@@ -269,50 +282,59 @@ void CScriptGameObject::enable_memory_object(CScriptGameObject* game_object, boo
 
 const xr_vector<CNotYetVisibleObject>& CScriptGameObject::not_yet_visible_objects() const
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CGameObject : cannot access class member not_yet_visible_objects!");
-		NODEFAULT;
-	}
-	return (monster->memory().visual().not_yet_visible_objects());
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->not_yet_visible_objects());
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().not_yet_visible_objects());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CGameObject : cannot access class member not_yet_visible_objects!");
+	NODEFAULT;
 }
 
 float CScriptGameObject::visibility_threshold() const
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CGameObject : cannot access class member visibility_threshold!");
-		NODEFAULT;
-	}
-	return (monster->memory().visual().visibility_threshold());
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->visibility_threshold());
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().visibility_threshold());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CGameObject : cannot access class member visibility_threshold!");
+	NODEFAULT;
 }
 
 void CScriptGameObject::enable_vision(bool value)
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
+	if (CActor* actor = smart_cast<CActor*>(&object()))
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CVisualMemoryManager : cannot access class member enable_vision!");
+		actor->visual_memory()->enable(value);
 		return;
 	}
-	monster->memory().visual().enable(value);
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+	{
+		monster->memory().visual().enable(value);
+		return;
+	}
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CVisualMemoryManager : cannot access class member enable_vision!");
 }
 
 bool CScriptGameObject::vision_enabled() const
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CVisualMemoryManager : cannot access class member vision_enabled!");
-		return (false);
-	}
-	return (monster->memory().visual().enabled());
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->enabled());
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().enabled());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CVisualMemoryManager : cannot access class member vision_enabled!");
+	return (false);
 }
 
 void CScriptGameObject::set_sound_threshold(float value)
@@ -436,6 +458,23 @@ void CScriptGameObject::SetActorDirection(const Fvector& dir)
 	SetActorDirection(dir.x, dir.y, dir.z);
 }
 
+Fvector CScriptGameObject::GetActorDirection()
+{
+    Fvector res = { 0.f, 0.f, 0.f };
+
+    CActor* actor = smart_cast<CActor*>(&object());
+    if (actor)
+    {
+        CCameraBase* cam = actor->cam_Active();
+        res.set(cam->yaw, cam->pitch, cam->roll);
+    }
+    else
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "ScriptGameObject : attempt to call GetActorDirection method for non-actor object");
+
+    return res;
+}
+
 void CScriptGameObject::DisableHitMarks(bool disable)
 {
 	CActor* actor = smart_cast<CActor*>(&object());
@@ -461,25 +500,37 @@ bool CScriptGameObject::DisableHitMarks() const
 
 Fvector CScriptGameObject::GetMovementSpeed() const
 {
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+	{
+		return stalker->character_physics_support()->movement()->GetVelocity();
+	}
+
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call GetMovementSpeed method for non-actor object");
+		                                "ScriptGameObject : attempt to call GetMovementSpeed method for non-stalker object");
 		NODEFAULT;
 	}
-	//return actor->GetMovementSpeed();
 	return actor->character_physics_support()->movement()->GetVelocity();
 }
 
 // momopate: db.actor:set_movement_speed(vector vel)
 void CScriptGameObject::SetMovementSpeed(Fvector vel)
 {
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (stalker)
+	{
+		stalker->character_physics_support()->movement()->SetVelocity(vel.x, vel.y, vel.z);
+		return;
+	}
+
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call SetMovementSpeed method for non-actor object");
+		                                "ScriptGameObject : attempt to call SetMovementSpeed method for non-stalker object");
 		return;
 	}
 	actor->character_physics_support()->movement()->SetVelocity(vel.x, vel.y, vel.z);
@@ -752,7 +803,7 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 
 	auto* tp = pInvOwner->GetTalkPartner();
 	if (!tp) return nullptr;
-	
+
 	auto* g_obj = tp->cast_game_object();
 	if (!g_obj) return nullptr;
 
@@ -769,7 +820,7 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 										"CScriptGameObject : get_scope_ui works only with CWeapon object!");
 		return table;
 	}
-	
+
 	auto& zoomTextureWndList = weapon->ZoomTexture()->GetChildWndList();
 	if (zoomTextureWndList.empty()) {
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
@@ -792,7 +843,7 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 	table["name"] = weapon->m_scope_tex_name.c_str();
 	table["uiWindow"] = weapon->ZoomTexture();
 	table["statics"] = staticChildren;
-	
+
 	return table;
 }
 
@@ -813,4 +864,16 @@ void CScriptGameObject::set_scope_ui(LPCSTR scope_texture) {
 	}*/
 
 	weapon->SetUIScope(scope_texture);
+}
+
+void CScriptGameObject::reset_scope_ui() {
+	CWeapon * weapon = smart_cast<CWeapon*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : reset_scope_ui works only with CWeapon object!");
+		return;
+	}
+
+	weapon->ResetUIScope();
 }

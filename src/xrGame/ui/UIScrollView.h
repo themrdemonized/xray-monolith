@@ -31,6 +31,7 @@ protected:
 	float m_vertInterval;
 
 	Flags16 m_flags;
+	bool m_pad_drag_active;
 	shared_str m_scrollbar_profile;
 	Ivector2 m_visible_rgn;
 
@@ -52,6 +53,7 @@ public:
 	virtual bool OnMouseAction(float x, float y, EUIMessages mouse_action);
 	virtual void Draw();
 	virtual void Update();
+	void GetVisibleRect(Frect& rect);
 	void AddWindow(CUIWindow* pWnd, bool auto_delete);
 	void RemoveWindow(CUIWindow* pWnd);
 	void Clear();
