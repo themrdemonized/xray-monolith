@@ -25,7 +25,7 @@ class CSE_ALifeItemWeaponAmmo;
 class CWeaponMagazined;
 class CParticlesObject;
 class CUIWindow;
-class CBinocularsVision;
+class CUIBinocularsVision;
 class CNightVisionEffector;
 
 extern float f_weapon_deterioration;
@@ -433,7 +433,7 @@ protected:
 		BOOL m_bUseDynamicZoom_GL;
 		shared_str m_sUseZoomPostprocess;
 		shared_str m_sUseBinocularVision;
-		CBinocularsVision* m_pVision;
+		CUIBinocularsVision* m_pVision;
 		CNightVisionEffector* m_pNight_vision;
 	} m_zoom_params;
 
@@ -1317,4 +1317,5 @@ public:
 	};
     
     float SDS_Radius(bool alt = false);
+	void SetVisionScreenZoom(CUIBinocularsVision* vision);
 };

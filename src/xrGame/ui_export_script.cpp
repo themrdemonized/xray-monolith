@@ -16,6 +16,7 @@
 #include "ui/UIMapInfo.h"
 #include "ScriptXmlInit.h"
 #include "ui/UIActorMenu.h"
+#include "ui/UIBinocularsVision.h"
 
 #include "login_manager.h"
 #include "account_manager.h"
@@ -41,6 +42,7 @@ void UIRegistrator::script_register(lua_State* L)
 	CUIPropertiesBox::script_register(L);
 	CUIOptionsManagerScript::script_register(L);
 	CUIMapInfo::script_register(L);
+	CUIBinocularsVision::script_register(L);
 	CScriptXmlInit::script_register(L);
 	CUIGameCustom::script_register(L);
 	CUIActorMenu::script_register(L);
