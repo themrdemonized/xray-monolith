@@ -114,6 +114,12 @@ void CCar::SCarSound::UpdateDrive()
 		return;
 	}
 #endif
+	if (pcar->IsHandlingEnabled())
+	{
+		pcar->HandlingSound(snd_engine, volume);
+		SetSoundPosition(snd_engine);
+		return;
+	}
 	float scale = 0.5f + 0.5f * pcar->m_current_rpm / pcar->m_torque_rpm;
 	clamp(scale, 0.5f, 1.25f);
 	snd_engine.set_frequency(scale);

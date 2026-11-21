@@ -150,6 +150,7 @@ protected:
 	//текущее время пребывания зоны в определенном состоянии 
 	int m_iStateTime;
 	int m_iPreviousStateTime;
+	int m_vho_recharge; // ms the coming recharge lasts at least, because the zone hit a car (CarPush.h)
 
 	u32 m_TimeToDisable;
 	u32 m_TimeToEnable;
