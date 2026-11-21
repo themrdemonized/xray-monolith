@@ -34,11 +34,13 @@ public:
 	void SetStencil(u32 Enable, u32 Func, u32 Ref, u32 Mask, u32 WriteMask, u32 Fail, u32 Pass, u32 ZFail);
 	void SetDepthFunc(u32 Func);
 	void SetDepthEnable(u32 Enable);
+	void SetDepthWriteEnable(u32 Enable);
 	void SetColorWriteEnable(u32 WriteMask);
 	void SetFillMode(u32 Mode);
 	void SetCullMode(u32 Mode);
 	void SetMultisample(u32 Enable);
 	void SetSampleMask(u32 Mask);
+	void SetBlendFactor(float Factor);
 
 	void EnableScissoring(BOOL bEnable = TRUE);
 
@@ -89,6 +91,7 @@ private:
 	bool m_bOverrideScissoring;
 	BOOL m_bOverrideScissoringValue;
 	UINT m_uiSampleMask;
+	FLOAT m_BlendFactor[4];
 };
 
 extern dx10StateManager StateManager;

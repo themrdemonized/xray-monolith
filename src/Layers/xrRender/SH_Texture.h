@@ -66,6 +66,7 @@ public:
 
 #if defined(USE_DX10) || defined(USE_DX11)
 	ID3DShaderResourceView*				get_SRView() {return m_pSRView;}
+	void								view_set(ID3DBaseTexture* surf, ID3DShaderResourceView* view);
 #endif	//	USE_DX10
 
 private:

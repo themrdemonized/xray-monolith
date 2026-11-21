@@ -119,6 +119,8 @@ struct ECORE_API SPass : public xr_resource_flagged
 
 	ref_texture_list T;
 	ref_constant_list C;
+	// the pixel shader clips at def_aref, so the object mask clips there too
+	bool bus_aref = false;
 #ifdef _EDITOR
 	ref_matrix_list						M;
 #endif

@@ -5,6 +5,7 @@
 #include "CHudInitializer.h"
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
+#include "../../xrEngine/IRenderable.h"
 
 #ifndef _EDITOR
 #include <xmmintrin.h>
@@ -529,7 +530,7 @@ bool ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 				m.velI.set(m.vel);
 				m.sizeI.set(m.size);
 			}
-			else
+			else if (!RCache.bus_object.redraw)
 			{
 				float dt = 1.f-10.f*Device.fTimeDelta;
 				clamp(dt,0.f,0.99f);
@@ -669,6 +670,18 @@ void CParticleEffect::Render(float)
 			bool NeedExit = ParticleRenderStream(pv_start, p_cnt, particles, this);
 
 			dwCount = p_cnt << 2;
+
+			// an effect with its own obj_tint value multiplies its vertex colours by it
+			Fvector4 tint;
+			IRenderable* O = ShaderBus::tint_lane ? RCache.bus_object.object() : nullptr;
+			if (O && ShaderBus::object_tint(O->renderable.bus_values, tint))
+				for (u32 i = 0; i < p_cnt; ++i)
+				{
+					PAPI::Particle& m = particles[i];
+					const u32 clr = color_rgba_f(m.colorR * tint.x, m.colorG * tint.y, m.colorB * tint.z, m.colorA * tint.w);
+					for (u32 k = 0; k < 4; ++k)
+						pv_start[i * 4 + k].color = clr;
+				}
 
 			RCache.Vertex.Unlock(dwCount, geom->vb_stride);
 

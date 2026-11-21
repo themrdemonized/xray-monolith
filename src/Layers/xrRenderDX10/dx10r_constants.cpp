@@ -209,6 +209,7 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 			C->name = name;
 			C->destination = destination;
 			C->type = type;
+			C->used = 0 != (VarDesc.uFlags & D3D_SVF_USED);
 			//R_constant_load& L	=	(destination&1)?C->ps:C->vs;
 			R_constant_load& L = C->get_load(destination); /*((destination&RC_dest_pixel)
 									? C->ps : (destination&RC_dest_vertex)
@@ -221,6 +222,7 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 		else
 		{
 			C->destination |= destination;
+			C->used |= 0 != (VarDesc.uFlags & D3D_SVF_USED);
 			VERIFY(C->type == type);
 			//R_constant_load& L	=	(destination&1)?C->ps:C->vs;
 			R_constant_load& L = C->get_load(destination); /*((destination&RC_dest_pixel)
@@ -303,6 +305,9 @@ BOOL R_constant_table::parseResources(ID3DShaderReflection* pReflection, int Res
 			R_constant_load& L = C->samp;
 			L.index = r_index;
 			L.cls = type;
+			C->dimension = u8(ResDesc.Dimension);
+			C->return_type = u8(ResDesc.ReturnType);
+			C->components = u8(((ResDesc.uFlags & D3D_SIF_TEXTURE_COMPONENTS) >> 2) + 1);
 			table.push_back(C);
 		}
 		else

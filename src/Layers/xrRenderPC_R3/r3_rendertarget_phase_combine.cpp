@@ -318,6 +318,8 @@ void CRenderTarget::phase_combine()
 		                               rt_Generic_0_r->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 	}
 
+	phase_bus(ShaderBus::stage_scene);
+
 	// for msaa we need a resolved color buffer - Holger
 	phase_bloom(); // HDR RT invalidated here
 
@@ -555,6 +557,8 @@ void CRenderTarget::phase_combine()
 	/* if (!RImplementation.o.fp16_blend)*/
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES) && ps_r2_heatvision == 0) //--DSR-- HeatVision
 		g_pGamePersistent->Environment().RenderFlares(); // lens-flares
+
+	phase_bus(ShaderBus::stage_post);
 
 	//	PP-if required
 	if (PP_Complex)
