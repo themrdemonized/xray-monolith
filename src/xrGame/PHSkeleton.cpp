@@ -169,16 +169,22 @@ void CPHSkeleton::Update(u32 dt)
 
 void CPHSkeleton::SaveNetState(NET_Packet& P)
 {
+	SaveNetState(P, true, BI_NONE);
+}
+
+void CPHSkeleton::SaveNetState(NET_Packet& P, bool save_physics, u16 animation_root)
+{
 	CPhysicsShellHolder* obj = PPhysicsShellHolder();
 	CPhysicsShell* pPhysicsShell = obj->PPhysicsShell();
 	IKinematics* K = smart_cast<IKinematics*>(obj->Visual());
-	if (pPhysicsShell && pPhysicsShell->isActive()) m_flags.set(CSE_PHSkeleton::flActive, pPhysicsShell->isEnabled());
+	if (save_physics && pPhysicsShell && pPhysicsShell->isActive())
+		m_flags.set(CSE_PHSkeleton::flActive, pPhysicsShell->isEnabled());
 
-	P.w_u8(m_flags.get());
+	P.w_u8(save_physics ? m_flags.get() : 0);
 	if (K)
 	{
 		P.w_u64(K->LL_GetBonesVisible());
-		P.w_u16(K->LL_GetBoneRoot());
+		P.w_u16(save_physics ? K->LL_GetBoneRoot() : animation_root);
 	}
 	else
 	{
@@ -192,7 +198,10 @@ void CPHSkeleton::SaveNetState(NET_Packet& P)
 	max.set(-F_MAX, -F_MAX, -F_MAX);
 	/////////////////////////////////////
 
-	u16 bones_number = obj->PHGetSyncItemsNumber();
+	// Transient living bodies share the normal packet layout without corpse bones.
+	if (!save_physics)
+		min = max = obj->Position();
+	u16 bones_number = save_physics ? obj->PHGetSyncItemsNumber() : 0;
 	for (u16 i = 0; i < bones_number; i++)
 	{
 		SPHNetState state;
