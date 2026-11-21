@@ -5,6 +5,7 @@ class XRCORE_API CStreamReader : public IReaderBase<CStreamReader>
 {
 private:
 	HANDLE m_file_mapping_handle;
+	xr_shared_ptr<void> m_mapping_owner;
 	u32 m_start_offset;
 	u32 m_file_size;
 	u32 m_archive_size;
@@ -36,7 +37,8 @@ public:
 		const u32& start_offset,
 		const u32& file_size,
 		const u32& archive_size,
-		const u32& window_size
+		const u32& window_size,
+		const xr_shared_ptr<void>& mapping_owner = {}
 	);
 	virtual void destroy();
 

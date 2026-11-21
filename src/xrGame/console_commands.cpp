@@ -1362,6 +1362,23 @@ public:
 	}
 };
 
+class CCC_MusicNext : public IConsole_Command
+{
+public:
+	CCC_MusicNext(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = true; }
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (*args)
+		{
+			InvalidSyntax();
+			return;
+		}
+		if (g_pGameLevel)
+			Level().SkipMusicTrack();
+	}
+};
+
 class CCC_FlushLog : public IConsole_Command
 {
 public:
@@ -1963,10 +1980,9 @@ public:
 				return;
 			}
 
-			string4096 S;
 			shared_str m_script_name = "console command";
-			xr_sprintf(S, "%s\n", args);
-			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S, xr_strlen(S), "@console_command");
+			xr_string S = xr_string(args) + "\n";
+			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S.c_str(), S.size(), "@console_command");
 			if (!l_iErrorCode)
 			{
 				l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
@@ -3040,6 +3056,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_use_tracers", &psActorFlags, AF_USE_TRACERS);
 	CMD3(CCC_Mask, "g_autopickup", &psActorFlags, AF_AUTOPICKUP);
 	CMD3(CCC_Mask, "g_dynamic_music", &psActorFlags, AF_DYNAMIC_MUSIC);
+	CMD1(CCC_MusicNext, "snd_music_next");
 	psActorFlags.set(AF_IMPORTANT_SAVE, TRUE);
 	CMD3(CCC_Mask, "g_important_save", &psActorFlags, AF_IMPORTANT_SAVE);
 

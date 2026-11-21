@@ -34,6 +34,8 @@ public:
 	{
 		shared_str path;
 		void *hSrcFile, *hSrcMap;
+		// Readers retain this mapping after the archive is unmounted.
+		xr_shared_ptr<void> mapping;
 		u32 size;
 		CInifile* header;
 		u32 vfs_idx;
@@ -71,6 +73,7 @@ private:
 	void check_pathes();
 
 	files_set m_files;
+	mutable xrSRWLock m_files_lock;
 	BOOL bNoRecurse;
 
 	xrCriticalSection m_auth_lock;
@@ -81,7 +84,8 @@ private:
 	void ProcessOne(LPCSTR path, const _finddata_t& entry);
 	bool Recurse(LPCSTR path);
 
-	files_it file_find_it(LPCSTR n);
+	// Caller must hold m_files_lock (shared for reads, exclusive if it mutates)
+	files_it file_find_it_nolock(LPCSTR n);
 public:
 	enum
 	{
@@ -100,7 +104,7 @@ public:
 
 	Flags32 m_Flags;
 	u32 dwAllocGranularity;
-	u32 dwOpenCounter;
+	xr_atomic_u32 dwOpenCounter;
 
 private:
 	void check_cached_files(LPSTR fname, const u32& fname_size, const file& desc, LPCSTR& source_name);
@@ -110,15 +114,23 @@ private:
 	template <typename T>
 	void file_from_cache(T*& R, LPSTR fname, const u32& fname_size, const file& desc, LPCSTR& source_name);
 
-	void file_from_archive(IReader*& R, LPCSTR fname, const file& desc);
-	void file_from_archive(CStreamReader*& R, LPCSTR fname, const file& desc);
+	struct file_open_data
+	{
+		file desc;
+		xr_shared_ptr<void> mapping;
+		u32 archive_size = 0;
+		string_path archive_path;
+	};
+
+	void file_from_archive(IReader*& R, LPCSTR fname, const file_open_data& data);
+	void file_from_archive(CStreamReader*& R, LPCSTR fname, const file_open_data& data);
 
 	void copy_file_to_build(IWriter* W, IReader* r);
 	void copy_file_to_build(IWriter* W, CStreamReader* r);
 	template <typename T>
 	void copy_file_to_build(T*& R, LPCSTR source_name);
 
-	bool check_for_file(LPCSTR path, LPCSTR _fname, string_path& fname, const file*& desc);
+	bool check_for_file(LPCSTR path, LPCSTR _fname, string_path& fname, file_open_data& data);
 
 	template <typename T>
 	IC T* r_open_impl(LPCSTR path, LPCSTR _fname);
@@ -146,6 +158,8 @@ public:
 	IC IWriter* w_open_ex(LPCSTR N) { return w_open_ex(0, N); }
 	void w_close(IWriter*& S);
 
+	// Borrowed metadata for the legacy script API; invalidated by index mutation.
+	// File opens take their own metadata and mapping snapshots instead.
 	const file* exist(LPCSTR N);
 	const file* exist(LPCSTR path, LPCSTR name);
 	const file* exist(string_path& fn, LPCSTR path, LPCSTR name);

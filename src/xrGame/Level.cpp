@@ -1003,6 +1003,12 @@ void CLevel::MakeReconnect()
 	}
 }
 
+void CLevel::SkipMusicTrack()
+{
+	if (m_level_sound_manager)
+		m_level_sound_manager->SkipMusicTrack();
+}
+
 BOOL mt_ph_commander = FALSE;
 BOOL mt_TaskManager = FALSE;
 void CLevel::OnFrame()

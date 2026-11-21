@@ -88,6 +88,8 @@ public:
 		m_game_name = TranslateName(name);
 	}
 
+	void SetDisplayName(LPCSTR name) { m_game_name = name; }
+
 	CPda* GetPDA() const;
 
 

@@ -380,10 +380,6 @@ void _stdcall CIKLimbsController::IKVisualCallback(IKinematics* K)
 					    if (Device.vCameraPosition.distance_to_sqr(O->Position()) > 3000.f)
 					    {
 						    //if (Device.dwFrame < ik->optimize_frame)
-						    IKinematics* K = O->Visual()->dcast_PKinematics();
-						    u16 root = K->LL_GetBoneRoot();
-						    CBoneInstance& root_bi = K->LL_GetBoneInstance(root);
-						    root_bi.reset_callback();
 						    return;
 						    //ik->optimize_frame = Device.dwFrame + Random.randI(8);
 					    }
@@ -410,13 +406,6 @@ void _stdcall CIKLimbsController::IKVisualCallback(IKinematics* K)
                             ik->Calculate();
                         }
 					    
-				    }
-				    else
-				    {
-					    IKinematics* K = O->Visual()->dcast_PKinematics();
-					    u16 root = K->LL_GetBoneRoot();
-					    CBoneInstance& root_bi = K->LL_GetBoneInstance(root);
-					    root_bi.reset_callback();
 				    }
 			    }
 			}

@@ -209,6 +209,7 @@ public:
 	bool IsChecksumsEqual(u32 check_sum) const;
 	// sounds
 	xr_vector<ref_sound*> static_Sounds;
+	void SkipMusicTrack();
 	// startup options
 	shared_str m_caServerOptions;
 	shared_str m_caClientOptions;
