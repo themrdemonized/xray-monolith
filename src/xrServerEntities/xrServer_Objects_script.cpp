@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "xrServer_Objects.h"
+#include "xrServer_Objects_ALife_Items.h"
 #include "phnetstate.h"
 #include "xrServer_script_macroses.h"
 #include "script_ini_file.h"
@@ -27,6 +28,32 @@ LPCSTR get_name(const CSE_Abstract* abstract)
 CScriptIniFile* get_spawn_ini(CSE_Abstract* abstract)
 {
 	return ((CScriptIniFile*)&abstract->spawn_ini());
+}
+
+// Minus one for objects that carry no condition
+float get_item_condition(CSE_Abstract* abstract)
+{
+	CSE_ALifeInventoryItem* item = abstract->cast_inventory_item();
+	return item ? item->m_fCondition : -1.f;
+}
+
+// The net packet quantises condition over zero to one, anything else corrupts the stored value
+void set_item_condition(CSE_Abstract* abstract, float value)
+{
+	CSE_ALifeInventoryItem* item = abstract->cast_inventory_item();
+	if (!item)
+	{
+		Msg("!cse_abstract.condition set on [%s], which has no condition", abstract->name_replace());
+		return;
+	}
+
+	if (value < 0.f || value > 1.f)
+	{
+		Msg("!cse_abstract.condition set to %f on [%s], must be between 0 and 1", value, abstract->name_replace());
+		return;
+	}
+
+	item->m_fCondition = value;
 }
 
 LPCSTR get_visual_name(CSE_Visual* visual)
@@ -134,6 +161,7 @@ void CSE_Abstract::script_register(lua_State* L)
 		.def("name", &get_name)
 		.def("clsid", &BaseType::script_clsid)
 		.def("spawn_ini", &get_spawn_ini)
+		.property("condition", &get_item_condition, &set_item_condition)
 		.def("STATE_Read", &BaseType::STATE_Read, &WrapType::STATE_Read_static)
 		.def("STATE_Write", &BaseType::STATE_Write, &WrapType::STATE_Write_static)
 		.def("UPDATE_Read", &BaseType::UPDATE_Read, &WrapType::UPDATE_Read_static)
