@@ -20,7 +20,7 @@ void CSoundRender_Emitter::start(ref_sound* _owner, BOOL _loop, float delay)
 	p_source.base_volume = source()->m_fBaseVolume; // 1.f
 	p_source.volume = 1.f; // 1.f
 	set_frequency(1.f);
-    p_source.max_ai_distance = source()->m_fMaxAIDist * psSoundMaxAIDistanceMultiplier; // 300.f;
+    p_source.max_ai_distance = SoundRender->ai_range(owner_data->g_type, source()->m_fMaxAIDist * psSoundMaxAIDistanceMultiplier); // 300.f;
 
 	if (fis_zero(delay, EPS_L))
 	{

@@ -12,6 +12,17 @@
 
 using namespace luabind;
 
+// global per-game-type AI reach clamp, applied at the next emitter start
+static void set_sound_ai_range(int game_type, float min_m, float max_m)
+{
+	::Sound->set_ai_range(game_type, min_m, max_m);
+}
+
+static void clear_sound_ai_ranges()
+{
+	::Sound->clear_ai_ranges();
+}
+
 #pragma optimize("s",on)
 void CScriptSound::script_register(lua_State* L)
 {
@@ -53,6 +64,9 @@ void CScriptSound::script_register(lua_State* L)
 		.def("stop_deffered", &CScriptSound::StopDeffered)
 		.def("playing", &CScriptSound::IsPlaying)
 		.def("length", &CScriptSound::Length)
-		.def("attach_tail", &CScriptSound::AttachTail)
+		.def("attach_tail", &CScriptSound::AttachTail),
+
+		def("set_sound_ai_range", &set_sound_ai_range),
+		def("clear_sound_ai_ranges", &clear_sound_ai_ranges)
 	];
 }
