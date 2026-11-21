@@ -887,6 +887,47 @@ namespace
 			remove_template(templates, *entry.name, entry.spawn_id);
 	}
 
+	// On levels rebuilt without the pack's records: base templates placed by their position, base level changers
+	// into them re-resolved.
+	void resnap_rebuilt(STemplates& templates, const CGameGraph& graph, const xr_vector<GameGraph::_LEVEL_ID>& levels)
+	{
+		xr_vector<u32> on_level(levels.size(), 0), changers(levels.size(), 0);
+		for (auto& I : templates.spawns.vertices())
+		{
+			auto* object = smart_cast<CSE_ALifeObject*>(&I.second->data()->object());
+			if (!object)
+				continue;
+			if (graph.valid_vertex_id(object->m_tGraphID))
+			{
+				const auto level = std::find(levels.begin(), levels.end(), graph.vertex(object->m_tGraphID)->level_id());
+				if (level != levels.end())
+				{
+					string256 reason;
+					if (relocate(*object, graph, *level, object->o_Position, reason))
+						++on_level[level - levels.begin()];
+					else
+						Msg("! [spawn_overlays] rebuilt level '%s': %s cannot be placed: %s", *graph.header().level(*level).name(), object->name_replace(), reason);
+				}
+			}
+
+			auto* changer = smart_cast<CSE_ALifeLevelChanger*>(object);
+			if (!changer)
+				continue;
+			const GameGraph::SLevel* destination = graph.header().level(*changer->m_caLevelToChange, true);
+			const auto level = destination ? std::find(levels.begin(), levels.end(), destination->id()) : levels.end();
+			if (level == levels.end())
+				continue;
+			string256 reason;
+			if (resolve_destination(*changer, graph, reason) == 1)
+				++changers[level - levels.begin()];
+			else
+				Msg("! [spawn_overlays] rebuilt level '%s': level changer %s cannot lead into it: %s", *graph.header().level(*level).name(), changer->name_replace(), reason);
+		}
+
+		for (u32 i = 0, n = levels.size(); i < n; ++i)
+			Msg("* [spawn_overlays] rebuilt level '%s': %d base templates on it kept and placed by their position, %d level changers into it re-resolved", *graph.header().level(levels[i]).name(), on_level[i], changers[i]);
+	}
+
 	// After the packs: a retired level changer without a copy by name, and a retired story object whose story ids
 	// no template holds now or whose story_object has no copy by name. Names listed in [spawn_remove] (ini may be
 	// null) are not reported.
@@ -1444,12 +1485,15 @@ void CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, con
 	STemplates templates(spawns);
 
 	u32 removed = 0, patched = 0, added = 0;
-	const xr_vector<GameGraph::_LEVEL_ID> rebuilt = m_packs.rebuilt_levels();
+	const xr_vector<GameGraph::_LEVEL_ID> rebuilt = m_packs.rebuilt_object_levels();
 	xr_vector<SRetired> retired;
 	if (m_ini)
 		apply_removes(*m_ini, SECTION_REPLACE, templates, removed);
 	if (!rebuilt.empty())
 		retire_rebuilt(templates, graph, rebuilt, retired);
+	const xr_vector<GameGraph::_LEVEL_ID> resnapped = m_packs.resnapped_levels();
+	if (!resnapped.empty())
+		resnap_rebuilt(templates, graph, resnapped);
 	apply_fragments(templates, graph, added);
 	added += m_packs.add_objects(templates, graph);
 	if (m_ini)
