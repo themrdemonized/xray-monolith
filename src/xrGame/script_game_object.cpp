@@ -1059,6 +1059,36 @@ void CScriptGameObject::SetPsyFactor(float val)
 	pda->m_psy_factor = val;
 }
 
+// Added by Ncenka - allow to change PDA brightness
+void CScriptGameObject::SetPdaBrightness(float value)
+{
+    CPda* pda = smart_cast<CPda*>(&object());
+    if (!pda)
+        return;
+
+    pda->SetPdaBrightness(value);
+}
+
+// Added by Ncenka - allow to change PDA brightness
+float CScriptGameObject::GetPdaBrightness() const
+{
+    CPda* pda = smart_cast<CPda*>(&object());
+    if (!pda)
+        return 1.f;
+
+    return pda->GetPdaBrightness();
+}
+
+// Added by Ncenka - allow to change PDA brightness
+void CScriptGameObject::ResetPdaBrightness()
+{
+    CPda* pda = smart_cast<CPda*>(&object());
+    if (!pda)
+        return;
+
+    pda->ResetPdaBrightness();
+}
+
 // Added by Ncenka - allow turn on/off devices
 bool CScriptGameObject::IsDeviceEnabled() const
 {
