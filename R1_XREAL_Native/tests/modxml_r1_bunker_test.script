@@ -1,0 +1,29 @@
+local installed=false
+local app=getFS():update_path('$app_data_root$','')
+local function log(s)local f=assert(io.open(app..'R1_menu_repro.log','ab'));f:write(s..'\n');f:close()end
+function on_xml_read()
+ RegisterScriptCallback('on_xml_read',function(path)
+  if installed or (path~='ui\\ui_mm_main.xml' and path~='ui\\ui_mm_main_16.xml')then return end
+  installed=true
+  local original=ui_main_menu.main_menu.Update
+  local start,phase,actor_at=nil,0,nil
+  ui_main_menu.main_menu.Update=function(self,...)
+   original(self,...)
+   local now=time_global()/1000;start=start or now
+   if phase==0 and now-start>3 then
+    r1_xreal_native.prepare_menu()
+    local ffi=require('ffi');ffi.cdef('int r1st_capture(const char*);int r1st_capture_loading(const char*);')
+    local dll=ffi.load(getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
+    assert(dll.r1st_capture(app..'R1_menu_fixed.ppm')==1)
+    log('MENU_CAPTURE_REQUEST');phase=1
+   elseif phase==1 and now-start>5 then
+    local ffi=require('ffi');local dll=ffi.load(getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'));dll.r1st_capture_loading(app..'R1_013_loading.ppm');log('NEW_GAME_REQUEST');phase=2;exec_console_cmd('start server(R1_bunker_repro/single/alife/load) client(localhost)')
+   end
+   if db.actor then
+    actor_at=actor_at or now
+    device():pause(false);exec_console_cmd('main_menu off')
+
+   end
+  end
+ end)
+end
