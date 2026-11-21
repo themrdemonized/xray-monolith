@@ -616,3 +616,20 @@ void CUILines::CutFirstColoredTextEntry(xr_string& entry, u32& color, xr_string&
 		text.replace(0, begin2, "");
 	}
 }
+
+float CUILines::GetTextWidth()
+{
+    float _len = m_pFont->SizeOf_(GetText());
+    UI().ClientToScreenScaledWidth(_len);
+    return _len;
+}
+
+float CUILines::GetTextHeight()
+{
+    return GetVisibleHeight();
+}
+
+Fvector2 CUILines::GetTextSize()
+{
+    return Fvector2().set(GetTextWidth(), GetTextHeight());
+}
