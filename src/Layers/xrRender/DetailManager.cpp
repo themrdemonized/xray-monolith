@@ -228,6 +228,9 @@ void CDetailManager::Load()
 	}
 	m_slots->close();
 
+	// Release details
+	FS.r_close(dtFS);
+
 	// Initialize 'vis' and 'cache'
 	for (u32 i = 0; i < 3; ++i) m_visibles[i].resize(objects.size());
 	cache_Initialize();
@@ -272,6 +275,22 @@ void CDetailManager::Unload()
 	dtFS = 0;
 	xr_free(dtSlots); // heap-owned wide slot array (was a VFS alias pre-v4)
 }
+
+#ifndef _EDITOR
+// Rebuild details with current values
+void details_reload(CDetailManager*& D)
+{
+	if (!D) return;
+	D->Unload();
+	xr_delete(D);
+	D = xr_new<CDetailManager>();
+	D->Load();
+	if (D->dtSlots)
+		Msg("* details_reload: %u mesh(es), v%u", u32(D->objects.size()), u32(D->dtH.version));
+	else
+		Log("! details_reload: no level.details");
+}
+#endif
 
 extern ECORE_API float r_ssaDISCARD;
 
@@ -429,7 +448,7 @@ void CDetailManager::UpdateVisibleM()
 void CDetailManager::Render()
 {
 #ifndef _EDITOR
-	if (0 == dtFS) return;
+	if (0 == dtSlots) return;
 	if (!psDeviceFlags.is(rsDetails)) return;
 #endif
 
@@ -464,7 +483,7 @@ void __stdcall CDetailManager::MT_CALC()
 
 #ifndef _EDITOR
 	if (0 == RImplementation.Details) return; // possibly deleted
-	if (0 == dtFS) return;
+	if (0 == dtSlots) return;
 	if (!psDeviceFlags.is(rsDetails)) return;
 #endif
 

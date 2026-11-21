@@ -14,6 +14,7 @@
         bus_release <id> // Stop forcing the lane, the pending value returns on the next frame
 
         env_mods_reload // Re-read environment modifiers for the current level from configs\environment\env_mods\<level>.ltx, see docs/env_mods.md
+        details_reload // Rebuild grass on the next frame from level.details with the current r__detail_density, r__detail_height and r__detail_radius, without vid_restart
 
         snd_doppler_power [0; 5] // Adjust power of doppler effect
         snd_doppler_smoothing [1; 100] // Adjust smoothness of pitch shifting in doppler effect
