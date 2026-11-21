@@ -5178,18 +5178,6 @@
     <ClInclude Include="script_callback_ex.h">
       <Filter>AI\AScript\ScriptClasses\ScriptCallbackEx</Filter>
     </ClInclude>
-    <ClInclude Include="script_callback_ex_generators.h">
-      <Filter>AI\AScript\ScriptClasses\ScriptCallbackEx</Filter>
-    </ClInclude>
-    <ClInclude Include="script_callback_ex_inline.h">
-      <Filter>AI\AScript\ScriptClasses\ScriptCallbackEx</Filter>
-    </ClInclude>
-    <ClInclude Include="script_callback_ex_nonvoid.h">
-      <Filter>AI\AScript\ScriptClasses\ScriptCallbackEx</Filter>
-    </ClInclude>
-    <ClInclude Include="script_callback_ex_void.h">
-      <Filter>AI\AScript\ScriptClasses\ScriptCallbackEx</Filter>
-    </ClInclude>
     <ClInclude Include="script_lanim.h">
       <Filter>AI\AScript\ScriptClasses\ScriptLAnim</Filter>
     </ClInclude>
@@ -6068,9 +6056,6 @@
     </ClInclude>
     <ClInclude Include="CarLights.h">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
-    </ClInclude>
-    <ClInclude Include="CarDrone.h">
-      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
     </ClInclude>
     <ClInclude Include="CarWeapon.h">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
@@ -7414,6 +7399,10 @@
     <ClInclude Include="iscript_attachment.h">
       <Filter>Core\Client\Objects\base</Filter>
     </ClInclude>
+    <ClInclude Include="CarDrone.h" />
+    <ClInclude Include="script_monster_enemy_info.h" />
+    <ClInclude Include="script_monster_home_info.h" />
+    <ClInclude Include="script_monster_movement_info.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -9639,12 +9628,6 @@
     <ClCompile Include="searchlight.cpp">
       <Filter>Core\Client\Objects\searchlight</Filter>
     </ClCompile>
-    <ClCompile Include="searchlight_script.cpp">
-      <Filter>Core\Client\Objects\searchlight_script</Filter>
-    </ClCompile>
-    <ClCompile Include="searchlight_struct.cpp">
-      <Filter>Core\Client\Objects\searchlight_struct</Filter>
-    </ClCompile>
     <ClCompile Include="trade.cpp">
       <Filter>Core\Client\Objects\searchlight\Trade</Filter>
     </ClCompile>
@@ -9746,9 +9729,6 @@
     </ClCompile>
     <ClCompile Include="DBG_Car.cpp">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
-    </ClCompile>
-    <ClCompile Include="CarDrone.cpp">
-      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
     </ClCompile>
     <ClCompile Include="CarWeapon.cpp">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
@@ -11152,6 +11132,12 @@
       <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClCompile>
     <ClCompile Include="UI3dStatic.cpp" />
+    <ClCompile Include="CarDrone.cpp" />
+    <ClCompile Include="script_monster_enemy_info_script.cpp" />
+    <ClCompile Include="script_monster_home_info_script.cpp" />
+    <ClCompile Include="script_monster_movement_info_script.cpp" />
+    <ClCompile Include="searchlight_script.cpp" />
+    <ClCompile Include="searchlight_struct.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Explosive.h">

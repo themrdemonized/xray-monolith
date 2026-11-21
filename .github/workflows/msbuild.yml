@@ -33,7 +33,7 @@ concurrency:
 
 env:
   # Path to the solution file relative to the root of the project.
-  SOLUTION_FILE_PATH: src/engine-vs2022.sln
+  SOLUTION_FILE_PATH: src/engine-vs2026.sln
 
   # Configuration type to build.
   # You can convert this to a build matrix if you need coverage of multiple configuration types.
@@ -136,7 +136,7 @@ jobs:
   pack_gamedata:
     if: github.event_name == 'push' && github.ref == 'refs/heads/all-in-one-vs2022-wpo'
     name: pack_gamedata
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     steps:
     - name: Checkout repo
@@ -172,7 +172,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.base != '' && needs.prepare.outputs.base != 'dev-mt'
     name: build-job
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     strategy:
       matrix:
@@ -201,29 +201,12 @@ jobs:
       uses: snickerbockers/submodules-init@v4
 
     - name: setup-msbuild
-      uses: microsoft/setup-msbuild@v1.3.1
+      uses: microsoft/setup-msbuild@v3
       with:
         # Version of Visual Studio to search; defaults to latest if not specified
-        # vs-version: '[17.6, 17.7)'
+        vs-version: '[18.0, 19.0)'
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
-
-    - name: Add Dependencies
-      run: |
-        cd "C:\Program Files (x86)\Microsoft Visual Studio\Installer"
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATLMFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows10SDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows11SDK.22000","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows10SDK.20348","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.Component.VC.Runtime.UCRTSDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ASAN","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Redist.14.Latest","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Tools.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Vcpkg","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
 
     # - name: Fake Build ${{matrix.buildconf}}
     #   working-directory: ${{env.GITHUB_WORKSPACE}}
@@ -283,7 +266,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.base != '' && needs.prepare.outputs.base != 'dev'
     name: build-mt-job
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     strategy:
       matrix:
@@ -312,29 +295,12 @@ jobs:
       uses: snickerbockers/submodules-init@v4
 
     - name: setup-msbuild
-      uses: microsoft/setup-msbuild@v1.3.1
+      uses: microsoft/setup-msbuild@v3
       with:
         # Version of Visual Studio to search; defaults to latest if not specified
-        # vs-version: '[17.6, 17.7)'
+        vs-version: '[18.0, 19.0)'
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
-
-    - name: Add Dependencies
-      run: |
-        cd "C:\Program Files (x86)\Microsoft Visual Studio\Installer"
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATLMFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows10SDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows11SDK.22000","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows10SDK.20348","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.Component.VC.Runtime.UCRTSDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ASAN","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Redist.14.Latest","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Tools.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Vcpkg","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
 
     # - name: Fake Build ${{matrix.buildconf}}
     #   working-directory: ${{env.GITHUB_WORKSPACE}}
