@@ -7,6 +7,9 @@
 class ENGINE_API CAviPlayerCustom;
 class CTheoraSurface;
 class CGIFAnimationPlayer;
+#if defined(USE_DX10) || defined(USE_DX11)
+struct DxPageableTexture;
+#endif
 
 class ECORE_API CTexture : public xr_resource_named
 {
@@ -65,7 +68,14 @@ public:
 	virtual ~CTexture();
 
 #if defined(USE_DX10) || defined(USE_DX11)
-	ID3DShaderResourceView*				get_SRView() {return m_pSRView;}
+	ID3DShaderResourceView*				get_SRView()
+	{
+		// Pageable textures have no SRV until the GPU copy is created. Staging
+		// textures keep the old rule: the view appears from Apply/surface_get.
+		if (flags.bPageable)
+			EnsureGpuTexture();
+		return m_pSRView;
+	}
 #endif	//	USE_DX10
 
 private:
@@ -75,6 +85,8 @@ private:
 #if defined(USE_DX10) || defined(USE_DX11)
 	void								Apply			(u32 dwStage);
 	void								ProcessStaging();
+	void								EnsureGpuTexture();
+	void								UploadPageable();
 	D3D_USAGE							GetUsage();
 #endif	//	USE_DX10
 
@@ -88,6 +100,8 @@ public: //	Public class members (must be encapsulated furthur)
 		u32 MemoryUsage : 28;
 #if defined(USE_DX10) || defined(USE_DX11)
 		u32					bLoadedAsStaging: 1;
+		// DDS bytes are in m_pageable. The GPU texture is created on first use.
+		u32					bPageable: 1;
 #endif	//	USE_DX10
 	} flags;
 
@@ -123,6 +137,7 @@ private:
 	ID3DShaderResourceView*			m_pSRView;
 	// Sequence view data
 	xr_vector<ID3DShaderResourceView*>m_seqSRView;
+	DxPageableTexture*				m_pageable;
 #endif	//	USE_DX10
 };
 

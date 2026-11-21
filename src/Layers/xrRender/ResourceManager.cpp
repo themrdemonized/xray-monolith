@@ -388,6 +388,28 @@ void CResourceManager::DeferredUpload()
 	tbb::parallel_for_each(m_textures, [&](auto m_tex) { m_tex.second->Load(); });
 
 	Msg("texture loading time: %d", timer.GetElapsed_ms());
+
+#if defined(USE_DX10) || defined(USE_DX11)
+	u32 n_pageable = 0;
+	u32 n_staging = 0;
+	u64 bytes_pageable = 0;
+	for (map_TextureIt it = m_textures.begin(); it != m_textures.end(); ++it)
+	{
+		if (it->second->flags.bPageable)
+		{
+			++n_pageable;
+			bytes_pageable += it->second->flags.MemoryUsage;
+		}
+		else if (it->second->flags.bLoadedAsStaging)
+			++n_staging;
+	}
+	// The sum is already a u64. Narrowing the KB figure to u32 and saturating
+	// it once the bytes pass 4 GiB prints 4294967295. MemoryUsage itself is
+	// unchanged: it stays a 28-bit field, and nothing about the allocation
+	// changes here.
+	Msg("* texture residency: pageable %u (%llu KB RAM, GPU upload on first use), legacy staging %u, total %u",
+		n_pageable, (unsigned long long)(bytes_pageable / 1024ull), n_staging, (u32)m_textures.size());
+#endif
 }
 
 void CResourceManager::DeferredUnload()
