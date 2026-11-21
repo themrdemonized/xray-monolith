@@ -1,0 +1,93 @@
+-- R1 Menu API Test 0.1.0: loaded-level pause and real-time camera orbit.
+local token, started, center, saved, requested, subject_id, subject_name, ray
+local requests, hooked = 0, false
+local function copy(v) return vector():set(v) end
+local function values(...) return {n=select("#",...),...} end
+
+function stop()
+    if token then level.menu_scene_end(token) end
+    if saved then
+        get_console():execute("show_actor_body "..saved.body)
+        get_console():execute("hud_weapon "..(saved.weapon and "on" or "off"))
+    end
+    token, started, center, saved, requested, ray = nil, nil, nil, nil, nil, nil
+end
+
+function set_subject(id)
+    stop()
+    subject_id = id
+    subject_name = id and assert(level.object_by_id(id), "R1 subject missing"):name()
+end
+
+-- Explicit test observation; the runner does not access private state.
+function snapshot()
+    return {token=token or 0, requests=requests,
+            position=requested and copy(requested), subject_id=subject_id}
+end
+
+local function update(self)
+    if token and not level.menu_scene_active(token) then stop() end
+    if not db.actor or not level.present() then return end
+    local subject = db.actor
+    if subject_id then
+        subject = level.object_by_id(subject_id)
+        if not subject or subject:name() ~= subject_name then stop(); return end
+    end
+    if not subject or not subject:alive() then stop(); return end
+    if not token then
+        local acquired = level.menu_scene_begin(false)
+        if acquired == 0 then return end
+        token, started, requests = acquired, device():time_continual(), 0
+        center = copy(subject:position()):add(vector():set(0,1.1,0))
+        ray = ray_pick(); ray:set_position(center); ray:set_flags(rq_target.rqtStatic)
+        local background = assert(self:FindChild("R1_Menu_Test_Background"), "R1 test XML missing")
+        if not self.r1_api_label then
+            local label = CUIStatic()
+            label:SetWndPos(vector2():set(24,24)); label:SetWndSize(vector2():set(750,42))
+            label:SetAutoDelete(true); self:AttachChild(label)
+            label:TextControl():SetFont(GetFontLetterica16Russian())
+            label:TextControl():SetTextColor(GetARGB(255,230,230,230))
+            label:TextControl():SetText("R1 MENU API TEST | frozen world / moving camera | ESC: return")
+            self.r1_api_label = label
+        end
+        local console = get_console()
+        saved = {body=console:get_integer("show_actor_body"), weapon=console:get_bool("hud_weapon")}
+        background:Show(false); self.shniaga:Show(false); self.r1_api_label:Show(true)
+        console:execute("show_actor_body 2"); console:execute("hud_weapon off")
+        printf("[R1TINY] BEGIN token=%s subject=%s", token, subject:id()); flush()
+    end
+    local angle = 0.5*math.sin((device():time_continual()-started)*0.00025)
+    requested = vector():set(center.x+math.sin(angle)*2, center.y+0.5, center.z+math.cos(angle)*2)
+    local offset = copy(requested):sub(center)
+    ray:set_range(offset:magnitude()); offset:normalize(); ray:set_direction(offset)
+    if ray:query() then
+        requested = copy(center):add(offset:mul(math.max(0.05,ray:get_distance()-0.15)))
+    end
+    if not level.menu_scene_set_camera(token,requested,copy(center):sub(requested),vector():set(0,1,0),60) then
+        stop(); return
+    end
+    requests = requests + 1
+end
+
+function on_game_start()
+    if type(level.menu_scene_begin) ~= "function" then
+        printf("[R1TINY] Missing menu presentation API; ordinary menu retained"); return
+    end
+    if hooked then return end
+    hooked = true
+    local cls = ui_main_menu.main_menu
+    local old_update = cls.Update
+    cls.Update = function(self,...)
+        local result = values(old_update(self,...))
+        if self:IsShown() then update(self) end
+        return unpack(result,1,result.n)
+    end
+    RegisterScriptCallback("actor_on_first_update",function() stop(); subject_id,subject_name=nil,nil end)
+    -- CUIWindow::Show is not a Lua virtual close callback. Release the Lua
+    -- console state on the first resumed actor update or actor destruction.
+    -- Do not retain references to controls owned by a reloadable menu dialog.
+    RegisterScriptCallback("actor_on_update",function()
+        if token and not level.menu_scene_active(token) then stop() end
+    end)
+    RegisterScriptCallback("actor_on_net_destroy",stop)
+end
