@@ -32,6 +32,7 @@
 #include "magic_box3.h"
 #include "animation_movement_controller.h"
 #include "../xrengine/xr_collide_form.h"
+#include "../xrEngine/GameMtlLib.h"
 #include "script_attachment_manager.h"
 #include "player_hud.h"
 #include "CharacterPhysicsSupport.h"
@@ -51,6 +52,106 @@ extern MagicBox3 MagicMinBox(int iQuantity, const Fvector* akPoint);
 #endif
 
 extern ENGINE_API bool g_dedicated_server;
+
+// Placement of loose inventory items when they spawn, come online or are loaded from a save.
+// The AI-node snap in net_Spawn puts items under the ground where level.ai nodes are buried in the collision
+// and on the roof of tunnels that have no nodes of their own. Items use level collision instead: the vertical
+// line through the item is intersected with the static geometry. A free space starts at an upward-facing
+// surface and ends at the next surface above it (or open sky); space starting at a downward-facing surface
+// is inside solid geometry, e.g. rock under one-sided terrain. If the item's stored position already lies in
+// a space tall enough for it, it is kept; otherwise its bottom is put on the floor of the closest such space.
+BOOL g_item_spawn_placement = TRUE;
+
+namespace
+{
+	const float ITEM_PLACEMENT_SCAN = 500.f;    // checked range above and below the stored position
+	const float ITEM_PLACEMENT_PAD = 0.02f;     // clearance on top of the item's height
+	const float ITEM_PLACEMENT_FALLBACK = 0.5f; // item height when it has no visual
+
+	struct item_placement_event
+	{
+		float y;
+		bool floor;
+		bool operator<(const item_placement_event& other) const { return y < other.y; }
+	};
+
+	// M is the item's transform (position and rotation). Sets M.c.y, which stays unchanged when the item
+	// already fits where it is. Returns false (M untouched) when the line hits no level geometry at all.
+	bool place_item_in_free_space(CGameObject& object, Fmatrix& M)
+	{
+		Fvector& P = M.c;
+
+		// vertical extent of the visual under the object's current rotation, relative to its origin
+		float low = -ITEM_PLACEMENT_FALLBACK * .5f, high = ITEM_PLACEMENT_FALLBACK * .5f;
+		if (IRenderVisual* visual = object.Visual())
+		{
+			const Fbox& box = visual->getVisData().box;
+			if (box.max.x > box.min.x && box.max.y > box.min.y && box.max.z > box.min.z)
+			{
+				low = flt_max;
+				high = -flt_max;
+				for (int i = 0; i < 8; ++i)
+				{
+					Fvector corner, world;
+					box.getpoint(i, corner);
+					M.transform_tiny(world, corner);
+					low = _min(low, world.y - P.y);
+					high = _max(high, world.y - P.y);
+				}
+			}
+		}
+
+		collide::rq_results R;
+		const collide::ray_defs rd(Fvector().set(P.x, P.y + ITEM_PLACEMENT_SCAN, P.z), Fvector().set(0.f, -1.f, 0.f),
+		                           2.f * ITEM_PLACEMENT_SCAN, 0, collide::rqtStatic); // all hits, no culling
+		if (!Level().ObjectSpace.RayQuery(R, rd, nullptr, nullptr, nullptr, nullptr) || !R.r_count())
+			return false;
+
+		const CDB::TRI* tris = Level().ObjectSpace.GetStaticTris();
+		const Fvector* verts = Level().ObjectSpace.GetStaticVerts();
+		xr_vector<item_placement_event> events;
+		events.reserve(R.r_count());
+		for (const collide::rq_result* it = R.r_begin(); it != R.r_end(); ++it)
+		{
+			const CDB::TRI& tri = tris[it->element];
+			if (GMLib.GetMaterialByIdx(tri.material)->Flags.is(SGameMtl::flPassable))
+				continue;
+			Fvector n;
+			n.mknormal_non_normalized(verts[tri.verts[0]], verts[tri.verts[1]], verts[tri.verts[2]]);
+			if (fis_zero(n.y))
+				continue; // edge-on to the ray
+			events.push_back({ rd.start.y - it->range, n.y > 0.f });
+		}
+		if (events.empty())
+			return false;
+		std::sort(events.begin(), events.end());
+
+		const float need = high - low + ITEM_PLACEMENT_PAD;
+		const float bottom_now = P.y + low;
+		float best_y = 0.f, best_d = flt_max;
+		for (u32 i = 0; i < events.size(); ++i)
+		{
+			if (!events[i].floor)
+				continue;
+			const float bottom = events[i].y;
+			const float top = i + 1 < events.size() ? events[i + 1].y : flt_max;
+			if (top - bottom < need)
+				continue;
+			const float y = _max(bottom, _min(bottom_now, top - need)); // == bottom_now when it already fits
+			const float d = _abs(y - bottom_now);
+			if (d < best_d || (d == best_d && y < best_y))
+			{
+				best_d = d;
+				best_y = y;
+			}
+		}
+		if (best_d == flt_max)
+			return false;
+
+		P.y = best_y - low;
+		return true;
+	}
+}
 
 CGameObject::CGameObject()
 {
@@ -437,13 +538,58 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 			validate_ai_locations(false);
 
 			// validating position
+			const bool can_validate = UsedAI_Locations() && can_validate_position_on_spawn();
+			bool placed = false;
+			if (can_validate && g_item_spawn_placement && cast_inventory_item())
+			{
+				// An item that was online when the game was saved already has a physics shell here, holding its
+				// saved position and rotation (CInventoryItem::load). The shell overrides XFORM on the first update
+				// (CPhysicItem::UpdateCL), so the shell is what gets placed, and XFORM is synced to it. Any other
+				// item gets its shell built from XFORM later in net_Spawn.
+				CPhysicsShellHolder* holder = cast_physics_shell_holder();
+				CPhysicsShell* shell = holder ? holder->PPhysicsShell() : nullptr;
+				Fmatrix M;
+				if (shell)
+					shell->GetGlobalTransformDynamic(&M);
+				else
+					M.set(XFORM());
+				const float shell_y = M.c.y;
+				placed = place_item_in_free_space(*this, M);
+				if (shell)
+				{
+					if (placed && !fsimilar(M.c.y, shell_y))
+						shell->SetGlTransformDynamic(M);
+					XFORM().set(M);
+					placed = true; // the node snap would be overridden by the shell anyway
+				}
+				else if (placed)
+					XFORM().set(M);
+
+				// The node chosen above by validate_ai_locations keeps the current node whenever the item's xz
+				// lies in its cell, whatever the height, so it can belong to another storey (a buried node, a
+				// tunnel roof). Pick the node for the item's final position by height instead.
+				Fvector center;
+				Center(center);
+				center.x = Position().x;
+				center.z = Position().z;
+				const u32 vertex_id = ai().level_graph().valid_vertex_position(center)
+					? ai().level_graph().vertex_id(center) : u32(-1);
+				if (ai().level_graph().valid_vertex_id(vertex_id))
+				{
+					ai_location().level_vertex(vertex_id);
+					if (ai().get_game_graph() && ai().get_cross_table())
+						ai_location().game_vertex(ai().cross_table().vertex(vertex_id).game_vertex_id());
+				}
+				else
+					validate_ai_locations(false); // no node in this cell: nearest node, as before
+			}
 			if (
-				UsedAI_Locations() &&
+				!placed &&
+				can_validate &&
 				ai().level_graph().inside(
 					ai_location().level_vertex_id(),
 					Position()
-				) &&
-				can_validate_position_on_spawn()
+				)
 			)
 				Position().y = EPS_L + ai().level_graph().vertex_plane_y(
 					*ai_location().level_vertex(), Position().x, Position().z);
