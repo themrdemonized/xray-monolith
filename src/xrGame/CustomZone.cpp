@@ -18,6 +18,7 @@
 #include "breakableobject.h"
 #include "GamePersistent.h"
 #include "../../script_game_object.h"
+#include "../xrEngine/shader_bus.h"
 
 #define WIND_RADIUS (4*Radius())	//расстояние до актера, когда появляется ветер 
 #define FASTMODE_DISTANCE (100.f)	//distance to camera from sphere, when zone switches to fast update sequence
@@ -581,6 +582,9 @@ void CCustomZone::UpdateWorkload(u32 dt)
 void CCustomZone::UpdateCL()
 {
 	inherited::UpdateCL();
+	// the zone's mask bits follow it onto its idle particles
+	if (m_pIdleParticles)
+		ShaderBus::copy_mask(this, m_pIdleParticles);
 	if (m_zone_flags.test(eFastMode))
 		UpdateWorkload(Device.dwTimeDelta);
 }
@@ -804,6 +808,7 @@ void CCustomZone::PlayIdleParticles(bool bIdleLight)
 		if (!m_pIdleParticles)
 		{
 			m_pIdleParticles = CParticlesObject::Create(m_sIdleParticles.c_str(),FALSE);
+			ShaderBus::copy_mask(this, m_pIdleParticles);
 			m_pIdleParticles->UpdateParent(XFORM(), zero_vel);
 
 			m_pIdleParticles->UpdateParent(XFORM(), zero_vel);
@@ -879,6 +884,7 @@ void CCustomZone::PlayBlowoutParticles()
 
 	CParticlesObject* pParticles;
 	pParticles = CParticlesObject::Create(*m_sBlowoutParticles,TRUE);
+	ShaderBus::copy_mask(this, pParticles);
 	pParticles->UpdateParent(XFORM(), zero_vel);
 	pParticles->Play(false);
 
@@ -955,6 +961,7 @@ void CCustomZone::PlayEntranceParticles(CGameObject* pObject)
 		if (play_bone != BI_NONE)
 		{
 			CParticlesObject* pParticles = CParticlesObject::Create(particle_str, TRUE);
+			ShaderBus::copy_mask(this, pParticles);
 			Fmatrix xform;
 			Fvector dir;
 			if (fis_zero(vel.magnitude()))
@@ -1022,6 +1029,7 @@ void CCustomZone::PlayBoltEntranceParticles()
 					PXF.c = sP1;
 
 					pParticles = CParticlesObject::Create(m_sBoltEntranceParticles.c_str(), TRUE);
+					ShaderBus::copy_mask(this, pParticles);
 					pParticles->UpdateParent(PXF, vel);
 					pParticles->Play(false);
 				}
@@ -1042,6 +1050,7 @@ void CCustomZone::PlayBulletParticles(Fvector& pos)
 
 	CParticlesObject* pParticles;
 	pParticles = CParticlesObject::Create(*m_sEntranceParticlesSmall,TRUE);
+	ShaderBus::copy_mask(this, pParticles);
 
 	Fmatrix M;
 	M = XFORM();
@@ -1494,6 +1503,7 @@ void CCustomZone::PlayAccumParticles()
 	{
 		CParticlesObject* pParticles;
 		pParticles = CParticlesObject::Create(*m_sAccumParticles,TRUE);
+		ShaderBus::copy_mask(this, pParticles);
 		pParticles->UpdateParent(XFORM(), zero_vel);
 		pParticles->Play(false);
 	}
@@ -1509,6 +1519,7 @@ void CCustomZone::PlayAwakingParticles()
 	{
 		CParticlesObject* pParticles;
 		pParticles = CParticlesObject::Create(*m_sAwakingParticles,TRUE);
+		ShaderBus::copy_mask(this, pParticles);
 		pParticles->UpdateParent(XFORM(), zero_vel);
 		pParticles->Play(false);
 	}

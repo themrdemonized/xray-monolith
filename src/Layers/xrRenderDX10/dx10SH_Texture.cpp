@@ -119,6 +119,19 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 	}
 }
 
+// binds a resource through a view made for it, for buffers the default view cannot describe
+void CTexture::view_set(ID3DBaseTexture* surf, ID3DShaderResourceView* view)
+{
+	surface_set(nullptr);
+	if (!surf || !view)
+		return;
+	surf->AddRef();
+	view->AddRef();
+	pSurface = surf;
+	m_pSRView = view;
+	desc_update();
+}
+
 ID3DBaseTexture* CTexture::surface_get()
 {
 	if (flags.bLoadedAsStaging)

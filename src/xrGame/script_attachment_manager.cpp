@@ -9,6 +9,7 @@
 #include "CharacterPhysicsSupport.h"
 #include "../xrPhysics/PHElement.h"
 #include "physics_shell_scripted.h"
+#include "../xrEngine/shader_bus.h"
 #include "debug_renderer.h"
 #include "../Layers/xrRender/LightTrack.h"
 
@@ -228,6 +229,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name): ISpatial(g
 {
 	m_name = name;
 	m_physics_shell = nullptr;
+	m_owner_id = u16(-1);
 	m_parent_attachment = nullptr;
 	m_parent_object = nullptr;
 	m_toplevel_parent = nullptr;
@@ -260,6 +262,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name): ISpatial(g
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
 	m_type = eSA_World;
+	m_hud_category = eSAH_Parent;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
 	m_model_name = "";
@@ -404,17 +407,35 @@ void script_attachment::renderable_Render()
     if (!m_bVisible) return;
 	Visual()->getVisData().hom_frame = Device.dwFrame;
 
+	// the draw keeps its caller's tag, set_Object leaves only this attachment's own mask bits
+	const u32 bus_tag = ::Render->get_BusTag();
+	// one read of the category, a script may change it on another thread
+	const u8 hud_category = m_hud_category;
+	u32 tag = bus_tag;
+	if (hud_category != eSAH_Parent && ::Render->get_HUD())
+		tag = (tag & ~ShaderBus::hud_mask_bits) |
+			(hud_category == eSAH_Actor ? ShaderBus::hud_att_actor : ShaderBus::hud_att_item);
+
+	// the object drawing this attachment owns its pixels in the id target, a level root draws itself
+	// passes that bind no object leave the id as it was
+	IRenderable* previous_object = ::Render->get_Object();
+	if (previous_object)
+		m_owner_id = previous_object != this ? previous_object->renderable_ObjectID() : u16(-1);
     ::Render->set_Object(this);
+	tag |= ::Render->get_BusTag();
+	::Render->set_BusTag(tag);
 	::Render->set_CustomFOV(m_custom_fov);
 	::Render->set_Transform(&renderable.xform);
 	::Render->add_Visual(Visual());
 	::Render->set_CustomFOV(0.f);
-    ::Render->set_Object(nullptr);
+    ::Render->set_Object(previous_object);
+	::Render->set_BusTag(tag);
 
 	RenderInstanceAttachments();
 
 	for (auto& pair : m_children)
 		pair.second->renderable_Render();
+	::Render->set_BusTag(bus_tag);
 	}
 
 void script_attachment::RenderUI()
@@ -1197,6 +1218,26 @@ void script_attachment::DBGDrawPhysicsShell()
 			Level().debug_renderer().draw_ellipse(bone_mat, color_xrgb(0, 255, 0), false);
 		}
 	}
+}
+
+// a world attachment draws inside its top attachment, and that one inside its object's root
+IRenderable* script_attachment::renderable_Root()
+{
+	script_attachment* top = this;
+	script_attachment* ahead = this;
+	while (top->m_parent_attachment)
+	{
+		top = top->m_parent_attachment;
+		ahead = ahead && ahead->m_parent_attachment ? ahead->m_parent_attachment->m_parent_attachment : nullptr;
+		// a looped chain has no top and nothing draws it
+		if (ahead == top)
+			return nullptr;
+	}
+	if (top->GetType() != eSA_World)
+		return nullptr;
+	if (top->m_parent_object)
+		return top->m_parent_object->H_Root();
+	return top != this ? top : nullptr;
 }
 
 ::luabind::object script_attachment::GetParent()

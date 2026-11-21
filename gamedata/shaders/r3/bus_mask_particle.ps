@@ -1,0 +1,11 @@
+// object mask for particles, the tag where the particle's own shader draws it mostly opaque
+// the particle shader's soft fade, clip and fog run unchanged
+#define main bus_particle_main
+#include "particle.ps"
+#undef main
+
+float main(v2p I) : SV_Target
+{
+	clip(bus_particle_main(I).a - 0.5);
+	return 1.0;
+}

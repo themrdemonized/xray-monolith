@@ -135,7 +135,9 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 					v_orig.accept_frame = v_copy.accept_frame;
 					v_orig.hom_frame = v_copy.hom_frame;
 					v_orig.hom_tested = v_copy.hom_tested;
-					if (!bVisible) break; // exit loop on frustums
+					// an object holding a layer bit or an item with one stays in the frame when occlusion hides it, particles draw no layer
+					if (!bVisible && !(bus_layer_bits && ((renderable->renderable.bus_mask & bus_layer_bits) || ShaderBus::layer_root(renderable))
+						&& !((dxRender_Visual*)renderable->renderable.visual)->dcast_ParticleCustom())) break; // exit loop on frustums
 
 					// Rendering
 					set_Object(renderable);
@@ -144,6 +146,14 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 				}
 				break; // exit loop on frustums
 			}
+		}
+		// tagged objects the frame drew nowhere are culled while occlusion is live and join the forward mask draw
+		if (bus_hidden_bits && phase == PHASE_NORMAL)
+		{
+			if (pmask[0] && !pmask[1])
+				r_dsgraph_collect_bus_hidden();
+			else if (pmask[1])
+				r_dsgraph_add_bus_hidden();
 		}
 		if (g_pGameLevel && (phase == PHASE_NORMAL))
 		{
@@ -223,6 +233,14 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
+	bus_live_bits = ShaderBus::mask_live_bits(&bus_layer_bits, &bus_hidden_bits, &bus_forward_bits);
+	if (!Target->rt_bus_mask_layer || Device.m_SecondViewport.IsSVPFrame())
+		bus_layer_bits = 0;
+	if (!Target->rt_bus_cover_mask || Device.m_SecondViewport.IsSVPFrame())
+	{
+		bus_hidden_bits = 0;
+		bus_forward_bits = 0;
+	}
 
 	VERIFY(0==mapDistort.size());
 
@@ -252,6 +270,8 @@ void CRender::Render()
 	}
 
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
+
+	Target->phase_bus(ShaderBus::stage_frame);
 
 	// Configure
 	RImplementation.o.distortion = FALSE; // disable distorion
@@ -345,6 +365,9 @@ void CRender::Render()
 	BOOL split_the_scene_to_minimize_wait = FALSE;
 	if (ps_r2_ls_flags.test(R2FLAG_EXP_SPLIT_SCENE)) split_the_scene_to_minimize_wait = TRUE;
 
+	// tagged world items keep their matrix nodes for the mask pass after the scene
+	const bool bus_mask = bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
+
 	//******* Main render :: PART-0	-- first
 	if (!split_the_scene_to_minimize_wait)
 	{
@@ -352,18 +375,19 @@ void CRender::Render()
 		// level, DO NOT SPLIT
 		Target->phase_scene_begin();
 		r_dsgraph_render_hud();
-		r_dsgraph_render_graph(0);
+		r_dsgraph_render_graph(0, !bus_mask);
 		r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
+		if (bus_mask) r_dsgraph_render_bus_mask();
 	}
 	else
 	{
 		PIX_EVENT(DEFER_PART0_SPLIT);
 		// level, SPLIT
 		Target->phase_scene_begin();
-		r_dsgraph_render_graph(0);
+		r_dsgraph_render_graph(0, !bus_mask);
 		Target->disable_aniso();
 	}
 
@@ -447,6 +471,7 @@ void CRender::Render()
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
+		if (bus_mask) r_dsgraph_render_bus_mask();
 	}
 
 	// Wall marks
@@ -490,6 +515,8 @@ void CRender::Render()
 		PIX_EVENT(DEFER_RAIN);
 		render_rain();
 	}
+
+	Target->phase_bus(ShaderBus::stage_gbuffer);
 
 	// Directional light - fucking sun
 	if (bSUN)
@@ -542,6 +569,8 @@ void CRender::Render()
 
 	// Postprocess
 	{
+		Target->phase_bus(ShaderBus::stage_lighting);
+
 		PIX_EVENT(DEFER_LIGHT_COMBINE);
 		Target->phase_combine();
 	}
@@ -638,6 +667,7 @@ void CRender::render_forward()
 		r_dsgraph_render_graph(1); // normal level, secondary priority
 		PortalTraverser.fade_render(); // faded-portals
 		r_dsgraph_render_sorted(); // strict-sorted geoms
+		r_dsgraph_render_bus_forward();
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 	}
 

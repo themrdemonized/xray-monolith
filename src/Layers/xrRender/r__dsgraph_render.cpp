@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include "r__dsgraph_bus_mask.h"
+#include "../../xrCore/profiler.h"
 
 #include "../../xrEngine/render.h"
 #include "../../xrEngine/irenderable.h"
@@ -52,7 +54,7 @@ IC bool cmp_matrix_items(const _MatrixItem& N1, const _MatrixItem& N2)
 static Fmatrix FTold;
 static Fmatrix FPold;
 
-void __fastcall mapMatrix_Render(mapMatrixItems& N)
+void __fastcall mapMatrix_Render(mapMatrixItems& N, bool _clear)
 {
 	// *** DIRECT ***
 	std::sort(N.begin(), N.end(), cmp_matrix_items);
@@ -90,8 +92,54 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 			RCache.set_xform_project(FPold);
 		}
 	}
-	N.clear();
+	if (_clear) N.clear();
 }
+
+#if defined(USE_DX10) || defined(USE_DX11)
+// mapMatrix_Render for tagged items in the order part 0 drew them, with the mask shader and the item's tag in the blend factor
+static void __fastcall mapMatrix_RenderBusMask(mapMatrixItems& N, bool _clear)
+{
+	_MatrixItem *I = &*N.begin(), *E = &*N.end();
+	for (; I != E; I++)
+	{
+		_MatrixItem& Ni = *I;
+		const u32 value = bus_mask_value(Ni.pObject, Ni.bus_tag);
+		if (!value)
+			continue;
+		RCache.set_xform_world(Ni.Matrix);
+
+		if (Ni.fov != 0.f)
+		{
+			FTold = Device.mFullTransform;
+			FPold = Device.mProject;
+
+			::Render->rmNear();
+			Fmatrix proj;
+			proj.build_projection(deg2rad(Ni.fov), Device.fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+			Device.mFullTransform.mul(proj, Device.mView);
+			RCache.set_xform_project(proj);
+		}
+
+		RImplementation.apply_object(Ni.pObject);
+		RImplementation.apply_lmaterial();
+
+		float LOD = calcLOD(Ni.ssa, Ni.pVisual->vis.sphere.R);
+#ifdef USE_DX11
+		RCache.LOD.set_LOD(LOD);
+#endif
+		bus_mask_apply(value);
+		Ni.pVisual->Render(LOD);
+
+		if (Ni.fov != 0.f)
+		{
+			::Render->rmNormal();
+			Device.mFullTransform.set(FTold);
+			RCache.set_xform_project(FPold);
+		}
+	}
+	if (_clear) N.clear();
+}
+#endif
 
 // ALPHA
 void __fastcall sorted_L1(mapSorted_Node* N)
@@ -141,6 +189,40 @@ void __fastcall sorted_UI3D(mapSorted_Node* N)
 #endif
 	V->Render(0.f);
 }
+
+#if defined(USE_DX10) || defined(USE_DX11)
+// sorted_L1 with the mask shader and the node's tag in the blend factor
+static void __fastcall sorted_L1_bus_mask(mapSorted_Node* N)
+{
+	VERIFY(N);
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V && V->shader._get());
+	RCache.set_Element(N->val.se);
+	bus_mask_apply(N->val.bus_tag);
+	RCache.set_xform_world(N->val.Matrix);
+
+	if (N->val.fov != 0.f)
+	{
+		FTold = Device.mFullTransform;
+		FPold = Device.mProject;
+
+		Fmatrix proj;
+		proj.build_projection(deg2rad(N->val.fov), Device.fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+		Device.mFullTransform.mul(proj, Device.mView);
+		RCache.set_xform_project(proj);
+	}
+
+	RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_lmaterial();
+	V->Render(calcLOD(N->key, V->vis.sphere.R));
+
+	if (N->val.fov != 0.f)
+	{
+		Device.mFullTransform.set(FTold);
+		RCache.set_xform_project(FPold);
+	}
+}
+#endif
 
 void __fastcall water_node_ssr(mapSorted_Node* N)
 {
@@ -420,6 +502,7 @@ void sort_tlist_mat
 	}
 }
 
+template<bool BusMask>
 void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 {
 	//PIX_EVENT(r_dsgraph_render_graph);
@@ -428,6 +511,7 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 	// **************************************************** NORMAL
 	// Perform sorting based on ScreenSpaceArea
 	// Sorting by SSA and changes minimizations
+	if constexpr (!BusMask)
 	{
 		RCache.set_xform_world(Fidentity);
 
@@ -505,28 +589,28 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 								mapNormalItems& items = Ntex->val;
 								items.ssa = 0;
 								mapNormal_Render(items);
-								if (_clear) items.clear();
+								items.clear();
 							}
 							nrmTextures.clear();
 							nrmTexturesTemp.clear();
-							if (_clear) tex.clear();
+							tex.clear();
 						}
 						nrmStates.clear();
-						if (_clear) states.clear();
+						states.clear();
 					}
 					nrmCS.clear();
-					if (_clear) cs.clear();
+					cs.clear();
 				}
 				nrmPS.clear();
-				if (_clear) ps.clear();
+				ps.clear();
 #if defined(USE_DX10) || defined(USE_DX11)
 				}
 				nrmGS.clear();
-				if (_clear) gs.clear();
+				gs.clear();
 #endif	//	USE_DX10
 			}
 			nrmVS.clear();
-			if (_clear) vs.clear();
+			vs.clear();
 		}
 	}
 
@@ -568,7 +652,8 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 			for (u32 ps_id = 0; ps_id < matPS.size(); ps_id++)
 			{
 				mapMatrixPS::TNode* Nps = matPS[ps_id];
-				RCache.set_PS(Nps->key);
+				if constexpr (!BusMask)
+					RCache.set_PS(Nps->key);
 
 #ifdef USE_DX11
 					mapMatrixCS& cs = Nps->val.mapCS;
@@ -606,7 +691,14 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 
 							mapMatrixItems& items = Ntex->val;
 							items.ssa = 0;
-							mapMatrix_Render(items);
+#if defined(USE_DX10) || defined(USE_DX11)
+							if constexpr (BusMask)
+							{
+								mapMatrix_RenderBusMask(items, _clear);
+								continue;
+							}
+#endif
+							mapMatrix_Render(items, _clear);
 						}
 						matTextures.clear();
 						matTexturesTemp.clear();
@@ -633,6 +725,295 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 	Device.Statistic->RenderDUMP.End();
 }
 
+#if defined(USE_DX10) || defined(USE_DX11)
+void R_dsgraph_structure::r_dsgraph_render_bus_mask()
+{
+	PROF_EVENT("r_dsgraph_render_bus_mask");
+	ID3DRenderTargetView* saved[4];
+	const bool ids = RImplementation.Target->rt_bus_object_id;
+	const u32 layer = bus_layer_bits;
+	bus_mask_bind(saved);
+	r_dsgraph_render_graph<true>(0, !ids && !layer);
+	// the object ids draw in a second walk of the same items with the same depth test
+	if (ids)
+	{
+		bus_mask_pass_begin(bus_pass_id, RImplementation.Target->rt_bus_object_id->pRT, 0);
+		r_dsgraph_render_graph<true>(0, !layer);
+	}
+	// the layer bits draw again with no depth buffer, so walls hide nothing
+	if (layer)
+	{
+		ID3DDepthStencilView* zb = RCache.get_ZB();
+		bus_mask_pass_begin(bus_pass_layer, RImplementation.Target->rt_bus_mask_layer->pRT, layer);
+		r_dsgraph_render_graph<true>(0, true);
+		RCache.set_ZB(zb);
+	}
+	bus_mask_unbind(saved);
+}
+
+// a leaf with its per-object constants over the states the caller set, in its own field of view when it has one
+static void bus_leaf_render(R_dsgraph::_MatrixItemS& P)
+{
+	RCache.set_xform_world(P.Matrix);
+	// queue draws with their own field of view take the near depth range, sorted ones keep the scene's
+	const bool near_depth = P.fov != 0.f && !P.se->flags.bStrictB2F;
+	Fmatrix full, project;
+	if (P.fov != 0.f)
+	{
+		full = Device.mFullTransform;
+		project = Device.mProject;
+		if (near_depth)
+			::Render->rmNear();
+		Fmatrix proj;
+		proj.build_projection(deg2rad(P.fov), Device.fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+		Device.mFullTransform.mul(proj, Device.mView);
+		RCache.set_xform_project(proj);
+	}
+	RImplementation.apply_object(P.pObject);
+	RImplementation.apply_lmaterial();
+
+	float LOD = calcLOD(P.ssa, P.pVisual->vis.sphere.R);
+#ifdef USE_DX11
+	RCache.LOD.set_LOD(LOD);
+#endif
+	P.pVisual->Render(LOD);
+	if (P.fov != 0.f)
+	{
+		if (near_depth)
+			::Render->rmNormal();
+		Device.mFullTransform.set(full);
+		RCache.set_xform_project(project);
+	}
+}
+
+// one tagged forward draw into the bound mask target, a particle covers what it draws and a mesh copies its pass coverage
+static void bus_forward_draw(R_dsgraph::_MatrixItemS& P, u32 value)
+{
+	RCache.set_Element(P.se);
+	bool moved = false;
+	if (P.pVisual->dcast_ParticleCustom())
+		bus_mask_apply_particle(value, P.se->passes[0]._get());
+	else
+		moved = bus_mask_apply_mesh(value, P.se->passes[0]._get());
+	bus_leaf_render(P);
+	if (moved)
+		bus_mask_slot0_restore();
+}
+
+// the listed items of the walk's kind into the target it points at, particles in the particle pass alone
+static void bus_forward_redraw(xr_vector<R_dsgraph::_MatrixItemS>& list)
+{
+	const bool particles = bus_mask_pass == bus_pass_particle;
+	for (R_dsgraph::_MatrixItemS& P : list)
+	{
+		if (!!P.pVisual->dcast_ParticleCustom() != particles)
+			continue;
+		if (!particles && !bus_mask_mesh_draws(P.se->passes[0]._get()))
+			continue;
+		const u32 value = bus_mask_value(P.pObject, P.bus_tag);
+		if (value)
+			bus_forward_draw(P, value);
+	}
+}
+
+// the hidden leaves of this walk that write depth, with their own elements into the hidden depth and no colour target
+static void bus_hidden_depth_pass(xr_vector<R_dsgraph::_MatrixItemS>& list, ID3DRenderTargetView* rt)
+{
+	RCache.set_RT(nullptr, 0);
+	RCache.set_ZB(RImplementation.Target->rt_bus_hidden_depth->pZRT);
+	for (R_dsgraph::_MatrixItemS& P : list)
+	{
+		const SPass* pass = P.se->passes[0]._get();
+		if (!bus_hidden_writes_depth(pass) || !bus_mask_value(P.pObject, P.bus_tag))
+			continue;
+		RCache.set_Element(P.se);
+		bus_hidden_depth_apply();
+		bus_leaf_render(P);
+	}
+	RCache.set_RT(rt, 0);
+}
+
+// the hidden leaves into the target the walk points at, over the bound hidden depth
+// a leaf that writes depth draws where it is nearest, one that does not keeps its own depth test
+static void bus_hidden_redraw(xr_vector<R_dsgraph::_MatrixItemS>& list)
+{
+	for (R_dsgraph::_MatrixItemS& P : list)
+	{
+		const SPass* pass = P.se->passes[0]._get();
+		const u32 value = bus_mask_mesh_draws(pass) ? bus_mask_value(P.pObject, P.bus_tag) : 0;
+		if (!value)
+			continue;
+		RCache.set_Element(P.se);
+		bool moved = false;
+		if (bus_hidden_writes_depth(pass))
+			bus_mask_apply(value);
+		else
+			moved = bus_mask_apply_mesh(value, pass);
+		bus_leaf_render(P);
+		if (moved)
+			bus_mask_slot0_restore();
+	}
+}
+
+// tagged forward leaves and hidden objects into the coverage targets and particles into their own target, the list cleared every frame
+void R_dsgraph_structure::r_dsgraph_render_bus_forward()
+{
+	if (bus_forward.empty() && bus_hidden.empty())
+	{
+		bus_hidden_rects.clear();
+		return;
+	}
+
+	CRenderTarget* T = RImplementation.Target;
+	if (bus_live_bits && T->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame())
+	{
+		bool meshes = false;
+		bool particles = false;
+		for (R_dsgraph::_MatrixItemS& P : bus_forward)
+			(P.pVisual->dcast_ParticleCustom() ? particles : meshes) = true;
+		particles = particles && T->rt_bus_particle_mask;
+		meshes = meshes && T->rt_bus_cover_mask;
+		const bool hidden = !bus_hidden.empty() && !bus_hidden_rects.empty() && T->rt_bus_hidden_depth;
+		if (meshes || hidden || particles)
+		{
+			PROF_EVENT("r_dsgraph_render_bus_forward");
+			ID3DRenderTargetView* saved[4];
+			bus_mask_bind(saved);
+			ID3DDepthStencilView* zb = RCache.get_ZB();
+			if (meshes || hidden)
+			{
+				bus_mask_pass_begin(bus_pass_tag, T->rt_bus_cover_mask->pRT, 0);
+				bus_forward_redraw(bus_forward);
+				if (hidden)
+				{
+					bus_hidden_depth_resolve(bus_hidden_rects);
+					bus_hidden_depth_pass(bus_hidden, T->rt_bus_cover_mask->pRT);
+					bus_hidden_redraw(bus_hidden);
+					RCache.set_ZB(zb);
+				}
+				if (T->rt_bus_cover_object_id)
+				{
+					bus_mask_pass_begin(bus_pass_id, T->rt_bus_cover_object_id->pRT, 0);
+					bus_forward_redraw(bus_forward);
+					if (hidden)
+					{
+						RCache.set_ZB(T->rt_bus_hidden_depth->pZRT);
+						bus_hidden_redraw(bus_hidden);
+						RCache.set_ZB(zb);
+					}
+				}
+				if (bus_layer_bits && T->rt_bus_cover_layer)
+				{
+					bus_mask_pass_begin(bus_pass_layer, T->rt_bus_cover_layer->pRT, bus_layer_bits);
+					bus_forward_redraw(bus_forward);
+					// hidden leaves on the layer cover through walls, so their depth starts empty
+					if (hidden)
+					{
+						HW.pContext->ClearDepthStencilView(T->rt_bus_hidden_depth->pZRT, D3D_CLEAR_DEPTH, 1.f, 0);
+						bus_hidden_depth_pass(bus_hidden, T->rt_bus_cover_layer->pRT);
+						bus_hidden_redraw(bus_hidden);
+					}
+					RCache.set_ZB(zb);
+				}
+			}
+			// particles draw their tags into their own target alone, so the mask keeps the objects behind them
+			if (particles)
+			{
+				bus_mask_pass_begin(bus_pass_particle, T->rt_bus_particle_mask->pRT, 0);
+				bus_forward_redraw(bus_forward);
+			}
+			bus_mask_unbind(saved);
+		}
+	}
+	bus_forward.clear();
+	bus_hidden.clear();
+	bus_hidden_rects.clear();
+}
+
+// the tagged objects of the hidden bits the deferred gather drew nowhere, culled while occlusion is live, the nearest kept
+void R_dsgraph_structure::r_dsgraph_collect_bus_hidden()
+{
+	static xr_vector<IRenderable*> holders;
+	static xr_vector<std::pair<float, CObject*>> found;
+	static bool truncated = false;
+	bus_hidden_found.clear();
+	ShaderBus::mask_holders(bus_hidden_bits, holders);
+	found.clear();
+	for (IRenderable* r : holders)
+	{
+		CObject* O = fast_dynamic_cast<CObject*>(r);
+		dxRender_Visual* V = (dxRender_Visual*)r->renderable.visual;
+		if (!O || O->H_Parent() || !V || !O->spatial.node_ptr || V->vis.hom_frame == Device.dwFrame)
+			continue;
+		if (!(O->spatial.type & STYPE_RENDERABLE))
+			O->spatial_updatesector();
+		CSector* sector = (CSector*)O->spatial.sector;
+		if (!sector || PortalTraverser.i_marker != sector->r_marker)
+			continue;
+		bool seen = false;
+		for (CFrustum& view : sector->r_frustums)
+			if (view.testSphere_dirty(O->spatial.sphere.P, O->spatial.sphere.R))
+			{
+				seen = true;
+				break;
+			}
+		if (!seen)
+			continue;
+		if (!(r->renderable.bus_mask & bus_hidden_bits & bus_layer_bits))
+		{
+			Fbox3 box = V->vis.box;
+			box.xform(r->renderable.xform);
+			if (!RImplementation.HOM.visible(box))
+				continue;
+		}
+		found.emplace_back(Device.vCameraPosition.distance_to_sqr(O->spatial.sphere.P), O);
+	}
+	if (found.empty())
+		return;
+
+	std::sort(found.begin(), found.end(), [](const std::pair<float, CObject*>& a, const std::pair<float, CObject*>& b) { return a.first < b.first; });
+	if (found.size() > bus_hidden_max)
+	{
+		if (!truncated)
+			Msg("! [SHADER-BUS] more than %u hidden tagged objects in view, the farthest draw no mask", bus_hidden_max);
+		truncated = true;
+		found.resize(bus_hidden_max);
+	}
+	for (auto it = found.rbegin(); it != found.rend(); ++it)
+		bus_hidden_found.push_back(it->second);
+}
+
+// the kept hidden objects into the forward mask list far to near, stamped and updated as seen objects
+void R_dsgraph_structure::r_dsgraph_add_bus_hidden()
+{
+	for (CObject* O : bus_hidden_found)
+	{
+		dxRender_Visual* V = (dxRender_Visual*)O->renderable.visual;
+		set_Object(O);
+		val_busTag &= bus_hidden_bits;
+		set_Transform(&O->renderable.xform);
+		const size_t listed = bus_hidden.size();
+		val_bMaskOnly = TRUE;
+		RImplementation.add_Visual(O->renderable.visual);
+		val_bMaskOnly = FALSE;
+		// the rectangle of the current pose, for an object whose insert listed a mesh leaf
+		if (bus_hidden.size() != listed)
+		{
+			Fbox3 box = bus_hidden_box(V);
+			box.xform(O->renderable.xform);
+			const Fvector4 rect = bus_hidden_rect(box);
+			if (rect.x < rect.z && rect.y < rect.w)
+				bus_hidden_rects.push_back(rect);
+		}
+		// stamped as drawn and made a crow, so the game updates it like a seen object at any range
+		V->vis.hom_frame = Device.dwFrame;
+		O->MakeMeCrow();
+	}
+	set_Object(0);
+	bus_hidden_found.clear();
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // HUD render
 void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
@@ -653,10 +1034,29 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	rmNear();
 	if (!NoPS)
 	{
+		const bool mask = bus_mask_begin();
 		mapHUD.traverseLR(sorted_L1);
+#if defined(USE_DX10) || defined(USE_DX11)
+		if (mask)
+		{
+			ID3DRenderTargetView* saved[4];
+			bus_mask_bind(saved);
+			mapHUD.traverseLR(sorted_L1_bus_mask);
+			bus_mask_unbind(saved);
+		}
+#endif
 		mapHUD.clear();
 
 		mapCustomFOV.traverseLR(sorted_L1);
+#if defined(USE_DX10) || defined(USE_DX11)
+		if (mask)
+		{
+			ID3DRenderTargetView* saved[4];
+			bus_mask_bind(saved);
+			mapCustomFOV.traverseLR(sorted_L1_bus_mask);
+			bus_mask_unbind(saved);
+		}
+#endif
 		mapCustomFOV.clear();
 
         if (mapCamAttached.size())
@@ -665,6 +1065,15 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
             RCache.set_xform_project(Device.mProjectCamAttached);
 
             mapCamAttached.traverseLR(sorted_L1);
+#if defined(USE_DX10) || defined(USE_DX11)
+			if (mask)
+			{
+				ID3DRenderTargetView* saved[4];
+				bus_mask_bind(saved);
+				mapCamAttached.traverseLR(sorted_L1_bus_mask);
+				bus_mask_unbind(saved);
+			}
+#endif
             mapCamAttached.clear();
         }
 
@@ -680,6 +1089,13 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
             RCache.set_xform_project(Device.mProjectHud);
 
 			mapScopeHUD.traverseLR(sorted_L1);
+			if (mask)
+			{
+				ID3DRenderTargetView* saved[4];
+				bus_mask_bind(saved);
+				mapScopeHUD.traverseLR(sorted_L1_bus_mask);
+				bus_mask_unbind(saved);
+			}
 
             if (mapScopeCamAttached.size())
             {
@@ -1151,3 +1567,8 @@ void R_dsgraph_structure::r_dsgraph_render_landscape(u32 pass, bool _clear)
 	if (_clear)
 		mapLandscape.clear();
 }
+
+template void R_dsgraph_structure::r_dsgraph_render_graph<false>(u32, bool);
+#if defined(USE_DX10) || defined(USE_DX11)
+template void R_dsgraph_structure::r_dsgraph_render_graph<true>(u32, bool);
+#endif
