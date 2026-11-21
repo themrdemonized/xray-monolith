@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "imgui_base.h"
 #include <imgui.h>
+#include <implot.h>
 #include <imgui/IconsFontAwesome6.h>
 #include "device.h"
 #include "IGame_Persistent.h"
@@ -34,6 +35,7 @@ namespace xr_imgui
         );
 
         m_context = ImGui::CreateContext();
+        ImPlot::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
         io.BackendPlatformName = "imgui_impl_xray";
@@ -46,6 +48,7 @@ namespace xr_imgui
 
     ide::~ide()
     {
+        ImPlot::DestroyContext();
         ImGui::DestroyContext(m_context);
     }
 
