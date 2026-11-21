@@ -349,6 +349,16 @@ jobs:
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
       run: msbuild /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
 
+    - name: Verify tbb12.dll
+      # The -mt exes load the oneTBB scheduler runtime at startup; xrEngine's
+      # post-build step copies it next to them. Fail here rather than ship
+      # exes that cannot start.
+      run: |
+        if (-not (Test-Path "./_build/_game/bin_dbg/tbb12.dll")) {
+          Write-Error "tbb12.dll missing from _build/_game/bin_dbg after build"
+          exit 1
+        }
+
     - name: Upload Exe
       uses: actions/upload-artifact@v4.6.0
       with:
@@ -356,7 +366,9 @@ jobs:
         name: ${{matrix.buildconf}}_mt_exe
 
         # A file, directory or wildcard pattern that describes what to upload
-        path: ./_build/_game/bin_dbg/*.exe
+        path: |
+          ./_build/_game/bin_dbg/*.exe
+          ./_build/_game/bin_dbg/tbb12.dll
 
         # The desired behavior if no files are found using the provided path. Available Options:
           #  warn: Output a warning but do not fail the action
@@ -448,6 +460,10 @@ jobs:
         mv ${{env.DX10AVX}}_mt_exe/*.exe release_mt/bin
         mv ${{env.DX9AVX}}_mt_exe/*.exe release_mt/bin
         mv ${{env.DX8AVX}}_mt_exe/*.exe release_mt/bin
+        for conf in ${{env.DX11}} ${{env.DX10}} ${{env.DX9}} ${{env.DX8}} ${{env.DX11AVX}} ${{env.DX10AVX}} ${{env.DX9AVX}} ${{env.DX8AVX}}; do
+          test -f "${conf}_mt_exe/tbb12.dll" || { echo "::error::tbb12.dll missing from ${conf}_mt_exe artifact"; exit 1; }
+        done
+        cp ${{env.DX11}}_mt_exe/tbb12.dll release_mt/bin
         unzip ${{env.DX11}}_mt_pdb/*.zip -d release_mt/bin
         unzip ${{env.DX11AVX}}_mt_pdb/*.zip -d release_mt/bin
 
