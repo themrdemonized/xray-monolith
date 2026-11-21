@@ -287,6 +287,10 @@
         property dest_position          // Fvector
     }
 
+    class cse_alife_trader_abstract {
+        function set_character_display_name(string)
+    }
+
     // game_graph()
     class CGameGraph {
         table level_neighbours(number level_id) // {[level_id] = true} for every level sharing a game-graph edge with level_id; empty table when the level is unknown or has no cross-level edges (offline squads cannot path in or out)
