@@ -293,7 +293,7 @@ namespace
 		if (nearest != ALife::_SPAWN_ID(-1))
 			pack.drift.push_back({object.m_tSpawnID, nearest, best, false});
 
-		if (std::find(pack.substituted.begin(), pack.substituted.end(), level_id) != pack.substituted.end())
+		if (std::find(pack.rebuilt_objects.begin(), pack.rebuilt_objects.end(), level_id) != pack.rebuilt_objects.end())
 			return;
 		const auto found = known_index.find(shared_str(object.name_replace()));
 		if (found == known_index.end())
@@ -366,6 +366,111 @@ namespace
 		return 1;
 	}
 
+	struct SRecordHead
+	{
+		string64 section;
+		string256 name;
+		Fvector position;
+		// u32(-1) when peek_graph_vertex cannot read it
+		u32 pack_vertex_id;
+	};
+
+	// Sub-chunk 0 of an all.spawn record (u16 size + M_SPAWN packet), read up to its graph vertex.
+	bool read_record_head(IReader& record, NET_Packet& packet, SRecordHead& head, string256& reason)
+	{
+		head.name[0] = 0;
+		IReader* chunk = record.open_chunk(0);
+		if (!chunk)
+		{
+			xr_strcpy(reason, "no spawn packet");
+			return false;
+		}
+		const u32 size = chunk->r_u16();
+		if (size > NET_PacketSizeLimit || int(size) > chunk->elapsed())
+		{
+			chunk->close();
+			xr_sprintf(reason, "spawn packet of %d bytes is corrupt", size);
+			return false;
+		}
+		packet.B.count = size;
+		chunk->r(packet.B.data, size);
+		chunk->close();
+
+		u16 id;
+		packet.r_begin(id);
+		if (id != M_SPAWN)
+		{
+			xr_strcpy(reason, "not an M_SPAWN packet");
+			return false;
+		}
+		packet.r_stringZ_s(head.section);
+		packet.r_stringZ_s(head.name);
+		packet.r_u8();
+		packet.r_u8();
+		packet.r_vec3(head.position);
+		head.pack_vertex_id = peek_graph_vertex(packet);
+		return true;
+	}
+
+	// Which pack levels (pack graph ids) hold spawn records and which hold patrol paths. A path is on the level of
+	// its first point on the AI map; a record whose graph vertex cannot be read counts for every level.
+	struct SPackContent
+	{
+		xr_set<GameGraph::_LEVEL_ID> record_levels;
+		xr_set<GameGraph::_LEVEL_ID> path_levels;
+		u32 unplaced_records = 0;
+
+		bool records_on(const GameGraph::_LEVEL_ID level) const { return unplaced_records || record_levels.count(level); }
+		bool paths_on(const GameGraph::_LEVEL_ID level) const { return path_levels.count(level) != 0; }
+	};
+
+	void scan_content(const CSpawnPacks::SPack& pack, SPackContent& content)
+	{
+		const u32 vertex_count = pack.graph->header().vertex_count();
+		if (IReader* records = pack.file->open_chunk(1))
+		{
+			if (IReader* vertices = records->open_chunk(1))
+			{
+				u32 vertex_id;
+				for (IReader* vertex = vertices->open_chunk_iterator(vertex_id); vertex; vertex = vertices->open_chunk_iterator(vertex_id, vertex))
+				{
+					IReader* record = vertex->open_chunk(1);
+					if (!record)
+						continue;
+					NET_Packet packet;
+					SRecordHead head;
+					string256 reason;
+					const bool read = read_record_head(*record, packet, head, reason);
+					record->close();
+					if (read && head.pack_vertex_id < vertex_count)
+						content.record_levels.insert(pack.graph->vertex(head.pack_vertex_id)->level_id());
+					else
+						++content.unplaced_records;
+				}
+				vertices->close();
+			}
+			records->close();
+		}
+
+		if (IReader* chunk = pack.file->open_chunk(3))
+		{
+			CPatrolPathStorage source;
+			source.load(*chunk);
+			chunk->close();
+			for (const auto& i : source.patrol_paths())
+				for (const auto& I : i.second->vertices())
+				{
+					const CPatrolPoint& point = I.second->data();
+					if (point.level_vertex_id(nullptr, nullptr, pack.graph) == u32(-1))
+						continue;
+					const GameGraph::_GRAPH_ID pack_vertex_id = point.game_vertex_id(nullptr, nullptr, pack.graph);
+					if (pack_vertex_id < vertex_count)
+						content.path_levels.insert(pack.graph->vertex(pack_vertex_id)->level_id());
+					break;
+				}
+		}
+	}
+
 	// One all.spawn record: sub-chunk 0 = u16 size + M_SPAWN packet, sub-chunk 1 = u16 size + M_UPDATE packet.
 	// Sets present (match = that template) for an object already registered (base or an earlier pack) and no_level
 	// when the record's own level is not (yet) in the assembled graph, and rebuilt_elsewhere when that level is one of
@@ -378,40 +483,15 @@ namespace
 		present = false;
 		no_level = false;
 		rebuilt_elsewhere = false;
-		name[0] = 0;
-		IReader* chunk = record.open_chunk(0);
-		if (!chunk)
-		{
-			xr_strcpy(reason, "no spawn packet");
-			return nullptr;
-		}
-		const u32 size = chunk->r_u16();
-		if (size > NET_PacketSizeLimit || int(size) > chunk->elapsed())
-		{
-			chunk->close();
-			xr_sprintf(reason, "spawn packet of %d bytes is corrupt", size);
-			return nullptr;
-		}
 		NET_Packet packet;
-		packet.B.count = size;
-		chunk->r(packet.B.data, size);
-		chunk->close();
-
-		u16 id;
-		packet.r_begin(id);
-		if (id != M_SPAWN)
-		{
-			xr_strcpy(reason, "not an M_SPAWN packet");
+		SRecordHead head;
+		const bool read = read_record_head(record, packet, head, reason);
+		xr_strcpy(name, head.name);
+		if (!read)
 			return nullptr;
-		}
-		string64 section;
-		packet.r_stringZ_s(section);
-		packet.r_stringZ_s(name);
-		packet.r_u8();
-		packet.r_u8();
-		Fvector position;
-		packet.r_vec3(position);
-		const u32 pack_vertex_id = peek_graph_vertex(packet);
+		const LPCSTR section = head.section;
+		const Fvector& position = head.position;
+		const u32 pack_vertex_id = head.pack_vertex_id;
 		if (pack_vertex_id != u32(-1) && pack_vertex_id < pack.vertex_map.size())
 		{
 			const LPCSTR level_name = pack_level_name(pack, pack_vertex_id);
@@ -664,6 +744,8 @@ u32 CSpawnPacks::append_levels(CGameGraphBuilder& builder, float tolerance, cons
 		SPack& pack = *entry;
 		const LPCSTR file_name = *pack.file_name;
 		pack.vertex_map.assign(pack.graph->header().vertex_count(), u32(-1));
+		SPackContent content;
+		bool scanned = false;
 
 		auto I = pack.graph->header().levels().begin();
 		auto E = pack.graph->header().levels().end();
@@ -737,12 +819,26 @@ u32 CSpawnPacks::append_levels(CGameGraphBuilder& builder, float tolerance, cons
 				}
 				pack.substituted.push_back(level_id);
 				++changed;
-				string64 added_text = "", placeholder_text = "";
+				if (!scanned)
+				{
+					scan_content(pack, content);
+					scanned = true;
+				}
+				const bool objects = content.records_on(level.id());
+				const bool paths = content.paths_on(level.id());
+				if (objects)
+					pack.rebuilt_objects.push_back(level_id);
+				if (paths)
+					pack.rebuilt_paths.push_back(level_id);
+				string64 added_text = "", placeholder_text = "", unplaced_text = "";
 				if (added)
 					xr_sprintf(added_text, ", +%d added", added);
 				if (placeholders)
 					xr_sprintf(placeholder_text, ", %d placeholders", placeholders);
-				Msg("* [spawn_overlays] pack %s: level '%s' (id %d) rebuilt from the pack to match the installed level.ai: %d vertex ids reused%s%s", file_name, level_name, level_id, reused, added_text, placeholder_text);
+				if (content.unplaced_records)
+					xr_sprintf(unplaced_text, " (%d records whose level cannot be read)", content.unplaced_records);
+				Msg("* [spawn_overlays] pack %s: level '%s' (id %d) rebuilt from the pack to match the installed level.ai: %d vertex ids reused%s%s; objects %s%s, paths %s", file_name, level_name, level_id, reused, added_text, placeholder_text,
+					objects ? "from the pack" : "of the base kept", unplaced_text, paths ? "from the pack" : "of the base kept");
 				continue;
 			}
 
@@ -817,20 +913,30 @@ bool CSpawnPacks::carries(const LPCSTR level_name) const
 	return false;
 }
 
-xr_vector<GameGraph::_LEVEL_ID> CSpawnPacks::rebuilt_levels() const
+xr_vector<GameGraph::_LEVEL_ID> CSpawnPacks::rebuilt_object_levels() const
 {
 	xr_vector<GameGraph::_LEVEL_ID> result;
 	for (const auto* pack : m_packs)
-		result.insert(result.end(), pack->substituted.begin(), pack->substituted.end());
+		result.insert(result.end(), pack->rebuilt_objects.begin(), pack->rebuilt_objects.end());
 	return result;
 }
 
-xr_vector<GameGraph::_LEVEL_ID> CSpawnPacks::rebuilt_by_others(const SPack& pack) const
+xr_vector<GameGraph::_LEVEL_ID> CSpawnPacks::resnapped_levels() const
+{
+	xr_vector<GameGraph::_LEVEL_ID> result;
+	for (const auto* pack : m_packs)
+		for (const GameGraph::_LEVEL_ID level_id : pack->substituted)
+			if (std::find(pack->rebuilt_objects.begin(), pack->rebuilt_objects.end(), level_id) == pack->rebuilt_objects.end())
+				result.push_back(level_id);
+	return result;
+}
+
+xr_vector<GameGraph::_LEVEL_ID> CSpawnPacks::rebuilt_by_others(const SPack& pack, xr_vector<GameGraph::_LEVEL_ID> SPack::* kind) const
 {
 	xr_vector<GameGraph::_LEVEL_ID> result;
 	for (const auto* other : m_packs)
 		if (other != &pack)
-			result.insert(result.end(), other->substituted.begin(), other->substituted.end());
+			result.insert(result.end(), (other->*kind).begin(), (other->*kind).end());
 	return result;
 }
 
@@ -841,12 +947,12 @@ u32 CSpawnPacks::add_objects(STemplates& templates, const CGameGraph& graph)
 	{
 		SPack& pack = *entry;
 		const LPCSTR file_name = *pack.file_name;
-		const xr_vector<GameGraph::_LEVEL_ID> rebuilt_elsewhere_levels = rebuilt_by_others(pack);
+		const xr_vector<GameGraph::_LEVEL_ID> rebuilt_elsewhere_levels = rebuilt_by_others(pack, &SPack::rebuilt_objects);
 		IReader* records = pack.file->open_chunk(1);
 		IReader* vertices = records ? records->open_chunk(1) : nullptr;
 		if (!vertices)
 		{
-			Msg("! [spawn_overlays] pack %s: no spawn records", file_name);
+			Msg("%s [spawn_overlays] pack %s: no spawn records", pack.appended.empty() ? "*" : "!", file_name);
 			if (records)
 				records->close();
 			continue;
@@ -984,8 +1090,11 @@ u32 CSpawnPacks::add_paths(CPatrolPathStorage& storage, const CGameGraph& graph)
 	for (const auto* pack : m_packs)
 		for (const GameGraph::_LEVEL_ID level_id : pack->substituted)
 		{
-			const u32 erased = storage.erase_compiled_level(graph, level_id);
-			Msg("* [spawn_overlays] pack %s: level '%s' rebuilt, -%d compiled paths on it (the pack's are taken)", *pack->file_name, *graph.header().level(level_id).name(), erased);
+			if (std::find(pack->rebuilt_paths.begin(), pack->rebuilt_paths.end(), level_id) != pack->rebuilt_paths.end())
+			{
+				const u32 erased = storage.erase_compiled_level(graph, level_id);
+				Msg("* [spawn_overlays] pack %s: level '%s' rebuilt, -%d compiled paths on it (the pack's are taken)", *pack->file_name, *graph.header().level(level_id).name(), erased);
+			}
 			storage.approximate_level(graph, level_id);
 		}
 
@@ -1002,7 +1111,7 @@ u32 CSpawnPacks::add_paths(CPatrolPathStorage& storage, const CGameGraph& graph)
 		source.load(*chunk);
 		chunk->close();
 
-		const xr_vector<GameGraph::_LEVEL_ID> rebuilt_elsewhere_levels = rebuilt_by_others(pack);
+		const xr_vector<GameGraph::_LEVEL_ID> rebuilt_elsewhere_levels = rebuilt_by_others(pack, &SPack::rebuilt_paths);
 		if (!rebuilt_elsewhere_levels.empty())
 		{
 			xr_vector<shared_str> elsewhere;
@@ -1113,6 +1222,12 @@ bool CSpawnPacks::take_legacy(xr_vector<u16>& vertices, xr_vector<u16>& spawn_id
 		if (pack->missing_levels)
 		{
 			Msg("! [spawn_overlays] pack %s: %d of its levels are not in the graph, the saved game cannot be translated", *pack->file_name, pack->missing_levels);
+			return false;
+		}
+		// built by add_objects only when the pack has spawn records
+		if (pack->legacy_vertices.empty())
+		{
+			Msg("! [spawn_overlays] pack %s: has no spawn records, the saved game cannot be translated", *pack->file_name);
 			return false;
 		}
 		vertices.swap(pack->legacy_vertices);
