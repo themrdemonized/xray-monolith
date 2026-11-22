@@ -179,7 +179,12 @@ Edits one spawn template. The section suffix is the object name. All keys are op
 | `dest_level = <level name>` | level changers only: the level it leads to. Needs `dest_position`. A level that isn't installed skips the three `dest_*` keys. |
 | `dest_position = x, y, z` | level changers only: arrival point on the destination level; its graph vertex and AI node are re-resolved |
 | `dest_direction = x, y, z` | level changers only: the actor's facing on arrival |
+| `box = width, height, depth` | shaped objects only (restrictors, smart terrains, anomalies, level changers, smart covers): replaces the shape with one box centred on the object, values as in [`[spawn_add@]`](#spawn_addname). Given with `sphere`, both are ignored (`!` log). A bad value is ignored (`!` log) and the rest of the patch applies. |
+| `sphere = radius` | shaped objects only: replaces the shape with one sphere centred on the object, values as in [`[spawn_add@]`](#spawn_addname). A bad value is ignored (`!` log) and the rest of the patch applies. |
+| `restrictor_type = <type>` | restrictors only, smart terrains included: values as in [`[spawn_add@]`](#spawn_addname). A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `description`, `loopholes`, `hold_position_time`, ... | smart covers only, see [Smart covers](#smart-covers) |
+
+Like every template edit, a new shape or restrictor type reaches new games only.
 
 ```ini
 [spawn_patch@gar_physic_object_bandit_base_generator]

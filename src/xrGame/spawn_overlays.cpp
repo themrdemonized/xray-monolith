@@ -499,6 +499,12 @@ namespace
 		return !xr_strcmp(key, "dest_level") || !xr_strcmp(key, "dest_position") || !xr_strcmp(key, "dest_direction");
 	}
 
+	// Keys apply_shape and apply_restrictor_type take after the patch key loop
+	bool shape_key(const LPCSTR key)
+	{
+		return !xr_strcmp(key, "box") || !xr_strcmp(key, "sphere") || !xr_strcmp(key, "restrictor_type");
+	}
+
 	bool has_value(CInifile& ini, const LPCSTR section, const LPCSTR key)
 	{
 		if (!ini.line_exist(section, key))
@@ -705,6 +711,9 @@ namespace
 		return applied + u32(has_description) + u32(has_loopholes);
 	}
 
+	int apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const bool required);
+	bool apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object);
+
 	bool apply_patch(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const CGameGraph& graph, const LPCSTR name, STemplateIds& ids)
 	{
 		auto* alife_object = smart_cast<CSE_ALifeObject*>(&object);
@@ -754,7 +763,7 @@ namespace
 				continue;
 			}
 
-			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key) || smart_cover_key(object, key))
+			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key) || shape_key(key) || smart_cover_key(object, key))
 				continue;
 			if (!xr_strcmp(key, "position"))
 			{
@@ -785,6 +794,10 @@ namespace
 		}
 
 		applied += apply_destination(ini, section, object, graph, name);
+		if (apply_shape(ini, section, object, false) > 0)
+			++applied;
+		if (apply_restrictor_type(ini, section, object))
+			++applied;
 
 		if (auto* cover = smart_cast<CSE_SmartCover*>(&object))
 		{
@@ -1184,15 +1197,17 @@ namespace
 		return false;
 	}
 
-	bool parse_shape(CInifile& ini, const LPCSTR section, const LPCSTR key, CShapeData::shape_def& shape)
+	bool parse_shape(CInifile& ini, const LPCSTR section, const LPCSTR key, CShapeData::shape_def& shape, const LPCSTR outcome)
 	{
 		const LPCSTR value = ini.r_string(section, key);
+		string256 reason;
 		if (!xr_strcmp(key, "box"))
 		{
 			Fvector size;
 			if (!read_vector(ini, section, key, size) || size.x <= 0.f || size.y <= 0.f || size.z <= 0.f)
 			{
-				log_skip(line_source(ini, section, key), section, key, "must be width, height, depth, all above 0; section skipped");
+				xr_sprintf(reason, "must be width, height, depth, all above 0; %s", outcome);
+				log_skip(line_source(ini, section, key), section, key, reason);
 				return false;
 			}
 			shape.type = CShapeData::cfBox;
@@ -1205,7 +1220,8 @@ namespace
 		float radius;
 		if (1 != sscanf(value, "%f", &radius) || radius <= 0.f)
 		{
-			log_skip(line_source(ini, section, key), section, key, "must be a radius above 0; section skipped");
+			xr_sprintf(reason, "must be a radius above 0; %s", outcome);
+			log_skip(line_source(ini, section, key), section, key, reason);
 			return false;
 		}
 		shape.type = CShapeData::cfSphere;
@@ -1234,41 +1250,48 @@ namespace
 		return *graph.header().level(graph.vertex(alife_object->m_tGraphID)->level_id()).name();
 	}
 
-	bool apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	// Box or sphere replaces a shaped object's shapes, -1 when refused, 0 when neither is given, 1 when applied
+	// Adds require one and a refusal skips the section, patches ignore a refused key
+	int apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const bool required)
 	{
+		const LPCSTR outcome = required ? "section skipped" : "ignored";
 		const bool has_box = has_value(ini, section, "box");
 		const bool has_sphere = has_value(ini, section, "sphere");
 		if (auto* shaped = smart_cast<CSE_Shape*>(&object))
 		{
+			if (!required && !has_box && !has_sphere)
+				return 0;
 			if (has_box == has_sphere)
 			{
-				log_skip(section_source(ini, section), section, "box", has_box ? "box and sphere are both given, section skipped" : "a shaped object needs box or sphere, section skipped");
-				return false;
+				string256 reason;
+				xr_sprintf(reason, "%s, %s", has_box ? "box and sphere are both given" : "a shaped object needs box or sphere", outcome);
+				log_skip(section_source(ini, section), section, "box", reason);
+				return -1;
 			}
 			CShapeData::shape_def shape;
-			if (!parse_shape(ini, section, has_box ? "box" : "sphere", shape))
-				return false;
+			if (!parse_shape(ini, section, has_box ? "box" : "sphere", shape, outcome))
+				return -1;
 			shaped->shapes.clear();
 			shaped->shapes.push_back(shape);
-			return true;
+			return 1;
 		}
 		if (has_box)
 			log_skip(line_source(ini, section, "box"), section, "box", "not a shaped object, ignored");
 		if (has_sphere)
 			log_skip(line_source(ini, section, "sphere"), section, "sphere", "not a shaped object, ignored");
-		return true;
+		return 0;
 	}
 
-	void apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	bool apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
 	{
 		if (!has_value(ini, section, "restrictor_type"))
-			return;
+			return false;
 		const LPCSTR source = line_source(ini, section, "restrictor_type");
 		auto* restrictor = smart_cast<CSE_ALifeSpaceRestrictor*>(&object);
 		if (!restrictor)
 		{
 			log_skip(source, section, "restrictor_type", "not a space restrictor, ignored");
-			return;
+			return false;
 		}
 
 		static const std::pair<LPCSTR, u8> types[] = {
@@ -1285,10 +1308,11 @@ namespace
 			if (!xr_strcmp(value, name))
 			{
 				restrictor->m_space_restrictor_type = id;
-				return;
+				return true;
 			}
 		}
 		log_skip(source, section, "restrictor_type", "must be default_none, default_out, default_in, none, in or out; ignored");
+		return false;
 	}
 
 	bool apply_changer(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
@@ -1376,7 +1400,7 @@ namespace
 		object->set_name_replace(name);
 		object->o_Position = position;
 
-		if (!apply_shape(ini, section, *object) || !apply_changer(ini, section, *object))
+		if (apply_shape(ini, section, *object, true) < 0 || !apply_changer(ini, section, *object))
 			return refuse();
 
 		apply_restrictor_type(ini, section, *object);
