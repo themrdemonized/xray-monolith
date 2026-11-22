@@ -981,6 +981,7 @@ constexpr ALCchar alcNoDeviceExtList[] =
     "ALC_SOFT_loopback_bformat "
     "ALC_SOFT_reopen_device";
 constexpr ALCchar alcExtensionList[] =
+    "ALC_DMN_output_loudness "
     "ALC_ENUMERATE_ALL_EXT "
     "ALC_ENUMERATION_EXT "
     "ALC_EXT_CAPTURE "

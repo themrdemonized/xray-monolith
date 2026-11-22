@@ -659,7 +659,7 @@
         bool is_demo_record()
         float get_music_volume()
         void set_music_volume(float)
-        function get_output_loudness() -> bool ok, float momentary, float short_term, float peak // EBU R128 loudness of the final OpenAL mix (effects, music, rain): momentary over 400 ms and short-term over 3 s in LUFS, sample peak of the last 400 ms in dBFS, all floored at -70. The first call starts the meter, which costs nothing until then; ok is false until 3 s are measured, and with no sound device or -nosound
+        function get_output_loudness() -> bool ok, float momentary, float short_term, float peak // EBU R128 loudness of the final OpenAL mix (effects, music, rain): momentary over 400 ms and short-term over 3 s in LUFS, sample peak of the last 400 ms in dBFS, all floored at -70. The first call starts the meter, and the first call after an output device switch starts it again. ok is false until 3 s are measured, with no sound device and under -nosound
 
         float get_weather_weight()
         void set_weather_weight(float)

@@ -501,7 +501,8 @@ ALC_API void ALC_APIENTRY alcGetInteger64vSOFT(ALCdevice *device, ALCenum pname,
 
 /* xray-monolith: EBU R128 loudness of the device output. values[0..2] get
  * momentary and short-term loudness (LUFS) and sample peak (dBFS). The first
- * call starts the meter; it returns ALC_FALSE until 3 s are measured.
+ * call starts the meter, and the function returns ALC_FALSE until 3 s are
+ * measured.
  */
 #ifndef ALC_DMN_output_loudness
 #define ALC_DMN_output_loudness 1

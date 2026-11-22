@@ -434,7 +434,7 @@ public:
 	virtual void object_relcase(CObject* obj) = 0;
 	virtual const Fvector& listener_position() = 0;
 	// EBU R128 loudness of the final mix: momentary and short-term (LUFS), sample peak (dBFS).
-	// The first call starts the meter; false until 3 s are measured, or with no device.
+	// The first call starts the meter. It returns false until 3 s are measured, and with no device.
 	virtual bool get_output_loudness(float& momentary, float& short_term, float& peak) = 0;
 #ifdef __BORLANDC__
 	virtual SoundEnvironment_LIB*	get_env_library			()																						= 0;

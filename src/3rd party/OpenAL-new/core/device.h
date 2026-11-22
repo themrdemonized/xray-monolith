@@ -343,8 +343,8 @@ struct DeviceBase {
     void renderSamples(void *outBuffer, const uint numSamples, const size_t frameStep);
 
     /* Writes momentary and short-term loudness (LUFS) and sample peak (dBFS)
-     * to values[0..2]. The first call starts the meter; false until it holds
-     * 3 s of output.
+     * to values[0..2]. The first call starts the meter, and the call returns
+     * false until the meter holds 3 s of output.
      */
     bool readLoudness(float *values) noexcept;
 

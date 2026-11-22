@@ -2140,9 +2140,12 @@ void DeviceBase::measureLoudness(const uint samplesToDo) noexcept
         meter.Ra1 = 2.0 * (k*k - 1.0) / a0;
         meter.Ra2 = (1.0 - k/q + k*k) / a0;
 
-        /* Channel weights: surround 1.41, LFE left out, the rest 1. */
+        /* BS.1770-4 channel weights: 1.41 from 60 to 120 degrees, which is the
+         * side pair at 90 or 110, LFE left out, and 1 for the rest, the back
+         * speakers at 135, 150 and 180 included.
+         */
         meter.Weight.fill(1.0);
-        for(const Channel chan : {SideLeft, SideRight, BackLeft, BackRight, BackCenter})
+        for(const Channel chan : {SideLeft, SideRight})
         {
             const uint idx{RealOut.ChannelIndex[chan]};
             if(idx < numchans) meter.Weight[idx] = 1.41;
