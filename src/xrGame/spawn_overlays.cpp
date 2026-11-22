@@ -10,6 +10,11 @@
 #include "game_graph_builder.h"
 #include "patrol_path_storage.h"
 #include "restriction_space.h"
+#include "ai_space.h"
+#include "../xrServerEntities/script_engine.h"
+#include "../xrServerEntities/xrServer_Objects_ALife_Smartcovers.h"
+
+extern u16 script_server_object_version();
 
 using namespace spawn_overlays;
 
@@ -570,6 +575,136 @@ namespace
 		return applied + 1;
 	}
 
+	// Keys apply_smart_cover takes after the key loop, on any other object they stay unknown keys
+	bool smart_cover_key(const CSE_Abstract& object, const LPCSTR key)
+	{
+		static const LPCSTR keys[] = {"description", "loopholes", "hold_position_time", "enter_min_enemy_distance", "exit_min_enemy_distance", "is_combat_cover", "can_fire"};
+		if (!smart_cast<const CSE_SmartCover*>(&object))
+			return false;
+		for (const LPCSTR known : keys)
+			if (!xr_strcmp(key, known))
+				return true;
+		return false;
+	}
+
+	// Loophole ids of smart_covers.descriptions[id], false when the description is unknown
+	bool description_loopholes(const LPCSTR id, xr_vector<shared_str>& result)
+	{
+		::luabind::object descriptions;
+		if (!ai().script_engine().function_object("smart_covers.descriptions", descriptions, LUA_TTABLE))
+			return false;
+		const ::luabind::object description = descriptions[id];
+		if (description.type() != LUA_TTABLE)
+			return false;
+		const ::luabind::object loopholes = description["loopholes"];
+		if (loopholes.type() != LUA_TTABLE)
+			return false;
+		for (::luabind::object::iterator i = loopholes.begin(), e = loopholes.end(); i != e; ++i)
+		{
+			const ::luabind::object loophole = *i;
+			if (loophole.type() != LUA_TTABLE)
+				continue;
+			const ::luabind::object loophole_id = loophole["id"];
+			if (loophole_id.type() == LUA_TSTRING)
+				result.push_back(::luabind::object_cast<LPCSTR>(loophole_id));
+		}
+		return true;
+	}
+
+	// Smart cover keys of a section, -1 with the failing key and a reason, else the keys applied
+	// The script's own STATE_Read fills its loophole table, as when the cover loads from a save
+	int apply_smart_cover(CInifile& ini, const LPCSTR section, CSE_SmartCover& cover, LPCSTR& failed_key, string256& reason)
+	{
+		const bool has_description = has_value(ini, section, "description");
+		const bool has_loopholes = has_value(ini, section, "loopholes");
+		const shared_str description = has_description ? shared_str(ini.r_string(section, "description")) : cover.m_description;
+		xr_vector<shared_str> ids;
+		if ((has_description || has_loopholes) && !description_loopholes(*description, ids))
+		{
+			failed_key = has_description ? "description" : "loopholes";
+			xr_sprintf(reason, "'%s' is not in smart_covers.descriptions", *description);
+			return -1;
+		}
+
+		xr_vector<u8> enabled(ids.size(), u8(!has_loopholes));
+		if (has_loopholes)
+		{
+			const LPCSTR list = ini.r_string(section, "loopholes");
+			// One item per comma, empty items skipped
+			for (int i = 0, n = int(std::count(list, list + xr_strlen(list), ',')) + 1; i < n; ++i)
+			{
+				xr_string id;
+				_GetItem(list, i, id);
+				if (id.empty())
+					continue;
+				const auto found = std::find(ids.begin(), ids.end(), shared_str(id.c_str()));
+				if (found != ids.end())
+					enabled[found - ids.begin()] = 1;
+				else
+				{
+					// Cuts long ids so the reason still fits
+					string256 skipped;
+					xr_sprintf(skipped, "'%.64s%s' is not a loophole of '%s', dropped", id.c_str(), id.size() > 64 ? "..." : "", *description);
+					log_skip(line_source(ini, section, "loopholes"), section, "loopholes", skipped);
+				}
+			}
+			if (std::find(enabled.begin(), enabled.end(), u8(1)) == enabled.end())
+			{
+				failed_key = "loopholes";
+				xr_sprintf(reason, "no loophole of '%s' kept", *description);
+				return -1;
+			}
+		}
+
+		u32 applied = 0;
+		const auto read_float = [&](const LPCSTR key, float& field) {
+			if (!has_value(ini, section, key))
+				return;
+			float value;
+			if (1 == sscanf(ini.r_string(section, key), "%f", &value) && _valid(value) && value >= 0.f)
+			{
+				field = value;
+				++applied;
+			}
+			else
+				log_skip(line_source(ini, section, key), section, key, "must be a number of 0 or more; ignored");
+		};
+		const auto read_bool = [&](const LPCSTR key, BOOL& field) {
+			if (!has_value(ini, section, key))
+				return;
+			field = ini.r_bool(section, key);
+			++applied;
+		};
+		read_float("hold_position_time", cover.m_hold_position_time);
+		read_float("enter_min_enemy_distance", cover.m_enter_min_enemy_distance);
+		read_float("exit_min_enemy_distance", cover.m_exit_min_enemy_distance);
+		read_bool("is_combat_cover", cover.m_is_combat_cover);
+		// Without can_fire a given is_combat_cover sets it as the constructor does, false when the section has no can_fire
+		if (!has_value(ini, section, "can_fire") && has_value(ini, section, "is_combat_cover"))
+			cover.m_can_fire = cover.m_is_combat_cover || (pSettings->line_exist(cover.s_name, "can_fire") && pSettings->r_bool(cover.s_name, "can_fire"));
+		read_bool("can_fire", cover.m_can_fire);
+		if (!has_description && !has_loopholes)
+			return applied;
+
+		// C++ state and the se_smart_cover tail (description, count, id and enabled flag per loophole)
+		cover.m_description = description;
+		NET_Packet packet;
+		packet.write_start();
+		cover.CSE_SmartCover::STATE_Write(packet);
+		packet.w_stringZ(description);
+		packet.w_u8(u8(ids.size()));
+		for (u32 i = 0; i < ids.size(); ++i)
+		{
+			packet.w_stringZ(ids[i]);
+			packet.w_u8(enabled[i]);
+		}
+		packet.read_start();
+		cover.m_wVersion = SPAWN_VERSION;
+		cover.m_script_version = script_server_object_version();
+		cover.STATE_Read(packet, u16(packet.B.count));
+		return applied + u32(has_description) + u32(has_loopholes);
+	}
+
 	bool apply_patch(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const CGameGraph& graph, const LPCSTR name, STemplateIds& ids)
 	{
 		auto* alife_object = smart_cast<CSE_ALifeObject*>(&object);
@@ -619,7 +754,7 @@ namespace
 				continue;
 			}
 
-			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key))
+			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key) || smart_cover_key(object, key))
 				continue;
 			if (!xr_strcmp(key, "position"))
 			{
@@ -650,6 +785,19 @@ namespace
 		}
 
 		applied += apply_destination(ini, section, object, graph, name);
+
+		if (auto* cover = smart_cast<CSE_SmartCover*>(&object))
+		{
+			string256 reason;
+			const int result = apply_smart_cover(ini, section, *cover, key, reason);
+			if (result < 0)
+			{
+				xr_strcat(reason, ", smart cover keys skipped");
+				log_skip(line_source(ini, section, key), section, key, reason);
+			}
+			else
+				applied += result;
+		}
 
 		if (applied)
 			Msg("* [spawn_overlays] spawn_patch: %s (%s) %d keys applied (%s)", name, *object.s_name, applied, summary_source);
@@ -1241,13 +1389,25 @@ namespace
 				log_skip(line_source(ini, section, key), section, key, "missing value");
 				continue;
 			}
-			if (add_key(key))
+			if (add_key(key) || smart_cover_key(*object, key))
 				continue;
 			if (apply_object_key(ini, section, key, value, *object, nullptr) < 0)
 				log_skip(line_source(ini, section, key), section, key, "unknown key");
 		}
 
 		string256 reason;
+		if (auto* cover = smart_cast<CSE_SmartCover*>(object))
+		{
+			if (!required_value(ini, section, "description"))
+				return refuse();
+			if (apply_smart_cover(ini, section, *cover, key, reason) < 0)
+			{
+				xr_strcat(reason, ", section skipped");
+				log_skip(line_source(ini, section, key), section, key, reason);
+				return refuse();
+			}
+		}
+
 		if (const int result = add_template(templates, object, graph, level->id(), source, reason); result != 1)
 		{
 			if (result < 0)
@@ -1257,10 +1417,12 @@ namespace
 			return refuse();
 		}
 
-		string256 destination = "";
+		string256 detail = "";
 		if (const auto* changer = smart_cast<CSE_ALifeLevelChanger*>(object))
-			xr_sprintf(destination, " leads to %s(%d) [%.1f,%.1f,%.1f]", *changer->m_caLevelToChange, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
-		Msg("* [spawn_overlays] spawn_add: %s (%s) on %s(%d) [%.1f,%.1f,%.1f]%s (%s)", name, object_section, level_name, smart_cast<CSE_ALifeObject*>(object)->m_tGraphID, VPUSH(position), destination, source);
+			xr_sprintf(detail, " leads to %s(%d) [%.1f,%.1f,%.1f]", *changer->m_caLevelToChange, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
+		else if (const auto* cover = smart_cast<CSE_SmartCover*>(object))
+			xr_sprintf(detail, " as %s", *cover->m_description);
+		Msg("* [spawn_overlays] spawn_add: %s (%s) on %s(%d) [%.1f,%.1f,%.1f]%s (%s)", name, object_section, level_name, smart_cast<CSE_ALifeObject*>(object)->m_tGraphID, VPUSH(position), detail, source);
 		return true;
 	}
 

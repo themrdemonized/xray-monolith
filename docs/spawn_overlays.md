@@ -179,6 +179,7 @@ Edits one spawn template. The section suffix is the object name. All keys are op
 | `dest_level = <level name>` | level changers only: the level it leads to. Needs `dest_position`. A level that isn't installed skips the three `dest_*` keys. |
 | `dest_position = x, y, z` | level changers only: arrival point on the destination level; its graph vertex and AI node are re-resolved |
 | `dest_direction = x, y, z` | level changers only: the actor's facing on arrival |
+| `description`, `loopholes`, `hold_position_time`, ... | smart covers only, see [Smart covers](#smart-covers) |
 
 ```ini
 [spawn_patch@gar_physic_object_bandit_base_generator]
@@ -200,6 +201,7 @@ section fully describes:
 * anomalies (`zone_*` sections), with a `box` or `sphere`;
 * items on the ground: weapons, ammo, consumables, artefacts;
 * smart terrains: `section = smart_terrain` with `custom_data_cfg = scripts\...\<smart>.ltx`;
+* smart covers and animpoints: `section = smart_cover` with a `sphere`, see [Smart covers](#smart-covers);
 * inventory boxes and props whose section has a `visual` line (give a model its own section to
   place it).
 
@@ -219,6 +221,7 @@ Creatures can't be added (scripts spawn them), nor objects inside a box or on a 
 | `dest_direction = x, y, z` | level changers: facing on arrival |
 | `silent_mode = true` | level changers: change level on contact, without the dialog (`false` if omitted) |
 | `hint = <string id>` | level changers: the dialog text (`level_changer_invitation` if omitted) |
+| `description = <id>` and the other smart cover keys | smart covers, `description` required, see [Smart covers](#smart-covers) |
 
 * If an object of that name is already within 1 m on that level, it is left as it is and nothing is
   added. That lets a compat patch restore an object that is missing only in some setups.
@@ -290,6 +293,46 @@ whichever the actor touches first wins. Remove one with `[spawn_remove]`, or, if
 `[spawn_add@]`, delete its section with DLTX `!![spawn_add@<name>]`. Overlap here means their
 positions are closer than their sizes added up (a sphere's radius, half a box's longest edge).
 Changers that lead to the same level aren't reported.
+
+#### Smart covers
+
+`[spawn_add@]` and `[spawn_patch@]` take these keys on a smart cover (`section = smart_cover`). On any
+other object they log `unknown key`. A section's smart cover keys apply together after its other
+keys, in any order. Like every add and patch, they reach new games only. The defaults below are
+for `[spawn_add@]`; `[spawn_patch@]` keeps the template's value for a key it leaves out.
+
+| Key | Meaning |
+|---|---|
+| `description = <id>` | an id of the Lua table `smart_covers.descriptions`: `animpoint_sit_ass`, `combat_front`, ... Required on an add. An unknown id skips the add section, or every smart cover key of a patch (`!` log). |
+| `loopholes = <id>, <id>` | the loopholes to enable, the description's others are disabled. If omitted, an add enables every loophole of the description, and a patch keeps the cover's loopholes, or enables every loophole of a new `description`. An id the description doesn't have is dropped (`!` log). A list with no id of the description skips the add section, or every smart cover key of a patch (`!` log). |
+| `hold_position_time = <seconds>` | `0` if omitted. These three take a number of 0 or more; any other value is ignored (`!` log). |
+| `enter_min_enemy_distance = <m>`, `exit_min_enemy_distance = <m>` | the `[smart_cover]` section's values if omitted (15 and 10) |
+| `is_combat_cover = true`, `can_fire = true` | `is_combat_cover` is the `[smart_cover]` section's value if omitted, and that section makes every cover a combat cover, so an animpoint sets both to `false`. Without `can_fire`, a section that gives `is_combat_cover` sets it as the engine does: a combat cover can fire and any other takes `can_fire` from the object's system.ltx section (`false` for `[smart_cover]`, or when the section has no `can_fire`). A patch that gives neither keeps the cover's `can_fire`. |
+
+The cover's script state (`se_smart_cover`) holds the loophole choice, so a saved game keeps it.
+
+```ini
+; an animpoint for the Marsh base camp
+[spawn_add@mar_smart_terrain_base_animpoint_8]
+section         = smart_cover
+level           = k00_marsh
+position        = -146.3, 0.59, -290.5
+direction       = 0, -2.817, 0
+sphere          = 2
+description     = animpoint_sit_ass
+is_combat_cover = false
+can_fire        = false
+
+; a combat cover with its two standing loopholes off
+[spawn_add@mar_combat_cover_1]
+section            = smart_cover
+level              = k00_marsh
+position           = -176.4, 1.83, -280.0
+sphere             = 2
+description        = combat_front
+loopholes          = crouch_front_left, crouch_front, crouch_front_right
+hold_position_time = 30
+```
 
 ### [path_remove]
 
