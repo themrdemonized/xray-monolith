@@ -11,6 +11,7 @@
 IC CALifeScheduleRegistry::CALifeScheduleRegistry()
 {
 	m_objects_per_update = 1;
+	m_time_limit = 0.f;
 }
 
 IC const u32& CALifeScheduleRegistry::objects_per_update() const
@@ -23,10 +24,21 @@ IC void CALifeScheduleRegistry::objects_per_update(const u32& objects_per_update
 	m_objects_per_update = objects_per_update;
 }
 
+IC const float& CALifeScheduleRegistry::time_limit() const
+{
+	return (m_time_limit);
+}
+
+IC void CALifeScheduleRegistry::time_limit(const float& time_limit)
+{
+	m_time_limit = time_limit;
+}
+
 IC void CALifeScheduleRegistry::update()
 {
 	//	u32							count = 
-	objects().empty() ? 0 : inherited::update(CUpdatePredicate(m_objects_per_update), false);
+	objects().empty() ? 0 : inherited::update(
+		CUpdatePredicate(m_objects_per_update, m_objects_per_update < objects().size() ? m_time_limit : 0.f), false);
 #ifdef DEBUG
 	if (psAI_Flags.test(aiALife)) {
 //		Msg						("[LSS][SU][%d : %d]",count, objects().size());

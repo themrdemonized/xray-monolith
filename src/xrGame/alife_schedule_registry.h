@@ -21,11 +21,15 @@ private:
 	{
 		u32 m_count;
 		mutable u32 m_current;
+		float m_time_limit;
+		CTimer m_timer;
 
-		IC CUpdatePredicate(const u32& count)
+		IC CUpdatePredicate(const u32& count, const float& time_limit)
 		{
 			m_count = count;
 			m_current = 0;
+			m_time_limit = time_limit;
+			m_timer.Start();
 		}
 
 		IC bool operator()(_iterator& i, u64 cycle_count, bool) const
@@ -34,6 +38,9 @@ private:
 				return (false);
 
 			if (m_current >= m_count)
+				return (false);
+
+			if (m_current && (m_time_limit > 0.f) && (m_timer.GetElapsed_sec() >= m_time_limit))
 				return (false);
 
 			++m_current;
@@ -55,6 +62,7 @@ protected:
 
 protected:
 	u32 m_objects_per_update;
+	float m_time_limit;
 
 public:
 	IC CALifeScheduleRegistry();
@@ -65,6 +73,8 @@ public:
 	IC CSE_ALifeSchedulable* object(const ALife::_OBJECT_ID& id, bool no_assert = false) const;
 	IC const u32& objects_per_update() const;
 	IC void objects_per_update(const u32& objects_per_update);
+	IC const float& time_limit() const;
+	IC void time_limit(const float& time_limit);
 };
 
 #include "alife_schedule_registry_inline.h"
