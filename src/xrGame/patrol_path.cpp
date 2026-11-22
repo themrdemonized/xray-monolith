@@ -160,10 +160,17 @@ u32 CPatrolPath::approximate_level(const CGameGraph& graph, const GameGraph::_LE
 	{
 		CPatrolPoint& point = I.second->data();
 		// level_graph = nullptr: this runs before the level is loaded, ai().level_graph() is not valid yet.
+		if (point.level_vertex_id(nullptr, nullptr, &graph) == u32(-1))
+			continue;
 		const GameGraph::_GRAPH_ID vertex_id = point.game_vertex_id(nullptr, nullptr, &graph);
 		if (!graph.valid_vertex_id(vertex_id) || graph.vertex(vertex_id)->level_id() != level_id)
 			continue;
-		point.relocate(graph, vertex_id, true);
+		// the old build's vertex id names some vertex of the new build; take the one nearest the point
+		u32 nearest;
+		float distance;
+		if (!graph.nearest_vertex(level_id, point.position(), nearest, distance))
+			continue;
+		point.relocate(graph, GameGraph::_GRAPH_ID(nearest), true);
 		++marked;
 	}
 	return marked;
