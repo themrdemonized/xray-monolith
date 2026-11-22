@@ -61,6 +61,13 @@ Each section is described [below](#spawn_overlaysltx-sections).
   patching a template doesn't touch them. Saves hold no game graph and no patrol paths, so graph
   edits (links, unlinks, offsets) and every path edit (additions, replacements, `[path_remove]`,
   cuts) apply to existing saves too.
+* **A placed object takes the nearest graph vertex and that vertex's AI node.** `[spawn_add@]`, a
+  `[spawn_patch@]` `position` and level.spawn fragment records don't look up the node under the
+  position, because a new game loads only the current level's `level.ai`. An object that uses AI
+  locations, smart terrains and smart covers among them, moves to the node under it once the actor
+  reaches its level; restrictors keep the vertex's node. A script that needs the spot itself,
+  such as a squad spawned at its smart, reads `level.vertex_id(position)` while that level is
+  loaded.
 * **Changing the level set changes the spawn GUID**, and saves made before it don't load. See
   [Spawn GUID and saves](#spawn-guid-and-saves) for exactly what counts.
 * **A compat patch is an ordinary DLTX file.** It can add to any section, override a
@@ -169,7 +176,7 @@ Edits one spawn template. The section suffix is the object name. All keys are op
 |---|---|
 | `match_position = x, y, z` | selects the instance when the name is shared (within 0.5 m) |
 | `level = <level name>` | moves the object to another level. Needs `position` too, because coordinates are level-local and don't carry over. A level that isn't installed skips the **whole** section, with no key applied. An empty value or a missing `position` also skips the whole section (`!` log). |
-| `position = x, y, z` | level-local position; the graph vertex and AI node are re-resolved |
+| `position = x, y, z` | level-local position; the graph vertex and AI node are re-resolved as the [rules of thumb](#rules-of-thumb) say |
 | `direction = x, y, z` | |
 | `custom_data = ...` | `\n` is a line break and `\\` a literal backslash (needed before a folder starting with `n`) |
 | `custom_data_cfg = scripts\x.ltx` | shorthand for `custom_data = [logic]\ncfg = scripts\x.ltx`, with no escaping |
@@ -216,7 +223,7 @@ Creatures can't be added (scripts spawn them), nor objects inside a box or on a 
 |---|---|
 | `section = <system.ltx section>` | required: what to create |
 | `level = <level name>` | required. A level that isn't installed skips the section. |
-| `position = x, y, z` | required, level-local. For a restrictor or level changer, the centre of its shape. |
+| `position = x, y, z` | required, level-local. For a restrictor or level changer, the centre of its shape. The graph vertex and AI node follow the [rules of thumb](#rules-of-thumb). |
 | `direction = x, y, z` | rotates the object and its shape |
 | `box = width, height, depth` | restrictors and level changers need `box` or `sphere`: a box centred on `position`, width along the object's x, height up, depth along z |
 | `sphere = radius` | a sphere centred on `position` |
@@ -381,8 +388,9 @@ spawn GUID (see [Spawn GUID and saves](#spawn-guid-and-saves)).
 Drop SDK-format `level.spawn` files into `spawns\<level_name>\<anything>.spawn`. They come from
 LevelEditor "Build -> spawn", or Universal ACDC `-compile <dir> -level`.
 
-* Every record becomes a template of that level. Its graph vertex and AI node come from the record
-  position; the graph vertex, AI node and spawn ids baked into the file are ignored. A level
+* Every record becomes a template of that level. Its graph vertex is the one nearest the record
+  position and its AI node is that vertex's node (see [Rules of thumb](#rules-of-thumb)); the graph
+  vertex, AI node and spawn ids baked into the file are ignored. A level
   changer's destination is resolved from its destination level name and position.
 * A record the level already has (same name within 1 m of the same position) is skipped silently,
   so a whole-level SDK export works. `[spawn_replace]` takes the fragment's record instead.
