@@ -44,8 +44,9 @@ Each section is described [below](#spawn_overlaysltx-sections).
 
 ## Rules of thumb
 
-* **The base `all.spawn` always wins over a pack.** A pack record that names an object the base
-  already has on the same level within 1 m is ignored, even when the pack's copy differs. Express
+* **The base `all.spawn` always wins over a pack**, except for what a rebuilding pack owns (see
+  [Rebuilt levels](#rebuilt-levels)). A pack record that names an object the base already has on
+  the same level within 1 m is ignored, even when the pack's copy differs. Express
   the difference with `[spawn_patch@]` (for the fields it covers), or take the pack's copy with
   `[spawn_replace]`. The same goes for paths: a pack path whose name the base has is ignored;
   override it from `patrol_paths.ltx`.
@@ -401,7 +402,8 @@ Only what the base lacks:
   object; records on a level the pack added are all new. Records are exact on levels the pack added
   or rebuilt, and placed by position on other levels;
 * **patrol paths whose names are new;**
-* **everything on a level it rebuilds**, see [Rebuilt levels](#rebuilt-levels).
+* **the objects and patrol paths it owns on a level it rebuilds**, see
+  [Rebuilt levels](#rebuilt-levels).
 
 Everything else the pack holds about existing levels, records and paths is ignored. Use the
 [`spawn_overlays.ltx` sections](#spawn_overlaysltx-sections) for such edits: for example
@@ -464,37 +466,57 @@ A pack level that an install may not have ships its `[levelNN]` in the same mod 
 ### Rebuilt levels
 
 A pack rebuilds a level of the base all.spawn when you install the pack's
-`levels\<level>\level.ai` over the base one. The installed `level.ai` decides which build is used:
+`levels\<level>\level.ai` over the base one: the base build no longer matches the installed
+`level.ai`, so the pack whose build matches is used. Only one pack rebuilds a level, the first in
+file-name order whose build matches; other packs' builds of it are skipped. A level a pack adds is
+never rebuilt.
 
-* the base build no longer matches it, so the pack whose build matches takes the level over: its
-  graph points, AI nodes, death points, inner edges, cross table and GUID come from that pack;
-* only one pack rebuilds a level. Other packs' builds of it are skipped, and so is their content on
-  it (see below).
+**The graph** of the level always comes from the pack: graph points, AI nodes, death points, inner
+edges, cross table and GUID. The pack's graph points take the level's vertex ids in order, extra
+points get new ids, and leftover ids lead to the level's first point, so ids written for the old
+build still land on the level. Edges to other levels stay on their vertex ids; fix connection
+points the pack moved or removed with `[graph_unlinks]` (`level_a = level_b`) and `[graph_links]`.
 
-A level a pack adds is never rebuilt: it only joins when its build matches the installed
-`level.ai`.
+**Objects and patrol paths** each have one owner on the level: the rebuilding pack if it has any on
+the level (a record counts where it stands, a path on the level of its first point on the AI map),
+otherwise the base. Objects and paths are decided separately.
 
-The pack's graph points take the level's vertex ids in order: its first point gets the level's
-first id, and so on. Points past the level's count are appended, with ids that depend on the
-installed packs. When the pack has fewer points, the leftover ids lead to the level's first point,
-so ids written for the old build still land on the level.
+| Owner | The level gets |
+|---|---|
+| the pack | the pack's set as it is. The base's set and other packs' on the level are dropped; for objects, so are the level changers on other levels that lead into it. |
+| the base | the base's set, moved to the new AI map by position: objects, path points, and the arrival point of level changers into the level. Other packs add theirs as on any base level. |
 
-The level's objects and patrol paths come from the pack, and so do the level changers on other
-levels that lead into it: the base all.spawn's ones are dropped. A vanilla level changer or story
-object the pack has no copy of is removed (`!` log). `[spawn_remove]`, `[spawn_patch@]` and
-`patrol_paths.ltx` sections apply to the pack's copies. Other packs' objects and paths on the
-level, and their level changers into it, are skipped. A pack's level changer that stands on or leads
-into one of its own added or rebuilt levels is kept; when two packs carry it, the first in file
-order wins. Copies are the same changer only within 1 m of each other; remove a farther duplicate
-with `[spawn_remove]` `<name> = x, y, z`. An object the rebuild drops (another pack's restrictor, for
-example) can be restored with [`[spawn_add@]`](#spawn_addname).
+Either way, the overlay edits apply to what the owner brought: `[spawn_remove]`, `[spawn_patch@]`,
+[`[spawn_add@]`](#spawn_addname), fragments, and `patrol_paths.ltx` sections (one with `level =`
+replaces a path of the same name).
 
-Edges to other levels stay on their vertex ids. A pack that moves or removes a level's connection
-points fixes the connections with `[graph_unlinks]` (`level_a = level_b`) and `[graph_links]`.
+What follows from it:
 
-So a mod that recompiles a vanilla level ships that `level.ai` plus its `all.spawn` renamed. The
-level must carry its own GUID, which a fresh xrAI compile writes. A build that reuses the merged
-build's GUID is not picked (`! ... has the same GUID, so it was not picked`).
+* **One record or path makes the pack the owner.** A pack that adds a level and puts a single
+  level changer on the rebuilt one owns its objects, and all of its vanilla objects are dropped. To
+  add a few objects or paths to a rebuilt level without that, use fragments (`spawns\<level>\`),
+  `[spawn_add@]` or `patrol_paths.ltx` instead of the pack.
+* **What the owner lacks is gone.** When the pack owns the objects, a vanilla level changer or story
+  object it has no copy of is removed (`!` log). Restore what you need with `[spawn_add@]`.
+* **Objects find their paths by name** (smart terrain jobs, `path_walk` and similar logic keys).
+  When objects and paths have different owners, every path the objects name must be in the paths'
+  owner or in `patrol_paths.ltx`.
+* **Other packs' level changers** on, or leading into, one of their own added or rebuilt levels
+  are kept even when the pack owns the objects, so their levels stay connected. Two changers are
+  the same only within 1 m; when they overlap (logged `!`), remove one with `[spawn_remove]`
+  `<name> = x, y, z`.
+* **Base content on a new AI map** can end up off it. Check the log after the first load: move
+  objects and arrival points with `[spawn_patch@]` `position` / `dest_position`, and fix paths in
+  `patrol_paths.ltx`.
+
+**Shipping a rebuild.** A mod that recompiles a vanilla level ships that `level.ai` plus its
+`all.spawn` renamed, and owns the level's objects and paths. A mod that only fixes the AI map ships
+the same with the spawn chunk (1) and patrol path chunk (3) removed, so the base keeps owning them
+and other mods' edits still apply. Both change the spawn GUID (see
+[Spawn GUID and saves](#spawn-guid-and-saves)).
+
+Either way the level must carry its own GUID, which a fresh xrAI compile writes. A build that
+reuses the merged build's GUID is not picked (`! ... has the same GUID, so it was not picked`).
 
 ### Partial packs
 
@@ -529,7 +551,7 @@ with a `(save-compatible, does not change the spawn GUID)` marker.
 
 A save made with a pack's own all.spawn as the base spawn (the mod installed the classic way) still
 loads: its vertex and spawn ids are translated to the assembled spawn, as long as all the pack's
-levels are in the graph.
+levels are in the graph and the pack has its spawn records.
 
 ---
 
@@ -566,7 +588,8 @@ One load runs these steps in this order.
 **all.spawn chunk 1 (spawn templates)**
 
 1. `[spawn_replace]`: base templates removed so a copy below is taken.
-2. Rebuilt levels: base templates on the level, and base level changers into it, removed.
+2. Rebuilt levels: base templates on the level, and base level changers into it, removed when the
+   pack owns the objects; otherwise moved to the new AI map.
 3. `spawns\<level>\*.spawn` fragments: records the base lacks are added.
 4. `spawns\<pack>.spawn` packs: records the base lacks are added (all packs, sorted by file name).
 5. `[spawn_remove]`: applies to base, fragment and pack templates.
@@ -580,7 +603,8 @@ One load runs these steps in this order.
 1. `patrol_paths.ltx` sections, with or without a `level = <name>` key. A section with one replaces
    a compiled path of the same name; one without is skipped on a clash.
 2. `spawns\<level>\*.game` fragments: paths whose names are new.
-3. Rebuilt levels: compiled paths on the level removed.
+3. Rebuilt levels: compiled paths on the level removed when the pack owns the paths. The path
+   points left on the level are moved to the new AI map.
 4. Packs: paths whose names are new.
 5. `[path_remove]`.
 6. `[level_cut]`: paths on the level removed.
