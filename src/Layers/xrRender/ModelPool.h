@@ -53,10 +53,9 @@ private:
 	REGISTRY Registry; // Just pairing of pointer / Name
 	POOL Pool; // Unused / Inactive
 	BOOL bLogging;
-	BOOL bForceDiscard;
-	BOOL bAllowChildrenDuplicate;
 	xrCriticalSection deffered_del_lock;
 	xrSRWLock ModelsLock;
+	xrCriticalSection PoolLock; // guards Pool, Registry and ModelsToDelete
 
 	void Destroy();
 public:
