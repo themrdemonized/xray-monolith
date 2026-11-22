@@ -251,6 +251,7 @@ public:
 	};
 	virtual void FreezeContent();
 	virtual void UnFreezeContent();
+	virtual bool IsFreezed() { return CPHObject::IsFreezed(); }
 	virtual void Freeze();
 	virtual void UnFreeze();
 	virtual void NetInterpolationModeON() { CPHObject::NetInterpolationON(); }

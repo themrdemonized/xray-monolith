@@ -1026,6 +1026,7 @@ void CActor::SwitchOutBorder(bool new_border_state)
 
 void CActor::g_Physics(Fvector& _accel, float jump, float dt)
 {
+	if (is_script_ragdoll()) return;
 	// Correct accel
 	Fvector accel;
 	accel.set(_accel);
@@ -1127,7 +1128,7 @@ float CActor::currentFOV()
 
 void CActor::UpdateCL()
 {
-	if (g_Alive() && Level().CurrentViewEntity() == this)
+	if (g_Alive() && !is_script_ragdoll() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)
 		{
@@ -1149,7 +1150,7 @@ void CActor::UpdateCL()
 
 	UpdateInventoryOwner(Device.dwTimeDelta);
 
-	if (m_feel_touch_characters > 0)
+	if (m_feel_touch_characters > 0 && !is_script_ragdoll())
 	{
 		for (xr_vector<CObject*>::iterator it = feel_touch.begin(); it != feel_touch.end(); it++)
 		{
@@ -1170,16 +1171,17 @@ void CActor::UpdateCL()
 	m_pPhysics_support->in_UpdateCL();
 
 	pickup_result_t pickup_result = {true, false};
-	if (g_Alive())
+	if (g_Alive() && !is_script_ragdoll())
 		pickup_result = PickupModeUpdate();
 
-	PickupModeUpdate_COD(pickup_result);
+	if (!is_script_ragdoll())
+		PickupModeUpdate_COD(pickup_result);
 
 	SetZoomAimingMode(false);
 	CWeapon* pWeapon = smart_cast<CWeapon*>(inventory().ActiveItem());
 
 	cam_Update(float(Device.dwTimeDelta) / 1000.0f, currentFOV());
-    m_legs_controller.update(this);
+    if (!is_script_ragdoll()) m_legs_controller.update(this);
 
 #ifdef STATIONARYMGUN_NEW
 	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(Holder());
@@ -1804,7 +1806,7 @@ void CActor::shedule_Update(u32 DT)
 		}
 	}
 
-	if (m_holder || !getEnabled() || !Ready())
+	if (m_holder || !getEnabled() || !Ready() || is_script_ragdoll())
 	{
 		m_sDefaultObjAction = NULL;
 		inherited::shedule_Update(DT);
