@@ -510,6 +510,7 @@ void CActor::net_Import_Physic_proceed()
 
 BOOL CActor::net_Spawn(CSE_Abstract* DC)
 {
+	Parkour().Reset();
 	m_holder_id = ALife::_OBJECT_ID(-1);
 	m_feel_touch_characters = 0;
 	m_snd_noise = 0.0f;
@@ -720,6 +721,7 @@ namespace crash_saving {
 
 void CActor::net_Destroy()
 {
+	Parkour().Reset();
 	inherited::net_Destroy();
 
 	if (m_holder_id != ALife::_OBJECT_ID(-1))
@@ -827,6 +829,7 @@ void CActor::SetCallbacks()
 	V->LL_GetBoneInstance(u16(spine1_bone)).set_callback(bctCustom, Spin1Callback, this);
 	V->LL_GetBoneInstance(u16(shoulder_bone)).set_callback(bctCustom, ShoulderCallback, this);
 	V->LL_GetBoneInstance(u16(head_bone)).set_callback(bctCustom, HeadCallback, this);
+	m_parkour.AttachBody(V);
 }
 
 void CActor::ResetCallbacks()
@@ -841,6 +844,7 @@ void CActor::ResetCallbacks()
 	V->LL_GetBoneInstance(u16(spine1_bone)).reset_callback();
 	V->LL_GetBoneInstance(u16(shoulder_bone)).reset_callback();
 	V->LL_GetBoneInstance(u16(head_bone)).reset_callback();
+	m_parkour.DetachBody(V);
 }
 
 void CActor::OnChangeVisual()

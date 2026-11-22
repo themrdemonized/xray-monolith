@@ -2874,6 +2874,8 @@ bool get_arm_ik_enabled(u8 hand)
 
 void CLevel::script_register(lua_State* L)
 {
+	extern void RegisterParkour(lua_State*);
+	RegisterParkour(L);
 	module(L)
 		[
 			class_<CEnvDescriptor>("CEnvDescriptor")
