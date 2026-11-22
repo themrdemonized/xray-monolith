@@ -45,10 +45,18 @@ private:
 	                collide::test_callback* tb, CObject* ignore_object);
 	BOOL _RayQuery3(collide::rq_results& dest, const collide::ray_defs& rq, collide::rq_callback* cb, LPVOID user_data,
 	                collide::test_callback* tb, CObject* ignore_object);
+	bool take_prebuilt_static(LPCSTR cform_file, CDB::build_callback build_callback);
 public:
 	CObjectSpace();
 	~CObjectSpace();
 
+	// Level preload: read and build a level's static collision in a background task before that
+	// level is loaded. The Load of the same file takes the result instead of reading and building it.
+	// Main thread only. Load may run in the level load task (single player) and then only takes a
+	// result; the main thread leaves the list alone meanwhile.
+	static void prebuild_static(LPCSTR cform_file);
+	static void prebuild_release(LPCSTR cform_file); // nullptr: every file
+	static void prebuild_collect(bool wait = false); // frees released builds that have finished; wait: all (shutdown)
 	void Load(CDB::build_callback build_callback);
 	void Load(LPCSTR path, LPCSTR fname, CDB::build_callback build_callback);
 	void Load(IReader* R, CDB::build_callback build_callback);

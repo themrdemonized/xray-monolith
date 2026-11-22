@@ -5319,6 +5319,9 @@
     <ClInclude Include="Level.h">
       <Filter>Core\Client\Level</Filter>
     </ClInclude>
+    <ClInclude Include="Level_preload.h">
+      <Filter>Core\Client\Level</Filter>
+    </ClInclude>
     <ClInclude Include="Level_Bullet_Manager.h">
       <Filter>Core\Client\Level\Bullet Manager</Filter>
     </ClInclude>
@@ -8923,6 +8926,9 @@
       <Filter>Core\Client\Level</Filter>
     </ClCompile>
     <ClCompile Include="Level_load.cpp">
+      <Filter>Core\Client\Level</Filter>
+    </ClCompile>
+    <ClCompile Include="Level_preload.cpp">
       <Filter>Core\Client\Level</Filter>
     </ClCompile>
     <ClCompile Include="level_map_locations.cpp">

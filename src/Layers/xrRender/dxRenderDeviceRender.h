@@ -55,6 +55,10 @@ public:
 	virtual void ResourcesStoreNecessaryTextures();
 	virtual void ResourcesDumpMemoryUsage();
 	virtual void ResourcesPrefetchCreateTexture(LPCSTR name);
+	virtual void ResourcesPreloadLevel(LPCSTR level_folder);
+	virtual void ResourcesPreloadUpdate(float budget_ms);
+	virtual void ResourcesPreloadRelease(LPCSTR level_folder);
+	virtual void ResourcesPreloadWait();
 
 	//	HWSupport
 	virtual bool HWSupportsShaderYUV2RGB();

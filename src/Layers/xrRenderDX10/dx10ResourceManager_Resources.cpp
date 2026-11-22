@@ -622,6 +622,7 @@ void CResourceManager::DeleteGeom(const SGeometry* Geom)
 
 //--------------------------------------------------------------------------------------------------------------
 xr_task_group textures_load_tasks;
+xr_atomic_u32 textures_loading{0}; // loads in textures_load_tasks not finished yet
 CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
 {
 	PROF_EVENT("_CreateTexture");
@@ -647,10 +648,12 @@ CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
 		{
 			static DWORD this_thread_id = 0;
 			this_thread_id = GetCurrentThreadId();
+			++textures_loading;
 			textures_load_tasks.run([=]()
 			{
 				if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
 				T->Load();
+				--textures_loading;
 			});
 		}
 		return T;

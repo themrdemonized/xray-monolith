@@ -89,6 +89,7 @@ namespace CDB
 		IC const TRI* get_tris() const { return tris; }
 		IC TRI* get_tris() { return tris; }
 		IC int get_tris_count() const { return tris_count; }
+		IC bool ready() const { return S_READY == status; }
 		xr_task_group async_cform_load;
 		IC void syncronize()
 		{
@@ -98,6 +99,9 @@ namespace CDB
 				async_cform_load.wait();
 			}
 		}
+
+		// Take over the arrays and the tree of a model that was built elsewhere (the next level's, built ahead).
+		void take_over(MODEL& other);
 
 		static void build_thread(void*);
 		// Copies the geometry and runs the material remap callback. This is the cheap

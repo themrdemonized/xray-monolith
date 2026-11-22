@@ -10,6 +10,7 @@
 #include "alife_graph_registry.h"
 #include "../xrEngine/x_ray.h"
 #include "level.h"
+#include "Level_preload.h"
 
 using namespace ALife;
 
@@ -64,6 +65,7 @@ void CALifeGraphRegistry::setup_current_level()
 	GameGraph::LEVEL_MAP::const_iterator I = ai().game_graph().header().levels().find(level_id);
 	Level().set_name((*I).second.name());
 	int levelid = pApp->Level_ID(*(*I).second.name(), "1.0", true);
+	level_preload::on_level_load(*(*I).second.name());
 	static DWORD this_thread_id = 0;
 	this_thread_id = GetCurrentThreadId();
 	level_load.run([=]()

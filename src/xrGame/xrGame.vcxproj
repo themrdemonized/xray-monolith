@@ -1350,6 +1350,7 @@
     <ClInclude Include="kills_store.h" />
     <ClInclude Include="kills_store_inline.h" />
     <ClInclude Include="Level.h" />
+    <ClInclude Include="Level_preload.h" />
     <ClInclude Include="LevelDebugScript.h" />
     <ClInclude Include="Level_Bullet_Manager.h" />
     <ClInclude Include="level_changer.h" />
@@ -3184,6 +3185,7 @@
     <ClCompile Include="level_graph_vertex.cpp" />
     <ClCompile Include="Level_input.cpp" />
     <ClCompile Include="Level_load.cpp" />
+    <ClCompile Include="Level_preload.cpp" />
     <ClCompile Include="level_map_locations.cpp" />
     <ClCompile Include="Level_network.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>

@@ -2,6 +2,7 @@
 //#include "PHdynamicdata.h"
 //#include "Physics.h"
 #include "level.h"
+#include "Level_preload.h"
 #include "../xrEngine/x_ray.h"
 #include "../xrEngine/igame_persistent.h"
 
@@ -125,7 +126,8 @@ bool CLevel::net_start_client3()
 		map_data.m_map_loaded = true;
 
 		deny_m_spawn = FALSE;
-		// Load level
+		// Load level (in single player it is loaded already, see CALifeGraphRegistry::setup_current_level)
+		level_preload::on_level_load(level_name);
 		R_ASSERT2(Load(level_id), "Loading failed.");
 		map_data.m_level_geom_crc32 = 0;
 		if (!IsGameTypeSingle())
@@ -228,6 +230,8 @@ bool CLevel::net_start_client5()
 			//Device.Resources->DeferredUpload	();
 			Device.m_pRender->ResourcesDeferredUpload();
 			LL_CheckTextures();
+			// the level holds its materials itself now
+			level_preload::clear();
 		}
 		sended_request_connection_data = FALSE;
 		deny_m_spawn = TRUE;

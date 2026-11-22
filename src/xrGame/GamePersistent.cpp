@@ -10,6 +10,7 @@
 #include "UICursor.h"
 #include "game_base_space.h"
 #include "level.h"
+#include "Level_preload.h"
 #include "stalker_animation_data_storage.h"
 #include "stalker_velocity_holder.h"
 
@@ -167,6 +168,7 @@ void CGamePersistent::OnAppStart()
 
 void CGamePersistent::OnAppEnd()
 {
+	level_preload::clear(true);
 	if (m_pMainMenu->IsActive())
 		m_pMainMenu->Activate(false);
 

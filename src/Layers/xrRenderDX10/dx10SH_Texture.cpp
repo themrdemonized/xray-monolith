@@ -27,6 +27,7 @@ void fix_texture_name(LPSTR fn);
 // ready. apply_load() below reuses the same queue for evicted textures instead of
 // calling Load() inline.
 extern xr_task_group textures_load_tasks;
+extern xr_atomic_u32 textures_loading;
 
 void resptrcode_texture::create(LPCSTR _name)
 {
@@ -177,10 +178,12 @@ void CTexture::apply_load(u32 dwStage)
             CTexture* self = this;
             static DWORD this_thread_id = 0;
             this_thread_id = GetCurrentThreadId();
+            ++textures_loading;
             textures_load_tasks.run([self]()
             {
                 if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
                 self->Load();
+                --textures_loading;
             });
         }
         // Bind nothing (or whatever is already there, e.g. mid-flight from an

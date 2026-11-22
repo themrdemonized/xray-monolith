@@ -115,6 +115,21 @@ void CLevelChanger::shedule_Update(u32 dt)
 	update_actor_invitation();
 }
 
+LPCSTR CLevelChanger::preload_destination(const Fvector& P, float distance) const
+{
+	if (!m_b_enabled || !ai().get_game_graph() || !ai().get_level_graph() ||
+		!ai().game_graph().valid_vertex_id(m_game_vertex_id))
+		return nullptr;
+	Fvector center;
+	Center(center);
+	if (P.distance_to(center) > Radius() + distance)
+		return nullptr;
+	const GameGraph::_LEVEL_ID destination = ai().game_graph().vertex(m_game_vertex_id)->level_id();
+	if (destination == ai().level_graph().level_id())
+		return nullptr;
+	return *ai().game_graph().header().level(destination).name();
+}
+
 #include "patrol_path.h"
 #include "patrol_path_storage.h"
 

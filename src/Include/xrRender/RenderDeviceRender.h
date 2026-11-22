@@ -45,6 +45,13 @@ public:
 	virtual void ResourcesStoreNecessaryTextures() = 0;
 	virtual void ResourcesDumpMemoryUsage() = 0;
 	virtual void ResourcesPrefetchCreateTexture(LPCSTR name) = 0;
+	// Level preload: create the materials of a level that is not loaded yet, a few per frame during
+	// play, and hold them until released, so that the load of that level finds them created.
+	// Main thread only. A level is named by its folder, with the trailing separator.
+	virtual void ResourcesPreloadLevel(LPCSTR level_folder) = 0; // a level being prepared is kept
+	virtual void ResourcesPreloadUpdate(float budget_ms) = 0; // once per frame
+	virtual void ResourcesPreloadRelease(LPCSTR level_folder) = 0; // nullptr: every level; freed once their loads have run
+	virtual void ResourcesPreloadWait() = 0; // for the background work of every level (before a level change)
 
 	//	HWSupport
 	virtual bool HWSupportsShaderYUV2RGB() = 0;

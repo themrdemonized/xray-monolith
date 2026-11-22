@@ -54,13 +54,35 @@ MODEL::MODEL()
 
 MODEL::~MODEL()
 {
-	syncronize(); // maybe model still in building
+	async_cform_load.wait(); // maybe model still in building (not syncronize: its warning is for queries)
 	status = S_INIT;
 	CDELETE(tree);
 	CFREE(tris);
 	tris_count = 0;
 	CFREE(verts);
 	verts_count = 0;
+}
+
+void MODEL::take_over(MODEL& other)
+{
+	async_cform_load.wait();
+	other.async_cform_load.wait();
+	VERIFY(other.ready());
+	CDELETE(tree);
+	CFREE(tris);
+	CFREE(verts);
+	tree = other.tree;
+	tris = other.tris;
+	tris_count = other.tris_count;
+	verts = other.verts;
+	verts_count = other.verts_count;
+	status = other.status.load();
+	other.tree = 0;
+	other.tris = 0;
+	other.tris_count = 0;
+	other.verts = 0;
+	other.verts_count = 0;
+	other.status = S_INIT;
 }
 
 void MODEL::build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)

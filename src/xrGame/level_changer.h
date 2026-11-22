@@ -43,6 +43,8 @@ public:
 	virtual bool IsVisibleForZones() { return false; }
 	void EnableLevelChanger(bool b) { m_b_enabled = b; }
 	bool IsLevelChangerEnabled() const { return m_b_enabled; }
+	// Level preload: the level behind this level changer while P is within distance of its trigger, else nullptr
+	LPCSTR preload_destination(const Fvector& P, float distance) const;
 	void SetLEvelChangerInvitationStr(LPCSTR str) { m_invite_str = str; }
 	//serialization
 	virtual BOOL net_SaveRelevant();

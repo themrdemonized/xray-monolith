@@ -2,6 +2,7 @@
 #include "entity.h"
 #include "xrserver_objects.h"
 #include "level.h"
+#include "Level_preload.h"
 #include "xrmessages.h"
 #include "game_cl_base.h"
 #include "net_queue.h"
@@ -314,6 +315,8 @@ void CLevel::ClientReceive()
                 Msg("Device.LuaGC clear");
                 Device.LuaGC.clear();
                 Device.LuaGCDebug.clear();
+				if (m_type == M_CHANGE_LEVEL)
+					level_preload::keep_through_level_end();
 
 				if (m_type == M_LOAD_GAME)
 				{

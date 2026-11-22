@@ -105,6 +105,8 @@ void dxRenderDeviceRender::updateGamma()
 
 void dxRenderDeviceRender::OnDeviceDestroy(BOOL bKeepTextures)
 {
+	ResourcesPreloadRelease(nullptr);
+	ResourcesPreloadWait();
 	m_WireShader.destroy();
 	m_SelectionShader.destroy();
 
@@ -132,6 +134,7 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
     _SHOW_REF("*ref -CRenderDevice::ResetTotal: DeviceREF:",HW.pDevice);
 #endif // DEBUG
 
+	ResourcesPreloadWait(); // with a level prepared: its reading and every queued texture load end first
 	bus_textures_release();
 	Resources->reset_begin();
 	Memory.mem_compact();

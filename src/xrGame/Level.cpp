@@ -5,6 +5,7 @@
 #include "xrEngine/IGame_Persistent.h"
 #include "ParticlesObject.h"
 #include "Level.h"
+#include "Level_preload.h"
 #include "HUDManager.h"
 #include "xrServer.h"
 #include "NET_Queue.h"
@@ -293,6 +294,7 @@ extern CAI_Space* g_ai_space;
 CLevel::~CLevel()
 {
     PROF_EVENT("CLevel::~CLevel");
+    level_preload::on_level_end();
     //crash_saving::save_impl = nullptr; // CLevel not available, disable crash save
     xr_delete(g_player_hud);
     delete_data(m_script_attachments);
@@ -1024,6 +1026,8 @@ void CLevel::OnFrame()
 #ifdef DEBUG
     DBG_RenderUpdate();
 #endif
+	level_preload::update();
+
 	Fvector temp_vector;
 	m_feel_deny.feel_touch_update(temp_vector, 0.f);
 	if (GameID() != eGameIDSingle)

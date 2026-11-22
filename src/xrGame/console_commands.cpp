@@ -7,6 +7,7 @@
 #include "xrMessages.h"
 #include "xrserver.h"
 #include "level.h"
+#include "Level_preload.h"
 #include "script_debugger.h"
 #include "ai_debug.h"
 #include "alife_simulator.h"
@@ -200,6 +201,25 @@ extern BOOL duplicate_story_id_crash;
 
 extern BOOL spawn_antifreeze;
 extern BOOL spawn_antifreeze_debug;
+
+class CCC_PreloadLevel : public IConsole_Command
+{
+public:
+	CCC_PreloadLevel(LPCSTR N) : IConsole_Command(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		string256 level;
+		level[0] = 0;
+		sscanf(args, "%255s", level);
+		if (!g_level_preload)
+			Msg("! level_preload is off");
+		else if (level[0])
+			level_preload::request(level);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "prepare a level during play, before it is loaded: preload_level <level name>"); }
+};
 
 extern float IK_CALC_DIST;
 extern float IK_CALC_SSA;
@@ -3318,6 +3338,10 @@ void CCC_RegisterCommands()
 
 	CMD4(CCC_Integer, "spawn_antifreeze", &spawn_antifreeze, 0, 1);
 	CMD4(CCC_Integer, "spawn_antifreeze_debug", &spawn_antifreeze_debug, 0, 1);
+
+	CMD4(CCC_Integer, "level_preload", &g_level_preload, 0, 1);
+	CMD4(CCC_Float, "level_preload_ms", &g_level_preload_ms, 0.5f, 50.f);
+	CMD1(CCC_PreloadLevel, "preload_level");
 
 	CMD4(CCC_Float, "ik_calc_dist", &IK_CALC_DIST, 50, 150);
 	CMD4(CCC_Float, "ik_calc_ssa", &IK_CALC_SSA, 0.001f, 0.02f);
