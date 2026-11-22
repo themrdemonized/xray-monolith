@@ -443,7 +443,7 @@ bool CInventory::Slot(u16 slot_id, PIItem pIItem, bool bNotActivate, bool strict
 			// Lucy: also call CActor_OnChangedSlot here (special case where you place an item into active slot)
 			::luabind::functor<void> funct;
 			CScriptGameObject* obj = ActiveItem() ? ActiveItem()->object().lua_game_object() : nullptr;
-			if (ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
+			if (smart_cast<CActor*>(m_pOwner) && ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
 			{
 				funct(slot_id, obj, slot_id, prev_obj);
 			}
@@ -887,7 +887,7 @@ void CInventory::Update()
 			auto prev_slot = m_iActiveSlot;
 			m_iActiveSlot = GetNextActiveSlot();
 			auto obj = ActiveItem() ? ActiveItem()->object().lua_game_object() : NULL;
-			if (ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
+			if (smart_cast<CActor*>(m_pOwner) && ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
 			{
 				funct(m_iActiveSlot, obj, prev_slot, prev_obj);
 			}
