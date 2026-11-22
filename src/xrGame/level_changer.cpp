@@ -107,6 +107,16 @@ void CLevelChanger::shedule_Update(u32 dt)
 {
 	inherited::shedule_Update(dt);
 
+	// when the player comes near a crossing, start preparing the map behind it.
+	extern int g_seamless_level_change;
+	if (g_seamless_level_change && CLevel::seamless_scripts_installed() && Actor() && ai().game_graph().valid_vertex_id(m_game_vertex_id) &&
+		Actor()->Position().distance_to(Position()) < 100.f)
+	{
+		const GameGraph::_LEVEL_ID destination = ai().game_graph().vertex(m_game_vertex_id)->level_id();
+		if (destination != ai().level_graph().level_id())
+			Level().seamless_preload_level(*ai().game_graph().header().level(destination).name());
+	}
+
 	const Fsphere& s = CFORM()->getSphere();
 	Fvector P;
 	XFORM().transform_tiny(P, s.P);

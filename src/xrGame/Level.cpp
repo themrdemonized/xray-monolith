@@ -1,4 +1,5 @@
 #include "pch_script.h"
+#include <atomic>
 #include "xrEngine/FDemoRecord.h"
 #include "xrEngine/FDemoPlay.h"
 #include "xrEngine/Environment.h"
@@ -81,6 +82,9 @@ u32 lvInterpSteps = 0;
 BOOL spawn_antifreeze = TRUE;
 BOOL spawn_antifreeze_debug = FALSE;
 static HANDLE prefetch_thread_signal;
+extern u32 g_seamless_changes;
+// set by the prefetch thread when it has left, so the level can wait for it before freeing what it uses
+static HANDLE prefetch_thread_done = nullptr;
 
 static void unpausePrefetchThreadSignal()
 {
@@ -105,6 +109,9 @@ static void createPrefetchThreadSignal()
 	if (spawn_antifreeze_debug) Msg("prefetch_thread_signal CreateEvent");
 	prefetch_thread_signal = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 }
+
+// raised when a map swap throws the waiting spawns away, so the prefetch thread drops the batch it holds too
+static std::atomic<u32> s_spawn_generation{0};
 
 struct spawn_and_prefetch_events
 {
@@ -280,6 +287,9 @@ CLevel::CLevel() :
     prefetched_models = xr_new<models_set>();
     auto events = new spawn_and_prefetch_events({ spawn_events, spawn_events_data, prefetch_events, prefetched_models, &closeSignal, &prefetch_lock });
     createPrefetchThreadSignal();
+    if (!prefetch_thread_done)
+        prefetch_thread_done = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+    ResetEvent(prefetch_thread_done);
     thread_spawn(ProcessPrefetchEvents, "Pre-Spawn Prefetcher Thread", 0, events);
     Msg("CLevel::CLevel() Spawn Antifreeze initialized");
 #endif
@@ -292,6 +302,9 @@ extern CAI_Space* g_ai_space;
 
 CLevel::~CLevel()
 {
+	g_seamless_changes = 0; // the scripts are restarted with the next level
+	seamless_preload_clear();
+	CObjectSpace::prebuild_shutdown();
     PROF_EVENT("CLevel::~CLevel");
     //crash_saving::save_impl = nullptr; // CLevel not available, disable crash save
     xr_delete(g_player_hud);
@@ -337,12 +350,17 @@ CLevel::~CLevel()
     xr_delete(game_events);
 
 #ifdef SPAWN_ANTIFREEZE
+    // the prefetch thread loads models and writes to these queues. Stop it and wait until it has left
+    // before freeing them: it used to go on loading models while the level and the model pool were torn down,
+    // which corrupted the heap on a quit shortly after a load.
+    closeSignal = true; // signal ProcessPrefetchEvents thread to exit
+    unpausePrefetchThreadSignal();
+    if (prefetch_thread_done && WaitForSingleObject(prefetch_thread_done, 60000) != WAIT_OBJECT_0)
+        Msg("! the model prefetch thread did not stop within a minute");
     xr_delete(spawn_events);
     xr_delete(spawn_events_data);
     xr_delete(prefetch_events);
     xr_delete(prefetched_models);
-    closeSignal = true; // signal ProcessPrefetchEvents thread to exit
-    unpausePrefetchThreadSignal();
 #endif
 
     xr_delete(m_pBulletManager);
@@ -574,13 +592,14 @@ void CLevel::ProcessPrefetchEvents(void* args)
 
     while (true)
     {
-        WaitForSingleObject(prefetch_thread_signal, INFINITE); // wait for prefetch queue event to be signaled
+        WaitForSingleObject(prefetch_thread_signal, 200); // wait for prefetch queue event to be signaled; wakes regularly so a close signal is never missed
 
         if (*closeSignal == true)
         {
             if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] closeSignal received, destroying thread");
             closePrefetchThreadSignal();
             delete events;
+            SetEvent(prefetch_thread_done);
             return;
         }
 
@@ -596,9 +615,11 @@ void CLevel::ProcessPrefetchEvents(void* args)
 
         PROF_EVENT("ProcessPrefetchEvents")
             prefetch_event_queue saved_prefetch_events;
+        u32 spawn_generation = 0;
         {
             xrSRWLockGuard g(prefetch_lock);
             if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] started, queue size %d", prefetch_events->size());
+            spawn_generation = s_spawn_generation.load();
             saved_prefetch_events.swap(*prefetch_events); // move the events to temp queue, so we can continue processing prefetch_events in the main thread
             pausePrefetchThreadSignal();
         }
@@ -607,6 +628,8 @@ void CLevel::ProcessPrefetchEvents(void* args)
         {
             for (const auto& model : E.models)
             {
+                if (*closeSignal)
+                    break; // the level is closing, load nothing more
                 bool not_prefetched = false;
 
                 {
@@ -627,8 +650,13 @@ void CLevel::ProcessPrefetchEvents(void* args)
             }
         }
 
+        if (*closeSignal)
+            continue; // back to the top, which sees the close signal (it stays set) and leaves
+
         {
             xrSRWLockGuard g(prefetch_lock);
+            if (spawn_generation != s_spawn_generation.load())
+                continue; // a map swap happened meanwhile; these objects belong to the map that was left
             for (auto& E : saved_prefetch_events)
             {
                 spawn_events->insert(E.p); // reinsert the event to spawn_events queue for further processing
@@ -679,6 +707,27 @@ void CLevel::ProcessSpawnEvents()
 			CObject* parent = Objects.net_Find(parent_id);
 			if (!parent || parent->getDestroy())
 				continue;
+		}
+
+		// The same object can be queued twice when it went online, offline and online again while
+		// its first spawn still waited. A second copy fails in net_Spawn and its clean-up then
+		// frees the first copy's data (heap corruption). Wait for a pending destroy, else skip.
+		if (obj_id != 0xffff)
+		{
+			if (CObject* present = Objects.net_Find(obj_id))
+			{
+				if (present->getDestroy())
+				{
+					xrSRWLockGuard g(prefetch_lock);
+					spawn_events->queue.push_back(E);
+					auto waiting = spawn_events_data_copy.find(obj_id);
+					if (waiting != spawn_events_data_copy.end() && spawn_events_data->find(obj_id) == spawn_events_data->end())
+						spawn_events_data->insert(*waiting);
+				}
+				else
+					Msg("* spawn of [%s][%d] skipped: the object is already on the level", section.c_str(), obj_id);
+				continue;
+			}
 		}
 
 		if (spawn_antifreeze_debug) Msg("[ProcessSpawnEvents] spawning section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
@@ -1024,6 +1073,10 @@ void CLevel::OnFrame()
 #ifdef DEBUG
     DBG_RenderUpdate();
 #endif
+	seamless_preload_update();
+	if (m_seamless_pending)
+		seamless_update();
+
 	Fvector temp_vector;
 	m_feel_deny.feel_touch_update(temp_vector, 0.f);
 	if (GameID() != eGameIDSingle)
@@ -1880,4 +1933,417 @@ CZoneList::~CZoneList()
 {
 	clear();
 	destroy();
+}
+
+
+// ---------------------------------------------------------------------------------------
+// Seamless level change.
+// The normal level change saves the game, destroys the level, the server, the whole Zone
+// simulation and the script engine, and loads the save. This keeps all of those alive:
+// every online object goes offline (as it would when the player walks away), the static
+// map is replaced, and the actor comes back online on the new level. The simulation then
+// brings the new level's objects online at its normal pace.
+// ---------------------------------------------------------------------------------------
+#include "game_sv_single.h"
+#include "alife_graph_registry.h"
+#include "../xrServerEntities/xrServer_Objects_ALife_Monsters.h"
+#include "alife_simulator.h"
+#include "game_graph.h"
+#include "physics_game.h"
+#include "../xrEngine/x_ray.h"
+
+extern ENGINE_API BOOL g_seamless_loading;
+float g_seamless_fade_out = 0.25f; // seconds of fade to black before the swap (console: seamless_fade_out)
+int g_seamless_level_change = 0; // 1: every level change keeps the simulation and the scripts running and happens behind a short fade (console: seamless_level_change)
+int g_seamless_log = 0; // 1: log the time of every step of a level change and the memory in use (console: seamless_log)
+#define SEAMLESS_LOG(...) do { if (g_seamless_log) Msg(__VA_ARGS__); } while (0)
+
+#include "../xrEngine/xrLevel.h"
+#include "../Include/xrRender/UIShader.h"
+
+float g_seamless_preload_ms = 3.f; // main-thread time per frame spent preparing the next map (console: seamless_preload_ms)
+
+struct SLevelPreload
+{
+	shared_str level;
+	xr_vector<shared_str> queue; // "shader/texture list" names still to create
+	xr_vector<ui_shader> held; // created materials, kept alive so the map load finds them ready
+	u32 total = 0;
+	u32 frames = 0;
+	float spent_ms = 0.f;
+};
+static xr_vector<SLevelPreload*> s_level_preloads;
+
+static void seamless_preload_create(SLevelPreload& preload)
+{
+	string512 shader;
+	xr_strcpy(shader, *preload.queue.back());
+	preload.queue.pop_back();
+	LPSTR delimiter = strchr(shader, '/');
+	if (!delimiter)
+		return;
+	*delimiter = 0;
+	preload.held.emplace_back();
+	preload.held.back()->create(shader, delimiter + 1, true);
+}
+
+void CLevel::seamless_preload_level(LPCSTR level_name, bool immediately)
+{
+	SLevelPreload* preload = nullptr;
+	for (SLevelPreload* it : s_level_preloads)
+		if (it->level == level_name)
+			preload = it;
+	if (!preload)
+	{
+		string_path relative, file;
+		strconcat(sizeof(relative), relative, level_name, "\\level");
+		FS.update_path(file, "$game_levels$", relative);
+		IReader* stream = FS.r_open(file);
+		if (!stream)
+		{
+			Msg("! seamless preload: cannot open %s", file);
+			return;
+		}
+		preload = xr_new<SLevelPreload>();
+		preload->level = level_name;
+		IReader* chunk = stream->open_chunk(fsL_SHADERS);
+		R_ASSERT(chunk);
+		u32 count = chunk->r_u32();
+		for (u32 i = 0; i < count; ++i)
+		{
+			LPCSTR name = LPCSTR(chunk->pointer());
+			chunk->skip_stringZ();
+			if (name[0])
+				preload->queue.push_back(name);
+		}
+		chunk->close();
+		FS.r_close(stream);
+		preload->total = preload->queue.size();
+		s_level_preloads.push_back(preload);
+		SEAMLESS_LOG("seamless preload: %s, %u materials queued", level_name, preload->total);
+	}
+	if (!immediately)
+	{
+		// the static collision is built on a worker thread (once per approach)
+		string_path relative, file;
+		strconcat(sizeof(relative), relative, level_name, "\\level.cform");
+		FS.update_path(file, "$game_levels$", relative);
+		CObjectSpace::prebuild_static(file, level_name);
+	}
+	if (immediately)
+	{
+		CTimer timer;
+		timer.Start();
+		u32 left = preload->queue.size();
+		while (!preload->queue.empty())
+			seamless_preload_create(*preload);
+		if (left)
+			SEAMLESS_LOG("seamless preload: %s, last %u of %u materials created at once in %u ms", level_name, left,
+			    preload->total, timer.GetElapsed_ms());
+	}
+}
+
+void CLevel::seamless_preload_update()
+{
+	for (SLevelPreload* preload : s_level_preloads)
+	{
+		if (preload->queue.empty())
+			continue;
+		CTimer timer;
+		timer.Start();
+		do
+			seamless_preload_create(*preload);
+		while (!preload->queue.empty() && timer.GetElapsed_sec() * 1000.f < g_seamless_preload_ms);
+		preload->spent_ms += timer.GetElapsed_sec() * 1000.f;
+		++preload->frames;
+		if (preload->queue.empty())
+			SEAMLESS_LOG("seamless preload: %s ready, %u materials over %u frames, %.0f ms of work in total", *preload->level,
+			    preload->total, preload->frames, preload->spent_ms);
+		return; // one level per frame
+	}
+}
+
+void CLevel::seamless_preload_clear(LPCSTR keep_a, LPCSTR keep_b)
+{
+	for (u32 i = 0; i < s_level_preloads.size();)
+	{
+		SLevelPreload* preload = s_level_preloads[i];
+		if ((keep_a && preload->level == keep_a) || (keep_b && preload->level == keep_b))
+		{
+			++i;
+			continue;
+		}
+		xr_delete(preload);
+		s_level_preloads.erase(s_level_preloads.begin() + i);
+	}
+}
+
+#include <psapi.h>
+#include "stalker_animation_data_storage.h"
+// One line of memory figures, to see what a crossing leaves behind.
+static void seamless_log_memory(LPCSTR when)
+{
+	if (!g_seamless_log)
+		return;
+	PROCESS_MEMORY_COUNTERS_EX counters;
+	ZeroMemory(&counters, sizeof(counters));
+	counters.cb = sizeof(counters);
+	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&counters, sizeof(counters));
+	u32 m_base = 0, c_base = 0, m_lmaps = 0, c_lmaps = 0;
+	if (Device.m_pRender)
+		Device.m_pRender->ResourcesGetMemoryUsage(m_base, c_base, m_lmaps, c_lmaps);
+	// no heap walk here: Memory.mem_usage() once never came back after a crossing under Mod Organizer
+	SEAMLESS_LOG("seamless: memory %s: process %u MB, textures %u MB in %u, lua %d MB", when,
+	    u32(counters.PrivateUsage >> 20), (m_base + m_lmaps) >> 20, c_base + c_lmaps,
+	    lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0) >> 10);
+}
+
+static void seamless_call_script(LPCSTR name, float seconds)
+{
+	::luabind::functor<void> functor;
+	if (ai().script_engine().functor(name, functor))
+		functor(seconds);
+}
+
+bool CLevel::seamless_scripts_installed()
+{
+	static int installed = -1;
+	if (installed < 0)
+	{
+		string_path file;
+		installed = FS.exist(file, "$game_scripts$", "seamless_level_change.script") ? 1 : 0;
+		if (!installed)
+			Msg("* seamless_level_change.script is not installed, level changes keep the loading screen");
+	}
+	return installed == 1;
+}
+
+bool CLevel::seamless_request(LPCSTR level_name)
+{
+	game_sv_Single* single = Server ? smart_cast<game_sv_Single*>(Server->game) : nullptr;
+	if (!single || !ai().get_alife())
+	{
+		Msg("! seamless: needs a single-player game with the simulation running");
+		return false;
+	}
+	GameGraph::_GRAPH_ID game_vertex_id = GameGraph::_GRAPH_ID(-1);
+	if (!single->alife().find_level_entry(level_name, game_vertex_id))
+	{
+		Msg("! seamless: no game vertex on level %s", level_name);
+		return false;
+	}
+	seamless_request(game_vertex_id, ai().game_graph().vertex(game_vertex_id)->level_vertex_id(),
+	                 ai().game_graph().vertex(game_vertex_id)->level_point(), Fvector().set(0.f, 0.f, 0.f));
+	return true;
+}
+
+void CLevel::seamless_request(u16 game_vertex_id, u32 level_vertex_id, const Fvector& position, const Fvector& angles)
+{
+	if (m_seamless_pending)
+		return;
+	if (Actor() && !Actor()->g_Alive())
+	{
+		Msg("seamless: the player is dead, no crossing");
+		return;
+	}
+	m_seamless_pending = true;
+	m_seamless_game_vertex_id = game_vertex_id;
+	m_seamless_level_vertex_id = level_vertex_id;
+	m_seamless_position = position;
+	m_seamless_angles = angles;
+	m_seamless_fade_start = Device.dwTimeContinual;
+	SEAMLESS_LOG("seamless: requested, fading out for %u ms", u32(g_seamless_fade_out * 1000.f));
+	seamless_call_script("seamless_level_change.fade_out", g_seamless_fade_out);
+}
+
+void CLevel::seamless_update()
+{
+	if (Device.dwTimeContinual - m_seamless_fade_start < u32(g_seamless_fade_out * 1000.f))
+		return;
+	m_seamless_pending = false;
+	seamless_change_level();
+	seamless_call_script("seamless_level_change.fade_in", 0.f);
+}
+
+void CLevel::seamless_change_level()
+{
+	game_sv_Single* single = Server ? smart_cast<game_sv_Single*>(Server->game) : nullptr;
+	if (!single || !ai().get_alife())
+	{
+		Msg("! seamless: needs a single-player game with the simulation running");
+		return;
+	}
+	CALifeSimulator& alife = single->alife();
+
+	const GameGraph::_GRAPH_ID game_vertex_id = m_seamless_game_vertex_id;
+	const u32 level_vertex_id = m_seamless_level_vertex_id;
+	const Fvector position = m_seamless_position;
+	const shared_str level_name =
+		ai().game_graph().header().level(ai().game_graph().vertex(game_vertex_id)->level_id()).name();
+	const int level_id = pApp->Level_ID(*level_name, "1.0", true);
+	if (level_id < 0)
+	{
+		Msg("! seamless: level %s not found", *level_name);
+		return;
+	}
+
+	CTimer total, phase;
+	total.Start();
+	phase.Start();
+	Msg("seamless: begin %s -> %s", *name(), *level_name);
+
+	// Keep the materials of the map being left (all already created, so this is instant) and
+	// finish the new map's; anything older is released.
+	const shared_str old_name = name();
+	seamless_preload_level(*old_name, true);
+	seamless_preload_level(*level_name, true);
+	seamless_preload_clear(*old_name, *level_name);
+	SEAMLESS_LOG("seamless: materials ready in %u ms", phase.GetElapsed_ms());
+	phase.Start();
+
+	// 1. Everything online goes offline; the client destroys its objects.
+	ClientSend(); // the server gets the actor's latest state first
+	// Objects hand the server what they save (script logic state, door and switch positions), as before
+	// a level change with a loading screen: they get it back when the player returns. As there, the actor already
+	// stands on the new level in the simulation while they save: scripts tell a level change from a plain save by
+	// that (the game's own "on_level_changing" callback, which moves companions along, is sent from there).
+	{
+		CSE_ALifeCreatureActor* actor = alife.graph().actor();
+		const GameGraph::_GRAPH_ID vertex_before = actor->m_tGraphID;
+		actor->m_tGraphID = game_vertex_id;
+		ClientSave();
+		actor->m_tGraphID = vertex_before;
+	}
+	alife.switch_offline_all();
+	for (int i = 0; i < 8; ++i)
+	{
+		ClientReceive();
+		ProcessGameEvents();
+		Objects.Update(false);
+		Objects.ProcessDestroyQueue();
+	}
+	// An object the simulation does not know (made on the client by a script or by another object)
+	// is still there: destroy it as the end of a level does. The log names it.
+	Objects.Unload();
+#ifdef SPAWN_ANTIFREEZE
+	{
+		// Objects still waiting to appear belong to the map being left (the simulation has just taken all of
+		// them offline). Letting them appear after the swap put objects of the old map on the new one.
+		xrSRWLockGuard g(prefetch_lock);
+		++s_spawn_generation;
+		const u32 waiting = u32(spawn_events->queue.size() + prefetch_events->size());
+		spawn_events->queue.clear();
+		spawn_events_data->clear();
+		prefetch_events->clear();
+		if (waiting)
+			SEAMLESS_LOG("seamless: %u spawns still waiting from the map left behind were dropped", waiting);
+	}
+#endif
+	SEAMLESS_LOG("seamless: objects offline in %u ms, %u client objects left", phase.GetElapsed_ms(), Objects.o_count());
+	// As at the end of a map: sounds still playing belong to objects that are gone now, and
+	// whoever heard them next would be handed a dead object.
+	snd_Events.clear();
+	::Sound->stop_emitters();
+	// no object of either map exists now: the moment for scripts to drop what they know about the old map
+	seamless_call_script("seamless_level_change.map_left", 0.f);
+	phase.Start();
+
+	// 2. Unload what belongs to the old map.
+	for (POIt p_it = m_StaticParticles.begin(); m_StaticParticles.end() != p_it; ++p_it)
+		Particles::Details::Destroy(*p_it);
+	m_StaticParticles.clear();
+	for (u32 i = 0; i < static_Sounds.size(); ++i)
+	{
+		static_Sounds[i]->destroy();
+		xr_delete(static_Sounds[i]);
+	}
+	static_Sounds.clear();
+	Sounds_Random.clear();
+	xr_delete(m_level_sound_manager);
+	m_level_sound_manager = xr_new<CLevelSoundManager>();
+	BulletManager().Clear();
+	if (physics_world())
+	{
+		destroy_physics_world();
+		xr_delete(m_ph_commander_physics_worldstep);
+	}
+	xr_delete(m_space_restriction_manager);
+	m_space_restriction_manager = xr_new<CSpaceRestrictionManager>();
+	xr_delete(m_seniority_hierarchy_holder);
+	m_seniority_hierarchy_holder = xr_new<CSeniorityHierarchyHolder>();
+	g_pGamePersistent->Environment().mods_unload();
+	IR_Release();
+	Device.seqRender.Remove(this);
+	Device.seqFrame.Remove(this);
+	// What a normal map change releases on the way out (in its order: before the map itself goes);
+	// without it every visited map stayed in memory.
+	seamless_log_memory("before release");
+	ai().script_engine().collect_all_garbage();
+	stalker_animation_data_storage().clear();
+	Render->models_Clear(FALSE);
+	Render->clear_static_wallmarks();
+	xr_delete(pLevel);
+	Render->level_Unload();
+	Sound->set_geometry_occ(NULL);
+	bReady = false;
+	seamless_log_memory("after release");
+	SEAMLESS_LOG("seamless: old map unloaded in %u ms", phase.GetElapsed_ms());
+	phase.Start();
+
+	// 3. Move the actor and the simulation's idea of "the current level".
+	alife.relocate_actor(game_vertex_id, level_vertex_id, position, m_seamless_angles);
+	set_name(level_name);
+	ai().load(*level_name, true);
+	SEAMLESS_LOG("seamless: simulation and navigation switched in %u ms", phase.GetElapsed_ms());
+	phase.Start();
+
+	// 4. Load the new map.
+	g_seamless_loading = TRUE;
+	CObjectSpace::adopt_prebuilt_static(*level_name);
+	CTimer part;
+	part.Start();
+	R_ASSERT2(Load(level_id), "seamless: loading failed");
+	SEAMLESS_LOG("seamless: map files (collision, geometry, shaders) %u ms", part.GetElapsed_ms());
+	part.Start();
+	create_physics_world(!!psDeviceFlags.test(mtPhysics), &ObjectSpace, &Objects, &Device);
+	R_ASSERT(physics_world());
+	m_ph_commander_physics_worldstep = xr_new<CPHCommander>();
+	physics_world()->set_update_callback(m_ph_commander_physics_worldstep);
+	physics_world()->set_default_contact_shotmark(ContactShotMark);
+	physics_world()->set_default_character_contact_shotmark(CharacterContactShotMark);
+	SEAMLESS_LOG("seamless: physics world %u ms", part.GetElapsed_ms());
+	part.Start();
+	R_ASSERT(Load_GameSpecific_After());
+	SEAMLESS_LOG("seamless: level sounds, particles, weather %u ms", part.GetElapsed_ms());
+	part.Start();
+	Device.m_pRender->DeferredLoad(FALSE);
+	Device.m_pRender->ResourcesDeferredUpload();
+	SEAMLESS_LOG("seamless: textures %u ms", part.GetElapsed_ms());
+	g_seamless_loading = FALSE;
+	SEAMLESS_LOG("seamless: new map loaded in %u ms", phase.GetElapsed_ms());
+	phase.Start();
+
+	// 5. The actor comes back online; everything else follows through the simulation.
+	alife.switch_online_actor();
+	for (int i = 0; i < 4; ++i)
+	{
+		ClientReceive();
+		ProcessGameEvents();
+	}
+	SEAMLESS_LOG("seamless: actor online in %u ms", phase.GetElapsed_ms());
+	phase.Start();
+
+	// 6. One full pass brings everything near the actor online now instead of over many seconds.
+	alife.update_switch_all();
+	for (int i = 0; i < 4; ++i)
+	{
+		ClientReceive();
+		ProcessGameEvents();
+	}
+	SEAMLESS_LOG("seamless: surroundings online in %u ms, %u client objects", phase.GetElapsed_ms(), Objects.o_count());
+	Msg("seamless: done %s in %u ms", *level_name, total.GetElapsed_ms());
+	seamless_log_memory("on arrival");
+	extern u32 g_full_switch_passes;
+	g_full_switch_passes = 15;
+	++g_seamless_changes;
 }

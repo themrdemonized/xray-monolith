@@ -20,6 +20,8 @@ CPHCall::~CPHCall()
 	xr_delete(m_condition);
 }
 
+extern u32 g_script_repair_frame;
+
 bool CPHCall::obsolete()
 {
 	return !m_action || m_action->obsolete() || !m_condition || m_condition->obsolete();
@@ -90,6 +92,7 @@ void CPHCommander::update()
 		}
 		catch (...)
 		{
+			if (g_script_repair_frame == Device.dwFrame) continue; // repaired, stays registered
 			Msg("! [PHCommander level.add_call] fatal error in callback, removing");
 			remove_call(m_calls.begin() + i);
 			i--;

@@ -230,7 +230,7 @@ int luabind::detail::class_rep::gettable(lua_State* L)
 	}
 
 // First, look in the instance's table
-	detail::lua_reference const& tbl = obj->get_lua_table();
+	detail::instance_table_ref const& tbl = obj->get_lua_table();
 	if (tbl.is_valid())
 	{
 		tbl.get(L);
@@ -339,12 +339,14 @@ bool luabind::detail::class_rep::settable(lua_State* L)
 
 	// set the attribute to the object's table
 	object_rep* obj = static_cast<object_rep*>(lua_touserdata(L, 1));
-	detail::lua_reference& tbl = obj->get_lua_table();
+	detail::instance_table_ref& tbl = obj->get_lua_table();
 	if (!tbl.is_valid())
 	{
 		// this is the first time we are trying to add
 		// a member to this instance, create the table.
 		lua_newtable(L);
+		lua_pushvalue(L, -1);
+		lua_setfenv(L, 1); // the instance keeps its table alive
 		lua_pushvalue(L, -1);
 		tbl.set(L);
 	}
@@ -1097,7 +1099,10 @@ int luabind::detail::class_rep::construct_lua_class_callback(lua_State* L)
 	// lua stack: crep <arguments>
 
 	lua_newtable(L);
-	detail::lua_reference ref;
+	detail::lua_reference keep; // holds the table until the new instance does
+	lua_pushvalue(L, -1);
+	keep.set(L);
+	detail::instance_table_ref ref;
 	ref.set(L);
 
 	bool has_bases = !crep->bases().empty();
@@ -1125,6 +1130,12 @@ int luabind::detail::class_rep::construct_lua_class_callback(lua_State* L)
 
 	detail::getref(L, crep->metatable_ref());
 	lua_setmetatable(L, -2);
+
+	// the instance keeps its table alive from here on
+	keep.get(L);
+	lua_setfenv(L, -2);
+	keep.reset();
+	ref.reset();
 
 	// lua stack: crep <arguments> "super" crep obj_ptr
 	// or
@@ -1227,7 +1238,7 @@ int luabind::detail::class_rep::lua_class_gettable(lua_State* L)
 	}
 	
 	// first look in the instance's table
-	detail::lua_reference const& tbl = obj->get_lua_table();
+	detail::instance_table_ref const& tbl = obj->get_lua_table();
 	assert(tbl.is_valid());
 	tbl.get(L);
 	lua_pushvalue(L, 2);
@@ -1326,7 +1337,7 @@ int luabind::detail::class_rep::lua_class_settable(lua_State* L)
 		}
 #endif
 
-		detail::lua_reference const& tbl = obj->get_lua_table();
+		detail::instance_table_ref const& tbl = obj->get_lua_table();
 		assert(tbl.is_valid());
 		tbl.get(L);
 		lua_replace(L, 1);

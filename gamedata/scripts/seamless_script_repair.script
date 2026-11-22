@@ -1,0 +1,321 @@
+-- Seamless level change: scripts that are not written for it keep working.
+--
+-- A script expects a map change to restart it with empty memory. After a swap it is still
+-- running and may fail on what it remembers of the previous map. When that happens the engine
+-- calls on_script_error() instead of ending the game, and the script that failed is restarted
+-- alone: its saved data is kept (its own save_state/load_state), its memory is wiped, it is
+-- loaded again and gets the start-up calls it would get after a normal map change.
+-- A script that needed this once is remembered (appdata\seamless_script_restart.txt) and from then on
+-- restarted at every swap at the clean moment, when no object of either map exists.
+
+local LIST_FILE = "seamless_script_restart.txt"
+local MAX_REPAIRS_PER_MAP = 2 -- the same script failing again and again is a real error
+
+-- scripts that only pass calls on: when they are on top of the stack the culprit is below
+infrastructure = { axr_main = true, _g = true, _g_patches = true, bind_stalker_ext = true,
+	bind_stalker = true, seamless_script_repair = true, seamless_level_change = true, callbacks_gameobject = true }
+
+local restart_list, restart_set = nil, {}
+local pending = {}       -- namespace -> true, restart at the next safe moment
+local repairs = {}       -- namespace -> repairs since the last swap
+
+local function log(fmt, ...)
+	printf("seamless script repair: %s", string.format(fmt, ...))
+end
+
+local function list_path()
+	return getFS():update_path("$app_data_root$", LIST_FILE)
+end
+
+local function read_list()
+	restart_list, restart_set = {}, {}
+	local f = io.open(list_path(), "r")
+	if not f then return end
+	for line in f:lines() do
+		local name = line:match("^%s*([%w_%-%.]+)%s*$")
+		if name and not restart_set[name] then
+			restart_set[name] = true
+			restart_list[#restart_list + 1] = name
+		end
+	end
+	f:close()
+end
+
+local function remember(name)
+	if not restart_list then read_list() end
+	if restart_set[name] then return end
+	restart_set[name] = true
+	restart_list[#restart_list + 1] = name
+	local f = io.open(list_path(), "w")
+	if f then
+		f:write(table.concat(restart_list, "\n"), "\n")
+		f:close()
+	end
+end
+
+local function upvalue(func, wanted)
+	for i = 1, 60 do
+		local name, value = debug.getupvalue(func, i)
+		if not name then return nil end
+		if name == wanted then return value end
+	end
+end
+
+local function env_of(f)
+	local ok, env = pcall(getfenv, f)
+	return ok and env or nil
+end
+
+-- Calls every function the script registered for one callback name.
+-- Takes one registration off a callback. Through axr_main where it has the function for it, which
+-- also clears the order and constraint lists it keeps per registration (those kept every script
+-- object taken off alive).
+local function take_off(name, funcs, what)
+	if axr_main.callback_unset then pcall(axr_main.callback_unset, name, what) end
+	funcs[what] = nil
+end
+
+local function call_own(intercepts, namespace, name, ...)
+	local funcs = intercepts[name]
+	if not funcs then return 0 end
+	local own = {}
+	for func in pairs(funcs) do
+		if type(func) == "function" and env_of(func) == namespace then own[#own + 1] = func end
+	end
+	for i = 1, #own do
+		local ok, err = pcall(own[i], ...)
+		if not ok then log("  %s failed during the restart: %s", name, tostring(err)) end
+	end
+	return #own
+end
+
+-- A script may have replaced functions of other scripts with its own wrappers. Before it is
+-- loaded again those are put back, otherwise the new copy would wrap the old one.
+local function undo_patches(name, old)
+	local undone, stuck, plain = 0, 0, 0
+	for other_name, other in pairs(_G) do
+		if type(other) == "table" and other ~= old and other ~= _G and type(other_name) == "string" then
+			for key, value in pairs(other) do
+				if type(value) == "function" and env_of(value) == old then
+					-- the function it wraps is one of its upvalues: best the one that belongs to
+					-- the patched script, else one named like an original, else the only candidate
+					local original, named, candidates, last = nil, nil, 0, nil
+					for i = 1, 60 do
+						local up_name, up = debug.getupvalue(value, i)
+						if not up_name then break end
+						if type(up) == "function" and env_of(up) ~= old then
+							if env_of(up) == other then original = original or up end
+							local low = up_name:lower()
+							if low:find("old") or low:find("orig") or low:find("base") or low:find("prev") or low:find(tostring(key), 1, true) then
+								named = named or up
+							end
+							if env_of(up) ~= _G then candidates, last = candidates + 1, up end
+						end
+					end
+					original = original or named or (candidates == 1 and last) or nil
+					if not original then
+						local kept = rawget(old, key)
+						if type(kept) == "function" and env_of(kept) ~= old then original = kept end
+					end
+					if original then
+						rawset(other, key, original)
+						undone = undone + 1
+					elseif candidates == 0 then
+						-- wraps nothing: a plain replacement, the new copy simply replaces it again
+						plain = plain + 1
+					else
+						stuck = stuck + 1
+						log("  cannot put back %s.%s (replaced by %s)", other_name, tostring(key), name)
+					end
+				end
+			end
+		end
+	end
+	return undone, stuck, plain
+end
+
+-- mid_map: the restart happens while the map is running (after an error), so the calls a
+-- script normally gets while the map comes up are replayed for what is already there.
+function restart_script(name, mid_map)
+	local old = rawget(_G, name)
+	if type(old) ~= "table" then
+		log("%s is not a loaded script, nothing to restart", name)
+		return false
+	end
+	local started = os.clock()
+	local intercepts = upvalue(axr_main.make_callback, "intercepts")
+	if not intercepts then
+		log("cannot reach the callback table")
+		return false
+	end
+
+	-- 1. the script's saved data, as a normal map change would save it
+	local saved = {}
+	local savers = call_own(intercepts, old, "save_state", saved)
+
+	-- 2. forget its callbacks, timed events and per-frame calls
+	local dropped = 0
+	for cb_name, funcs in pairs(intercepts) do
+		local own = {}
+		for func in pairs(funcs) do
+			if type(func) == "function" then
+				if env_of(func) == old then own[#own + 1] = func end
+			else
+				-- an object of a class the script defines
+				local ok, handler = pcall(function() return func[cb_name] end)
+				if ok and type(handler) == "function" and env_of(handler) == old then own[#own + 1] = func end
+			end
+		end
+		for i = 1, #own do
+			take_off(cb_name, funcs, own[i])
+			dropped = dropped + 1
+		end
+	end
+	local events = 0
+	local queue = upvalue(CreateTimeEvent, "ev_queue")
+	if queue then
+		local own = {}
+		for ev_id, actions in pairs(queue) do
+			if type(actions) == "table" then
+				for act_id, action in pairs(actions) do
+					if type(action) == "table" and type(action.f) == "function" and env_of(action.f) == old then
+						own[#own + 1] = { ev_id, act_id }
+					end
+				end
+			end
+		end
+		for i = 1, #own do
+			RemoveTimeEvent(own[i][1], own[i][2])
+			events = events + 1
+		end
+	end
+	local unique = upvalue(AddUniqueCall, "level_add_call_unique")
+	if unique then
+		for functor in pairs(unique) do
+			if type(functor) == "function" and env_of(functor) == old then unique[functor] = nil end
+		end
+	end
+	local undone, stuck, plain = undo_patches(name, old)
+
+	-- 3. load it again with empty memory (the engine loads a script on first use)
+	rawset(_G, name, nil)
+	local fresh = _G[name]
+	if type(fresh) ~= "table" or fresh == old then
+		rawset(_G, name, old)
+		log("%s could not be loaded again, the old copy stays", name)
+		return false
+	end
+
+	-- 4. the calls it gets after a normal map change
+	if type(rawget(fresh, "on_game_start")) == "function" then
+		local ok, err = pcall(fresh.on_game_start)
+		if not ok then log("  on_game_start failed: %s", tostring(err)) end
+	end
+	call_own(intercepts, fresh, "on_game_load")
+	call_own(intercepts, fresh, "load_state", saved)
+	if mid_map and db.actor then
+		local binder = db.actor:binded_object()
+		call_own(intercepts, fresh, "actor_on_reinit", binder)
+		call_own(intercepts, fresh, "actor_on_net_spawn", binder)
+		local sim, replayed = alife(), 0
+		for id = 1, 65534 do
+			local obj = level.object_by_id(id)
+			if obj and id ~= AC_ID then
+				local cb = (IsStalker(obj) and "npc_on_net_spawn") or (IsMonster(obj) and "monster_on_net_spawn")
+					or (IsAnomaly(obj) and "anomaly_on_net_spawn") or nil
+				if cb then replayed = replayed + call_own(intercepts, fresh, cb, obj, sim:object(id)) end
+			end
+		end
+		call_own(intercepts, fresh, "actor_on_first_update", binder, 0)
+	end
+	log("%s restarted in %.0f ms (%s callbacks, %s timed events; functions of other scripts: %s wrappers put back, %s not, %s plain replacements; saved data: %s)",
+		name, (os.clock() - started) * 1000, dropped, events, undone, stuck, plain, savers > 0 and "kept" or "none")
+	return true
+end
+
+local function culprit(frames)
+	for frame in frames:gmatch("[^|]+") do
+		if frame:find("[Lua]", 1, true) then
+			local name = frame:match("([%w_%-%.]+)%.script")
+			if name and not infrastructure[name] then return name end
+		end
+	end
+end
+
+local function restart_pending()
+	for name in pairs(pending) do
+		pending[name] = nil
+		if restart_script(name, true) then remember(name) end
+	end
+	return true
+end
+
+-- Called by the engine in place of the fatal error. true = handled, the game goes on.
+function on_script_error(text, frames)
+	local name = culprit(frames or "")
+	-- An engine call that fails without a message: the script used a game object that no longer
+	-- exists (a character that left, an item that was removed). The script itself is healthy:
+	-- restarting it does not help and leaves its older functions behind. The call is cut off; when
+	-- it came from a registered callback, that one callback is taken off so it cannot fail at
+	-- every later event and block the callbacks behind it.
+	-- The same when reading a member of such an object fails inside the engine: the message then names
+	-- whatever the script did with the missing result.
+	local f = tostring(frames)
+	if ((text == nil or text == "") and f:find("^%s*0 : %[C")) or f:find("^%s*0 : %[C%s*%] __index") then
+		stale_calls = (stale_calls or 0) + 1
+		local removed
+		local intercepts = upvalue(axr_main.make_callback, "intercepts")
+		if intercepts then
+			for lvl = 2, 30 do
+				local info = debug.getinfo(lvl, "f")
+				if not info then break end
+				for cb_name, funcs in pairs(intercepts) do
+					if rawget(funcs, info.func) ~= nil then
+						take_off(cb_name, funcs, info.func)
+						removed = cb_name
+						break
+					end
+				end
+				if removed then break end
+			end
+		end
+		if stale_calls <= 20 or stale_calls % 500 == 0 then
+			log("%s used an object that no longer exists (%s times so far); call cut off%s | %s", tostring(name), stale_calls,
+				removed and (", its " .. removed .. " callback taken off") or "", tostring(frames):sub(1, 300))
+		end
+		return true
+	end
+	if not name then
+		log("no script to blame for: %s", tostring(text))
+		return false
+	end
+	if pending[name] then -- fails again in the same frame, restart is on its way
+		swallowed = (swallowed or 0) + 1
+		if swallowed <= 5 or swallowed % 500 == 0 then log("%s fails while its restart is pending (%s times): %s | %s", name, swallowed, tostring(text), tostring(frames):sub(1, 300)) end
+		return true
+	end
+	repairs[name] = (repairs[name] or 0) + 1
+	if repairs[name] > MAX_REPAIRS_PER_MAP then
+		log("%s keeps failing after %s restarts, giving up: %s | %s", name, MAX_REPAIRS_PER_MAP, tostring(text), tostring(frames):sub(1, 600))
+		return false
+	end
+	log("%s failed (%s), restarting it | %s", name, tostring(text), tostring(frames):sub(1, 600))
+	pending[name] = true
+	-- not from inside the failing call: at the start of the next frame
+	level.add_call(restart_pending, function() end)
+	return true
+end
+
+-- Called by seamless_level_change when the old map is gone and the new one is not there yet.
+function map_left()
+	repairs = {}
+	if not restart_list then read_list() end
+	local started = os.clock()
+	for i = 1, #restart_list do
+		pending[restart_list[i]] = nil
+		restart_script(restart_list[i], false)
+	end
+	if #restart_list > 0 then
+		log("%s remembered scripts restarted at the swap in %.0f ms", #restart_list, (os.clock() - started) * 1000)
+	end
+end

@@ -49,6 +49,11 @@ public:
 	CObjectSpace();
 	~CObjectSpace();
 
+	// Seamless level change: build the next level's static collision on a worker thread
+	// (the slowest single step of a map load), then adopt it in the next Load.
+	static void prebuild_static(LPCSTR cform_file, LPCSTR key);
+	static void adopt_prebuilt_static(LPCSTR key);
+	static void prebuild_shutdown();
 	void Load(CDB::build_callback build_callback);
 	void Load(LPCSTR path, LPCSTR fname, CDB::build_callback build_callback);
 	void Load(IReader* R, CDB::build_callback build_callback);

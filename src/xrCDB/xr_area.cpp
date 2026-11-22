@@ -97,8 +97,74 @@ void CObjectSpace::Load(LPCSTR path, LPCSTR fname, CDB::build_callback build_cal
 	Load(F, build_callback);
 }
 
+#include <future>
+
+static CDB::MODEL* s_prebuilt_model = nullptr;
+static shared_str s_prebuilt_key;
+static hdrCFORM s_prebuilt_header;
+static std::future<void> s_prebuilt_task;
+static bool s_prebuilt_adopt = false;
+
+void CObjectSpace::prebuild_static(LPCSTR cform_file, LPCSTR key)
+{
+	if (s_prebuilt_model && s_prebuilt_key == key)
+		return;
+	if (s_prebuilt_task.valid())
+		s_prebuilt_task.wait();
+	xr_delete(s_prebuilt_model);
+	IReader* F = FS.r_open(cform_file);
+	if (!F)
+	{
+		Msg("! seamless preload: cannot open %s", cform_file);
+		return;
+	}
+	s_prebuilt_key = key;
+	s_prebuilt_model = xr_new<CDB::MODEL>();
+	s_prebuilt_task = std::async(std::launch::async, [F]()
+	{
+		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+		F->r(&s_prebuilt_header, sizeof(hdrCFORM));
+		Fvector* verts = (Fvector*)F->pointer();
+		CDB::TRI* tris = (CDB::TRI*)(verts + s_prebuilt_header.vertcount);
+		s_prebuilt_model->build(verts, s_prebuilt_header.vertcount, tris, s_prebuilt_header.facecount);
+		FS.r_close(const_cast<IReader*&>(F));
+	});
+}
+
+// Called when the level closes. The worker uses the engine's memory, files and log, so it must have
+// finished before those are shut down.
+void CObjectSpace::prebuild_shutdown()
+{
+	if (s_prebuilt_task.valid())
+		s_prebuilt_task.wait();
+	xr_delete(s_prebuilt_model);
+	s_prebuilt_key = "";
+	s_prebuilt_adopt = false;
+}
+
+void CObjectSpace::adopt_prebuilt_static(LPCSTR key)
+{
+	s_prebuilt_adopt = s_prebuilt_model && s_prebuilt_key == key;
+}
+
 void CObjectSpace::Load(IReader* F, CDB::build_callback build_callback)
 {
+	if (s_prebuilt_adopt)
+	{
+		s_prebuilt_adopt = false;
+		s_prebuilt_task.wait();
+		FS.r_close(F);
+		m_BoundingVolume.set(s_prebuilt_header.aabb);
+		g_SpatialSpace->initialize(m_BoundingVolume);
+		g_SpatialSpacePhysic->initialize(m_BoundingVolume);
+		g_SpatialSpaceLights->initialize(m_BoundingVolume);
+		Static.take_over(*s_prebuilt_model);
+		xr_delete(s_prebuilt_model);
+		s_prebuilt_key = "";
+		if (build_callback)
+			build_callback(Static.get_verts(), Static.get_verts_count(), Static.get_tris(), Static.get_tris_count(), NULL);
+		return;
+	}
 	hdrCFORM H;
 	F->r(&H, sizeof(hdrCFORM));
 	R_ASSERT(CFORM_CURRENT_VERSION == H.version);

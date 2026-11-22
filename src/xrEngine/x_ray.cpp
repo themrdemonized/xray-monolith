@@ -1526,12 +1526,15 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 static CTimer phase_timer;
 extern ENGINE_API BOOL g_appLoaded = FALSE;
 ENGINE_API int psLoadingScreenEarly = 0;
+// Seamless level change: the map loads behind a fade, without the loading screen.
+ENGINE_API BOOL g_seamless_loading = FALSE;
 //AVO: used by SPAWN_ANTIFREEZE (by alpet)
 extern ENGINE_API BOOL g_bootComplete = FALSE;
 //-AVO
 
 void CApplication::LoadBegin()
 {
+	if (g_seamless_loading) return;
 	ll_dwReference++;
 	if (1 == ll_dwReference)
 	{
@@ -1555,6 +1558,7 @@ void CApplication::LoadBegin()
 
 void CApplication::LoadEnd()
 {
+	if (g_seamless_loading) return;
 	ll_dwReference--;
 	if (0 == ll_dwReference)
 	{
@@ -1612,6 +1616,7 @@ void CApplication::LoadTitleInt(LPCSTR str1, LPCSTR str2, LPCSTR str3)
 void CApplication::LoadStage()
 {
 	load_stage++;
+	if (g_seamless_loading) return;
 	VERIFY(ll_dwReference);
 	Msg("* phase time: %d ms", phase_timer.GetElapsed_ms());
 	phase_timer.Start();

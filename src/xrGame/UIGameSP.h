@@ -56,6 +56,7 @@ class CChangeLevelWnd : public CUIDialogWnd
 	void OnCancel();
 	void OnOk();
 public:
+	bool AcceptChangeLevel() { if (!IsShown() || !m_b_allow_change_level) return false; OnOk(); return true; } // answers yes to the level change question (console: level_change_accept)
 	GameGraph::_GRAPH_ID m_game_vertex_id;
 	u32 m_level_vertex_id;
 	Fvector m_position;

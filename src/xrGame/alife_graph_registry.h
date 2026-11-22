@@ -62,6 +62,8 @@ public:
 	CALifeGraphRegistry();
 	virtual ~CALifeGraphRegistry();
 	void on_load();
+	// Seamless level change: rebuild the current-level registry around the actor's new level.
+	void change_level_in_place(const class CALifeObjectRegistry& registry);
 	void update(CSE_ALifeDynamicObject* object);
 	void attach(CSE_Abstract& object, CSE_ALifeInventoryItem* item, GameGraph::_GRAPH_ID game_vertex_id,
 	            bool alife_query = true, bool add_children = true);

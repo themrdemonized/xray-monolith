@@ -30,9 +30,14 @@ CPHScriptCondition::~CPHScriptCondition()
 	xr_delete(m_lua_function);
 }
 
+extern u32 g_script_repair_count;
 bool CPHScriptCondition::is_true()
 {
-	return (*m_lua_function)();
+	// a per-frame script call that failed and was repaired stays registered (a failed
+	// call returns nothing usable; "true" would silently remove it, e.g. the timed-event pump)
+	const u32 repairs = g_script_repair_count;
+	const bool result = (*m_lua_function)();
+	return repairs == g_script_repair_count ? result : false;
 }
 
 bool CPHScriptCondition::obsolete() const

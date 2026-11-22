@@ -1878,6 +1878,71 @@ actor->character_physics_support()->SetRemoved();
 //#ifndef MASTER_GOLD
 #	include "game_graph.h"
 
+extern float g_seamless_fade_out;
+extern float g_seamless_preload_ms;
+extern int g_seamless_script_repair;
+extern int g_seamless_log;
+
+struct CCC_SeamlessPreloadLevel : public IConsole_Command
+{
+	CCC_SeamlessPreloadLevel(LPCSTR N) : IConsole_Command(N)
+	{
+	};
+
+	virtual void Execute(LPCSTR level)
+	{
+		if (g_pGameLevel && ai().get_alife())
+			Level().seamless_preload_level(level);
+	}
+
+	virtual void Save(IWriter* F)
+	{
+	};
+};
+extern int g_seamless_level_change;
+extern int g_seamless_script_memory_limit;
+
+#include "UIGameSP.h"
+struct CCC_LevelChangeAccept : public IConsole_Command
+{
+	CCC_LevelChangeAccept(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = true; };
+	virtual void Execute(LPCSTR)
+	{
+		CUIGameSP* ui = g_pGameLevel ? smart_cast<CUIGameSP*>(CurrentGameUI()) : NULL;
+		Msg("level change: question answered yes: %s", ui && ui->UIChangeLevelWnd && ui->UIChangeLevelWnd->AcceptChangeLevel() ? "true" : "false (no question open)");
+	}
+	virtual void Save(IWriter* F) {};
+};
+
+struct CCC_SeamlessJumpToLevel : public IConsole_Command
+{
+	CCC_SeamlessJumpToLevel(LPCSTR N) : IConsole_Command(N)
+	{
+	};
+
+	virtual void Execute(LPCSTR level)
+	{
+		if (!g_pGameLevel || !ai().get_alife())
+		{
+			Msg("! ALife simulator is needed to perform specified command!");
+			return;
+		}
+		GameGraph::LEVEL_MAP::const_iterator I = ai().game_graph().header().levels().begin();
+		GameGraph::LEVEL_MAP::const_iterator E = ai().game_graph().header().levels().end();
+		for (; I != E; ++I)
+			if (!xr_strcmp((*I).second.name(), level))
+			{
+				Level().seamless_request(level);
+				return;
+			}
+		Msg("! There is no level \"%s\" in the game graph!", level);
+	}
+
+	virtual void Save(IWriter* F)
+	{
+	};
+};
+
 struct CCC_JumpToLevel : public IConsole_Command
 {
 	CCC_JumpToLevel(LPCSTR N) : IConsole_Command(N)
@@ -2898,9 +2963,22 @@ void CCC_RegisterCommands()
 
 	/* AVO: changing restriction to -dbg key instead of DEBUG */
 	//#ifndef MASTER_GOLD
+	// Level changes without a loading screen (off by default) and the repair of scripts that fail
+	// after one; kept in user.ltx.
+	// answers yes to the level change question that is on screen, so automatic tests can walk across as a player does
+	CMD1(CCC_LevelChangeAccept, "level_change_accept");
+	// asked for by seamless_level_change.script when the player comes near a level changer, so it must exist in normal play
+	CMD1(CCC_SeamlessPreloadLevel, "seamless_preload_level");
+	CMD4(CCC_Integer, "seamless_level_change", &g_seamless_level_change, 0, 1);
+	CMD4(CCC_Integer, "seamless_script_memory_limit", &g_seamless_script_memory_limit, 0, 2048);
+	CMD4(CCC_Integer, "seamless_script_repair", &g_seamless_script_repair, 0, 1);
+	CMD4(CCC_Integer, "seamless_log", &g_seamless_log, 0, 1);
 #ifdef MASTER_GOLD
 	if (0 != Core.isDebug())
 	{
+		CMD1(CCC_SeamlessJumpToLevel, "seamless_jump_to_level");
+		CMD4(CCC_Float, "seamless_preload_ms", &g_seamless_preload_ms, 0.5f, 50.f);
+		CMD4(CCC_Float, "seamless_fade_out", &g_seamless_fade_out, 0.f, 5.f);
 		CMD1(CCC_JumpToLevel, "jump_to_level");
 		CMD3(CCC_Mask, "g_god", &psActorFlags, AF_GODMODE);
 		CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);

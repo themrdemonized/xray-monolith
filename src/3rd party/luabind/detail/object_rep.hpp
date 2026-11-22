@@ -34,6 +34,35 @@ namespace luabind { namespace detail
 	// this class is allocated inside lua for each pointer.
 	// it contains the actual c++ object-pointer.
 	// it also tells if it is const or not.
+	// The table with the script-side members of an instance of a lua class. The instance keeps it
+	// alive as its environment table, where lua's collector can see the link: two instances that
+	// refer to each other are then collected like any other cycle. (A reference in the registry,
+	// as this used to be, kept every such cycle alive until the lua state was closed.) The table
+	// is found again through a registry table that does not keep it alive.
+	struct LUABIND_API instance_table_ref
+	{
+		instance_table_ref() : L(0), m_ref(LUA_NOREF) {}
+		instance_table_ref(instance_table_ref const& r) : L(0), m_ref(LUA_NOREF)
+		{
+			if (!r.is_valid()) return;
+			r.get(r.L);
+			set(r.L);
+		}
+		~instance_table_ref() { reset(); }
+
+		bool is_valid() const { return m_ref != LUA_NOREF; }
+		// pops the table from the stack. The caller makes it the environment of the instance.
+		void set(lua_State* L_);
+		void get(lua_State* L_) const;
+		void reset();
+
+	private:
+		void operator=(instance_table_ref const&);
+		static void push_store(lua_State* L_);
+		lua_State* L;
+		int m_ref;
+	};
+
 	class LUABIND_API object_rep
 	{
 	public:
@@ -41,7 +70,7 @@ namespace luabind { namespace detail
 
 		// dest is a function that is called to delete the c++ object this struct holds
 		object_rep(void* obj, class_rep* crep, int flags, void(*dest)(void*));
-		object_rep(class_rep* crep, int flags, detail::lua_reference const& table_ref);
+		object_rep(class_rep* crep, int flags, detail::instance_table_ref const& table_ref);
 		~object_rep();
 
 		void* ptr() const { return m_object; }
@@ -56,8 +85,8 @@ namespace luabind { namespace detail
 		int flags() const { return m_flags; }
 		void set_flags(int flags) { m_flags = flags; }
 
-		detail::lua_reference& get_lua_table() { return m_lua_table_ref; }
-		detail::lua_reference const& get_lua_table() const { return m_lua_table_ref; }
+		detail::instance_table_ref& get_lua_table() { return m_lua_table_ref; }
+		detail::instance_table_ref const& get_lua_table() const { return m_lua_table_ref; }
 
 		void remove_ownership();
 		void set_destructor(void(*ptr)(void*));
@@ -76,7 +105,7 @@ namespace luabind { namespace detail
 		int m_flags;
 #pragma warning(push)
 #pragma warning(disable:4251)
-		detail::lua_reference m_lua_table_ref; // reference to lua table if this is a lua class
+		detail::instance_table_ref m_lua_table_ref; // the table with the script-side members if this is a lua class
 #pragma warning(pop)
 		void(*m_destructor)(void*); // this could be in class_rep? it can't: see intrusive_ptr
 		int m_dependency_cnt; // counts dependencies

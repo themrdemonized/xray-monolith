@@ -46,8 +46,8 @@ private:
 	doors::manager* m_doors_manager;
 
 private:
-	void load(LPCSTR level_name);
-	void unload(bool reload = false);
+	void load(LPCSTR level_name, bool keep_scripts = false);
+	void unload(bool reload = false, bool keep_scripts = false);
 	void patrol_path_storage_raw(IReader& stream);
 	void patrol_path_storage(IReader& stream);
 	void set_alife(CALifeSimulator* alife_simulator);

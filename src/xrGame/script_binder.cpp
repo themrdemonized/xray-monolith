@@ -34,6 +34,8 @@ void CScriptBinder::init()
 	m_object = 0;
 }
 
+extern u32 g_script_repair_frame;
+
 void CScriptBinder::clear()
 {
 	try
@@ -62,7 +64,7 @@ void CScriptBinder::reinit()
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 #ifdef DEBUG_MEMORY_MANAGER
@@ -107,7 +109,7 @@ void CScriptBinder::reload(LPCSTR section)
 	}
 	catch (...)
 	{
-		clear();
+		if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		return;
 	}
 
@@ -119,7 +121,7 @@ void CScriptBinder::reload(LPCSTR section)
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 #endif
@@ -150,7 +152,7 @@ BOOL CScriptBinder::net_Spawn(CSE_Abstract* DC)
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 
@@ -179,7 +181,7 @@ void CScriptBinder::net_Destroy()
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 	xr_delete(m_object);
@@ -212,7 +214,7 @@ void CScriptBinder::shedule_Update(u32 time_delta)
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 }
@@ -228,7 +230,7 @@ void CScriptBinder::save(NET_Packet& output_packet)
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 }
@@ -244,7 +246,7 @@ void CScriptBinder::load(IReader& input_packet)
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 }
@@ -259,7 +261,7 @@ BOOL CScriptBinder::net_SaveRelevant()
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 	return (FALSE);
@@ -277,7 +279,7 @@ void CScriptBinder::net_Relcase(CObject* object)
 		}
 		catch (...)
 		{
-			clear();
+			if (g_script_repair_frame != Device.dwFrame) clear(); // a repaired script keeps its object binding
 		}
 	}
 }

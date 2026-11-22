@@ -89,13 +89,20 @@ float CALifeUpdateManager::shedule_Scale()
 	return (.5f); // (schedule_min + schedule_max)*0.5f
 }
 
+u32 g_full_switch_passes = 0;
+
 void CALifeUpdateManager::update_switch()
 {
 	init_ef_storage();
 
 	START_PROFILE("ALife/switch")
 		;
-		graph().level().update(CSwitchPredicate(this), Device.dwPrecacheFrame > 0);
+		// after a normal load every update of the warm-up frames checks all objects of the
+		// map, and scripts rely on it (a wide online distance for the first seconds). The same
+		// number of full checks follows a swap.
+		bool full_pass = g_full_switch_passes > 0;
+		if (full_pass) --g_full_switch_passes;
+		graph().level().update(CSwitchPredicate(this), Device.dwPrecacheFrame > 0 || full_pass);
 	STOP_PROFILE
 }
 
@@ -157,10 +164,56 @@ void CALifeUpdateManager::init_ef_storage() const
 	ai().ef_storage().alife_evaluation(true);
 }
 
+extern int g_seamless_level_change;
+
+// A seamless level change does not restart the scripts. What leaves with a map is released, so their memory should
+// stay level; this is the net under that: when the scripts have grown by more than the limit since they were last
+// started, one level change takes the loading screen, which restarts them. Counted from the lowest use seen since
+// the start, so a large mod list that needs more from the beginning is not cut short.
+int g_seamless_script_memory_limit = 128; // MB of growth, 0 = no limit (console: seamless_script_memory_limit)
+static bool seamless_script_memory_ok()
+{
+	static lua_State* counted_for = nullptr;
+	static int lowest = 0;
+	lua_State* L = ai().script_engine().lua();
+	int used = lua_gc(L, LUA_GCCOUNT, 0) >> 10;
+	if (counted_for == L && g_seamless_script_memory_limit > 0 && used - lowest >= g_seamless_script_memory_limit)
+	{
+		// most of it may be garbage the collector has not come to yet: count what is really kept
+		lua_gc(L, LUA_GCCOLLECT, 0);
+		used = lua_gc(L, LUA_GCCOUNT, 0) >> 10;
+	}
+	if (counted_for != L || used < lowest)
+	{
+		counted_for = L;
+		lowest = used;
+	}
+	if (g_seamless_script_memory_limit <= 0 || used - lowest < g_seamless_script_memory_limit)
+		return true;
+	Msg("* seamless: scripts use %d MB, %d MB more than after their start (limit %d), this level change takes the loading screen to restart them",
+		used, used - lowest, g_seamless_script_memory_limit);
+	return false;
+}
+
 bool CALifeUpdateManager::change_level(NET_Packet& net_packet)
 {
 	if (m_changing_level)
 		return (false);
+
+	// with seamless_level_change on, every level change (level changers, travel, jump_to_level)
+	// becomes an in-place swap behind a short fade.
+	if (g_seamless_level_change && CLevel::seamless_scripts_installed() && seamless_script_memory_ok())
+	{
+		GameGraph::_GRAPH_ID game_vertex_id;
+		u32 level_vertex_id;
+		Fvector position, angles;
+		net_packet.r(&game_vertex_id, sizeof(game_vertex_id));
+		net_packet.r(&level_vertex_id, sizeof(level_vertex_id));
+		net_packet.r_vec3(position);
+		net_packet.r_vec3(angles);
+		Level().seamless_request(game_vertex_id, level_vertex_id, position, angles);
+		return (false);
+	}
 
 #ifdef	ENGINE_LUA_ALIFE_UPDAGE_MANAGER_CALLBACKS
 	::luabind::functor<void> funct;
@@ -406,6 +459,90 @@ void CALifeUpdateManager::jump_to_level(LPCSTR level_name) const
 	net_packet.w(&level_point, sizeof(level_point));
 	net_packet.w_vec3(Fvector().set(0.f, 0.f, 0.f));
 	Level().Send(net_packet, net_flags(TRUE));
+}
+
+bool CALifeUpdateManager::find_level_entry(LPCSTR level_name, GameGraph::_GRAPH_ID& game_vertex_id) const
+{
+	const CGameGraph::SLevel& level = ai().game_graph().header().level(level_name);
+	GraphEngineSpace::CGameLevelParams evaluator(level.id());
+	if (ai().graph_engine().search(ai().game_graph(), graph().actor()->m_tGraphID, GameGraph::_GRAPH_ID(-1), 0,
+	                               evaluator))
+	{
+		game_vertex_id = (GameGraph::_GRAPH_ID)evaluator.selected_vertex_id();
+		return true;
+	}
+	float min_dist = flt_max;
+	bool found = false;
+	Fvector current = ai().game_graph().vertex(graph().actor()->m_tGraphID)->game_point();
+	for (GameGraph::_GRAPH_ID i = 0, n = ai().game_graph().header().vertex_count(); i < n; ++i)
+		if (ai().game_graph().vertex(i)->level_id() == level.id())
+		{
+			float distance = ai().game_graph().vertex(i)->game_point().distance_to_sqr(current);
+			if (distance < min_dist)
+			{
+				min_dist = distance;
+				game_vertex_id = i;
+				found = true;
+			}
+		}
+	return found;
+}
+
+// Sends every online object of the current level offline, the actor last. The server
+// entities, the simulation and the script engine all stay alive.
+void CALifeUpdateManager::switch_offline_all()
+{
+	xr_vector<ALife::_OBJECT_ID> online;
+	for (const auto& it : graph().level().objects())
+		if (it.second->m_bOnline && it.second != graph().actor())
+			online.push_back(it.second->ID);
+	for (ALife::_OBJECT_ID id : online)
+	{
+		CSE_ALifeDynamicObject* object = objects().object(id, true);
+		if (object && object->m_bOnline)
+		{
+			// What the object saved for its next spawn (CLevel::ClientSave) is kept, as a level change
+			// with a loading screen keeps it; going offline by distance drops it.
+			xr_vector<u8> saved;
+			saved.swap(object->client_data);
+			object->switch_offline();
+			object->client_data.swap(saved);
+		}
+	}
+	remove_online(graph().actor(), false);
+	// the actor's scripts keep running: nothing to load back when it appears on the next level
+	graph().actor()->client_data.clear();
+}
+
+void CALifeUpdateManager::relocate_actor(GameGraph::_GRAPH_ID game_vertex_id, u32 level_vertex_id,
+                                             const Fvector& position, const Fvector& angles)
+{
+	CSE_ALifeCreatureActor* actor = graph().actor();
+	graph().change(actor, actor->m_tGraphID, game_vertex_id);
+	actor->m_tNodeID = level_vertex_id;
+	actor->o_Position = position;
+	actor->o_Angle = angles;
+	actor->o_torso.yaw = angles.y;
+	actor->o_torso.pitch = angles.x;
+	graph().change_level_in_place(objects());
+	// Objects without a place in the navigation graph (anomalies, trigger zones, physics
+	// objects, stashes) are in no per-vertex list: a load registers them with the current map
+	// one by one, and so does the swap. The registry keeps only those of its own map.
+	for (const auto& it : objects().objects())
+	{
+		CSE_ALifeDynamicObject* object = it.second;
+		if (!object->m_bDirectControl || !ai().game_graph().valid_vertex_id(object->m_tGraphID))
+			continue;
+		CSE_ALifeInventoryItem* item = smart_cast<CSE_ALifeInventoryItem*>(object);
+		if (item && item->attached())
+			continue;
+		graph().level().add(object);
+	}
+}
+
+void CALifeUpdateManager::switch_online_actor()
+{
+	add_online(graph().actor(), false);
 }
 
 void CALifeUpdateManager::teleport_object(ALife::_OBJECT_ID id, GameGraph::_GRAPH_ID game_vertex_id,
@@ -657,4 +794,10 @@ void CALifeUpdateManager::remove_all_restrictions(ALife::_OBJECT_ID id,
 		}
 	default: NODEFAULT;
 	}
+}
+
+void CALifeUpdateManager::update_switch_all()
+{
+	init_ef_storage();
+	graph().level().update(CSwitchPredicate(this), true);
 }

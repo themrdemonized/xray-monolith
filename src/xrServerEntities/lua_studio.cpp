@@ -446,7 +446,7 @@ bool engine::value_convert_instance(cs::lua_studio::backend& backend, char* buff
                                     ::luabind::detail::object_rep* object, lua_State* state)
 {
 	typedef ::luabind::detail::lua_reference lua_reference;
-	lua_reference const& tbl = object->get_lua_table();
+	::luabind::detail::instance_table_ref const& tbl = object->get_lua_table();
 	if (!tbl.is_valid())
 		return (false);
 
@@ -774,7 +774,7 @@ void engine::expand_class_instance(
 	}
 
 	typedef ::luabind::detail::lua_reference lua_reference;
-	lua_reference const& tbl = object->get_lua_table();
+	::luabind::detail::instance_table_ref const& tbl = object->get_lua_table();
 	if (!tbl.is_valid())
 		return;
 

@@ -1,0 +1,466 @@
+-- Seamless level change (console: seamless_level_change 1): the engine changes the level without
+-- saving, loading or restarting the scripts. This script draws the short fade to black around it
+-- and tidies up what scripts keep from the level that was left.
+-- The engine calls fade_out(seconds) when a change is requested, map_left() when every object of
+-- the old level is gone, and fade_in() right after the change. Without this script the engine
+-- keeps the loading screen.
+
+local FADE_IN_SECONDS = 0.35
+local HOLD_FRAMES = 3 -- smooth frames in a row before the fade-in starts
+local SMOOTH_FRAME_MS = 50
+local MAX_HOLD_SECONDS = 3
+
+local overlay = nil
+
+-- wall clock: the engine's own timers stand still across the swap frame
+local function clock_ms()
+	return os.clock() * 1000
+end
+
+class "SeamlessFade" (CUIScriptWnd)
+
+function SeamlessFade:__init() super()
+	self:SetWndRect(Frect():set(0, 0, 1024, 768))
+	self:SetAutoDelete(false)
+	self.pic = CUIStatic()
+	self.pic:SetAutoDelete(true)
+	self:AttachChild(self.pic)
+	self.pic:SetWndRect(Frect():set(0, 0, 1024, 768))
+	self.pic:InitTexture("ui_inGame2_white_rect")
+	self.pic:SetStretchTexture(true)
+	self.alpha = 0
+	self.mode = nil -- "out", "hold", "in"
+	self:Apply()
+end
+
+function SeamlessFade:__finalize()
+end
+
+function SeamlessFade:Apply()
+	self.pic:SetTextureColor(GetARGB(math.floor(self.alpha + 0.5), 0, 0, 0))
+end
+
+function SeamlessFade:Update()
+	CUIScriptWnd.Update(self)
+	local now = clock_ms()
+	local last = self.last
+	if last and now - last < 1 then return end -- same frame
+	self.last = now
+	if self.mode == "out" then
+		self.alpha = self.seconds > 0 and math.min(255, 255 * (now - self.start) / (self.seconds * 1000)) or 255
+	elseif self.mode == "hold" then
+		-- stay black until the game runs smoothly again (the new surroundings come online in
+		-- the first frames), at most MAX_HOLD_SECONDS
+		self.alpha = 255
+		if now - (last or now) < SMOOTH_FRAME_MS then
+			self.frames = self.frames - 1
+		else
+			self.frames = HOLD_FRAMES
+		end
+		if self.frames <= 0 or now - self.hold_start > MAX_HOLD_SECONDS * 1000 then
+			self.mode = "in"
+			self.start = now
+		end
+	elseif self.mode == "in" then
+		self.alpha = math.max(0, 255 - 255 * (now - self.start) / (FADE_IN_SECONDS * 1000))
+		if self.alpha <= 0 then self.mode = nil end
+	end
+	self:Apply()
+end
+
+local function get_overlay()
+	if not overlay then
+		overlay = SeamlessFade()
+		get_hud():AddDialogToRender(overlay)
+	end
+	return overlay
+end
+
+----------------------------------------------------------------------------------------------
+-- Newer script callback lists (axr_main with before/after rules) are sorted again after every
+-- single registration, and one sort costs time by the square of the list's length. A map with
+-- a thousand script-driven anomalies took seconds to leave and to enter that way, and more
+-- than a minute to quit from. While seamless level changes are on, the sort is put off and done
+-- once per frame; until then a new callback simply runs in the order it was registered.
+----------------------------------------------------------------------------------------------
+local bulk, unsorted, sort_callbacks = false, {}, nil
+local function sort_later(name)
+	if bulk then unsorted[name] = true return true end
+	return sort_callbacks(name)
+end
+local function sort_now()
+	if not next(unsorted) then return end
+	local names = unsorted
+	unsorted = {}
+	for name in pairs(names) do
+		local ok, err = sort_callbacks(name)
+		if not ok then printf("! seamless: callback list %s could not be sorted: %s", name, tostring(err)) end
+	end
+end
+local function bulk_start()
+	if sort_callbacks == nil then
+		sort_callbacks = false
+		for _, f in ipairs({ axr_main.callback_set, axr_main.callback_unset }) do
+			for k = 1, 60 do
+				local n, v = debug.getupvalue(f, k)
+				if not n then break end
+				if n == "callback_reorder" and type(v) == "function" then
+					if v ~= sort_later then
+						sort_callbacks = v
+						debug.setupvalue(f, k, sort_later)
+					end
+					break
+				end
+			end
+		end
+	end
+	if not sort_callbacks then return end -- an axr_main without the sorting: nothing to put off
+	bulk = true
+end
+
+function fade_out(seconds)
+	bulk_start()
+	local o = get_overlay()
+	o.mode = "out"
+	o.seconds = seconds or 0.25
+	o.start = clock_ms()
+end
+
+-- Per-map tables that scripts fill and expect to start empty on every map. The script state
+-- survives a swap, so entries of the map just left are dropped here, once, for every script
+-- (and mod) that reads them.
+local function drop_left_map_state()
+	for id in pairs(db.level_doors) do
+		if not (db.storage[id] and db.storage[id].ph_door) then
+			db.level_doors[id] = nil
+		end
+	end
+end
+
+----------------------------------------------------------------------------------------------
+-- Scripts keep per-object helpers in tables indexed by the object's id ("cache[obj:id()] = ...").
+-- After a normal map change those tables start empty; after a swap they would hand out a helper
+-- that still points at an object of an earlier visit (the helicopter scripts ended the game this
+-- way on the return to a map). When the map is left no game object exists, so every number-keyed
+-- entry that holds one is a leftover: it is removed, in every script's own tables and in the
+-- tables its functions keep as locals.
+----------------------------------------------------------------------------------------------
+local SKIP_NAMESPACES = { _G = true, package = true, string = true, table = true, math = true, io = true, os = true,
+	debug = true, jit = true, bit = true, coroutine = true, ffi = true, seamless_level_change = true, seamless_script_repair = true }
+
+function forget_objects_of_left_map()
+	if not script_value_holds_game_object then return end -- an engine without the helper
+	local started, removed, where, seen = os.clock(), 0, {}, {}
+	local function sweep(t, label)
+		if seen[t] then return end
+		seen[t] = true
+		local n = 0
+		for k, v in pairs(t) do
+			if type(k) == "number" and (type(v) == "table" or type(v) == "userdata") and script_value_holds_game_object(v) then
+				t[k] = nil
+				n = n + 1
+			end
+		end
+		if n > 0 then
+			removed = removed + n
+			if #where < 12 then where[#where + 1] = label .. " " .. n end
+		end
+	end
+	for name, ns in pairs(_G) do
+		if type(ns) == "table" and type(name) == "string" and not SKIP_NAMESPACES[name] and ns ~= _G then
+			for key, value in pairs(ns) do
+				if type(value) == "table" then
+					sweep(value, name .. "." .. tostring(key))
+				elseif type(value) == "function" then
+					for i = 1, 60 do
+						local up_name, up = debug.getupvalue(value, i)
+						if not up_name then break end
+						if type(up) == "table" and up ~= _G then sweep(up, name .. ":" .. up_name) end
+					end
+				end
+			end
+		end
+	end
+	if removed > 0 then
+		printf("seamless: %s leftover per-object entries of the level left behind removed in %s ms (%s)", removed,
+			math.floor((os.clock() - started) * 1000), table.concat(where, ", "))
+	end
+end
+
+-- Tables of the game's own scripts that a normal level change starts empty and that the sweep
+-- above cannot recognise (keyed by name, holding managers instead of objects). Each is a local
+-- of its script, found through the function that fills it.
+local PER_LEVEL_LOCALS = {
+	{ "xr_patrol", "set_scheme", "patrols" }, -- patrol groups: a group kept from an earlier visit has no commander
+	-- anomalies the monsters are steered around; the script walks the list a few entries per frame and
+	-- remembers where it was (the names after the table), which must not point into the emptied list
+	{ "aaaa_script_fixes_mp", "anomaly_restrictor_update", "anomaly_restrictor_db", "anomaly_restrictor_db_k", "anomaly_restrictor_db_v" },
+	{ "aaaa_script_fixes_mp", "anomaly_entity_restrictor_update", "anomaly_restrictor_db_by_gvid" },
+}
+
+local function empty_per_level_locals()
+	for _, e in ipairs(PER_LEVEL_LOCALS) do
+		local f = _G[e[1]] and _G[e[1]][e[2]]
+		if type(f) == "function" then
+			for i = 1, 60 do
+				local name, value = debug.getupvalue(f, i)
+				if not name then break end
+				if name == e[3] and type(value) == "table" then
+					for k in pairs(value) do value[k] = nil end
+				elseif name == e[4] or name == e[5] then
+					debug.setupvalue(f, i, nil)
+				end
+			end
+		end
+	end
+end
+
+-- A timed event that was given a game object ("CreateTimeEvent(id, id, 0.1, f, npc)") and has not run yet: its
+-- object is gone, so it would fail at every frame from now on and keep the events queued behind it from running.
+local function drop_time_events_with_objects()
+	if not script_value_holds_game_object then return end
+	local queue
+	for i = 1, 60 do
+		local name, value = debug.getupvalue(CreateTimeEvent, i)
+		if not name then break end
+		if name == "ev_queue" then queue = value break end
+	end
+	if type(queue) ~= "table" then return end
+	local gone = {}
+	for ev_id, actions in pairs(queue) do
+		if type(actions) == "table" then
+			for act_id, action in pairs(actions) do
+				if type(action) == "table" and type(action.p) == "table" and script_value_holds_game_object(action.p) then
+					gone[#gone + 1] = { ev_id, act_id }
+				end
+			end
+		end
+	end
+	for i = 1, #gone do RemoveTimeEvent(gone[i][1], gone[i][2]) end
+	if #gone > 0 then
+		printf("seamless: %s timed events waiting with an object of the level left behind removed (first: %s)", #gone, tostring(gone[1][1]))
+	end
+end
+
+----------------------------------------------------------------------------------------------
+-- Every character has a state manager with a planner of its own. The planner keeps the manager's
+-- actions and conditions alive, each of those refers to the manager, and the manager refers to
+-- the planner: a ring that passes through the engine, where the scripts' memory clean-up cannot
+-- follow it. A normal level change ends it by restarting the scripts. Here the ring is opened
+-- when the character is gone, so the clean-up can take all of it.
+----------------------------------------------------------------------------------------------
+local left_managers = {}
+local left_ids = {}
+
+local function npc_on_net_destroy(npc)
+	left_ids[#left_ids + 1] = npc:id()
+	local st = db.storage[npc:id()]
+	local manager = st and st.state_mgr
+	if manager then left_managers[#left_managers + 1] = manager end
+end
+
+local function release_left_managers()
+	for i = #left_managers, 1, -1 do
+		left_managers[i].planner = nil
+		left_managers[i] = nil
+	end
+	-- every sound theme keeps a list of sound files per character it was set up for; a character
+	-- that comes back is set up again (npc_sound:init_npc)
+	if left_ids[1] then
+		for _, theme in pairs(sound_theme.theme) do
+			local per_npc, paths = theme.npc, theme.sound_path
+			if type(per_npc) == "table" and type(paths) == "table" then
+				for i = 1, #left_ids do
+					local id = left_ids[i]
+					if not level.object_by_id(id) then per_npc[id], paths[id] = nil, nil end
+				end
+			end
+		end
+		left_ids = {}
+	end
+end
+
+-- Called by the engine when every object of the old map is gone and the new map is not
+-- loaded yet.
+function map_left()
+	sort_now()
+	sweep_stale_objects() -- stamps what the map being left registered
+	local ok, err = pcall(forget_objects_of_left_map)
+	if not ok then printf("! seamless: leftover sweep failed: %s", tostring(err)) end
+	pcall(empty_per_level_locals)
+	pcall(drop_time_events_with_objects)
+	pcall(release_left_managers)
+	seamless_script_repair.map_left()
+end
+
+----------------------------------------------------------------------------------------------
+-- Script objects (windows, managers) that register themselves for callbacks are normally made
+-- once per map: the script forgets its object when the map ends and makes a new one. After a
+-- normal map change the old object is gone with the script memory; after a swap it would stay
+-- registered and keep getting calls, one more copy at every crossing. Here every registered
+-- object is stamped with the map it first appeared on, and when an object of the same kind
+-- (same handler function) from a later map is registered for the same callback, the older
+-- ones are taken off. Objects of the same map are never touched.
+----------------------------------------------------------------------------------------------
+local born = setmetatable({}, { __mode = "k" }) -- object -> number of the map it appeared on
+local last_sweep = 0
+
+-- Takes one registration off a callback. Through axr_main where it has the function for it, which
+-- also clears the order and constraint lists it keeps per registration (those kept every script
+-- object taken off alive).
+local function take_off(name, funcs, what)
+	if axr_main.callback_unset then pcall(axr_main.callback_unset, name, what) end
+	funcs[what] = nil
+end
+
+-- A window that has been replaced by a new one. Its button callbacks refer to the window itself, through
+-- the engine, where the scripts' memory clean-up cannot follow: the window and every control on it would
+-- stay in memory for the rest of the session. The same for the parts it is built from that refer back to
+-- it (and only those: anything else it knows may still be in use).
+function release_window(window)
+	local function members(obj)
+		local ok, env = pcall(debug.getfenv, obj)
+		return ok and type(env) == "table" and env or nil
+	end
+	local function refers_back(part)
+		local env = members(part)
+		if not env then return false end
+		for _, v in pairs(env) do
+			if rawequal(v, window) then return true end
+		end
+		return false
+	end
+	local function clear(obj)
+		pcall(function() obj:ClearCallbacks() end)
+	end
+	local env = members(window)
+	if env then
+		for _, v in pairs(env) do
+			if type(v) == "userdata" then
+				if not rawequal(v, window) and refers_back(v) then clear(v) end
+			elseif type(v) == "table" then
+				for _, part in pairs(v) do
+					if type(part) == "userdata" and not rawequal(part, window) and refers_back(part) then clear(part) end
+				end
+			end
+		end
+	end
+	clear(window)
+end
+
+function sweep_stale_objects()
+	local intercepts
+	for k = 1, 60 do
+		local n, v = debug.getupvalue(axr_main.make_callback, k)
+		if not n then break end
+		if n == "intercepts" then intercepts = v break end
+	end
+	if not intercepts then return end
+	local map_no, dropped, kinds = changes_done, 0, {}
+	for name, funcs in pairs(intercepts) do
+		local newest, mixed = {}, false -- handler function -> newest map number
+		for obj in pairs(funcs) do
+			if type(obj) ~= "function" then
+				if not born[obj] then born[obj] = map_no end
+				local ok, handler = pcall(function() return obj[name] end)
+				if ok and type(handler) == "function" then
+					local n = newest[handler]
+					if n and n ~= born[obj] then mixed = true end
+					if not n or born[obj] > n then newest[handler] = born[obj] end
+				end
+			end
+		end
+		if mixed then
+			local stale = {}
+			for obj in pairs(funcs) do
+				if type(obj) ~= "function" then
+					local ok, handler = pcall(function() return obj[name] end)
+					if ok and type(handler) == "function" and born[obj] < newest[handler] then stale[#stale + 1] = obj end
+				end
+			end
+			for i = 1, #stale do
+				take_off(name, funcs, stale[i])
+				local ok, err = pcall(release_window, stale[i])
+				if not ok then printf("! seamless: releasing a replaced window failed: %s", tostring(err)) end
+			end
+			dropped = dropped + #stale
+			kinds[#kinds + 1] = name
+		end
+	end
+	if dropped > 0 then
+		printf("seamless: %s registrations of script objects from earlier maps taken off (%s)", dropped, table.concat(kinds, ", "):sub(1, 300))
+	end
+end
+
+function fade_in()
+	sort_now()
+	drop_left_map_state()
+	changes_done = changes_done + 1
+	local o = get_overlay()
+	o.alpha = 255
+	o.mode = "hold"
+	o.frames = HOLD_FRAMES
+	o.hold_start = clock_ms()
+	o:Apply()
+end
+
+----------------------------------------------------------------------------------------------
+-- Preparing the next map while the player approaches a crossing. Done from the simulation's
+-- list of crossings, so it also works for crossings whose game object is not active.
+----------------------------------------------------------------------------------------------
+local PREPARE_DISTANCE = 150
+local crossings, crossings_level, prepared = nil, nil, {}
+
+local function find_crossings()
+	crossings, prepared = {}, {}
+	crossings_level = level.name()
+	local sim, gg = alife(), game_graph()
+	local here = gg:vertex(sim:actor().m_game_vertex_id):level_id()
+	for id = 1, 65534 do
+		local se = sim:object(id)
+		if se and (se:clsid() == clsid.level_changer or se:clsid() == clsid.level_changer_s)
+			and gg:vertex(se.m_game_vertex_id):level_id() == here and gg:valid_vertex_id(se.dest_game_vertex_id) then
+			local target = sim:level_name(gg:vertex(se.dest_game_vertex_id):level_id())
+			if target ~= crossings_level then
+				crossings[#crossings + 1] = { pos = se.position, target = target, name = se:name() }
+			end
+		end
+	end
+end
+
+local function prepare_near_crossings()
+	if crossings_level ~= level.name() then find_crossings() end
+	local pos = db.actor:position()
+	for i = 1, #crossings do
+		local c = crossings[i]
+		if not prepared[c.target] and pos:distance_to(c.pos) < PREPARE_DISTANCE then
+			prepared[c.target] = true
+			exec_console_cmd("seamless_preload_level " .. c.target)
+		end
+	end
+end
+
+-- number of seamless level changes since the scripts were started
+changes_done = 0
+
+local enabled, last_check = false, 0
+
+local function actor_on_update()
+	local now = os.clock()
+	if now - last_check > 1 then
+		last_check = now
+		enabled = tonumber(get_console_cmd(0, "seamless_level_change")) == 1
+		if enabled then prepare_near_crossings() end
+	end
+	if bulk then sort_now() elseif enabled then bulk_start() end
+	if (left_managers[1] or left_ids[1]) and enabled then release_left_managers() end
+	if changes_done > 0 and now - last_sweep > 5 then
+		last_sweep = now
+		sweep_stale_objects()
+	end
+end
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_update", actor_on_update)
+	RegisterScriptCallback("npc_on_net_destroy", npc_on_net_destroy)
+end

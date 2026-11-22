@@ -1368,7 +1368,8 @@ struct SafeWrapBase
     static auto execute(InstanceT instance, FuncT memFunc, Args&&... args)
         -> decltype((instance->*memFunc)(std::forward<Args>(args)...))
     {
-        if (lua_busy_hands_debug)
+        extern u32 g_seamless_changes; // seamless level changes since the scripts were last started
+        if (lua_busy_hands_debug || g_seamless_changes)
         {
             bool is_valid = false;
 
@@ -1384,7 +1385,30 @@ struct SafeWrapBase
 
             // Send one last call to Lua to warn users that Lua is about to die
             if (!is_valid)
+            {
+                using RetCheck = decltype((instance->*memFunc)(std::forward<Args>(args)...));
+                if (g_seamless_changes && !lua_busy_hands_debug && !std::is_reference_v<RetCheck>)
+                {
+                    // Not a script failure after a seamless level change. Scripts touch objects that were removed a moment
+                    // ago in normal play too, and the stock engine lets that pass. Reporting it
+                    // as an error made the repair restart healthy scripts and, after three such
+                    // calls on one map, end the game.
+                    static u32 reported = 0;
+                    if (reported < 20)
+                    {
+                        ++reported;
+                        Msg("~ seamless: a script used an object that no longer exists, the call was answered empty");
+                    }
+                    return handle_invalid<RetCheck>();
+                }
                 log_and_callback("Accessing destroyed object");
+                // With level changes that keep the script engine, a mod can still hold an
+                // object of the map left behind. Do not run the call on freed memory: give
+                // the script an empty answer (the failing script is restarted by the repair).
+                using Ret = decltype((instance->*memFunc)(std::forward<Args>(args)...));
+                if (g_seamless_changes && !std::is_reference_v<Ret>)
+                    return handle_invalid<Ret>();
+            }
         }
 
         // Sayonara

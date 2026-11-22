@@ -63,6 +63,27 @@ MODEL::~MODEL()
 	verts_count = 0;
 }
 
+void MODEL::take_over(MODEL& other)
+{
+	syncronize();
+	other.syncronize();
+	CDELETE(tree);
+	CFREE(tris);
+	CFREE(verts);
+	tree = other.tree;
+	tris = other.tris;
+	tris_count = other.tris_count;
+	verts = other.verts;
+	verts_count = other.verts_count;
+	status = S_READY;
+	other.tree = 0;
+	other.tris = 0;
+	other.tris_count = 0;
+	other.verts = 0;
+	other.verts_count = 0;
+	other.status = S_INIT;
+}
+
 void MODEL::build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)
 {
 	build_internal(V, Vcnt, T, Tcnt, bc, bcp);
@@ -78,6 +99,16 @@ void MODEL::build_arrays(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback*
 {
 	PROF_EVENT();
 
+	// Seamless level change: a built model can be rebuilt for another level.
+	if (S_READY == status)
+	{
+		CDELETE(tree);
+		CFREE(tris);
+		tris_count = 0;
+		CFREE(verts);
+		verts_count = 0;
+		status = S_INIT;
+	}
 	R_ASSERT(S_INIT == status);
 	R_ASSERT((Vcnt>=4)&&(Tcnt>=2));
 

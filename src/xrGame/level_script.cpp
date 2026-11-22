@@ -2904,6 +2904,78 @@ bool get_arm_ik_enabled(u8 hand)
 	return table;
 }
 
+// script_value_holds_game_object(value) -> true when the value is a game object or the script binder of one, or a
+// table or script object that holds one directly in a field. Used at a map swap, when no game object exists, to
+// find what scripts kept.
+static bool is_class_or_derived(::luabind::detail::class_rep* crep, LPCSTR name, int depth = 0)
+{
+	if (!crep || depth > 8)
+		return false;
+	if (crep->name() && 0 == xr_strcmp(crep->name(), name))
+		return true;
+	for (const auto& base : crep->bases())
+		if (is_class_or_derived(base.base, name, depth + 1))
+			return true;
+	return false;
+}
+
+static bool is_game_object_value(lua_State* L, int index)
+{
+	if (lua_type(L, index) != LUA_TUSERDATA)
+		return false;
+	::luabind::detail::object_rep* rep = ::luabind::detail::is_class_object(L, index);
+	if (!rep || !rep->crep() || !rep->crep()->name())
+		return false;
+	// a binder outlives its object only in the script's own tables; its "object" field then points at freed memory
+	return 0 == xr_strcmp(rep->crep()->name(), "game_object") || is_class_or_derived(rep->crep(), "object_binder");
+}
+
+static bool table_holds_game_object(lua_State* L, int index)
+{
+	bool found = false;
+	int seen = 0;
+	lua_pushnil(L);
+	while (lua_next(L, index))
+	{
+		if (is_game_object_value(L, lua_gettop(L)) || ++seen > 64)
+		{
+			found = seen <= 64;
+			lua_pop(L, 2);
+			break;
+		}
+		lua_pop(L, 1);
+	}
+	return found;
+}
+
+static int script_value_holds_game_object(lua_State* L)
+{
+	bool found = false;
+	if (lua_gettop(L) >= 1)
+	{
+		const int type = lua_type(L, 1);
+		if (type == LUA_TTABLE)
+			found = table_holds_game_object(L, 1);
+		else if (type == LUA_TUSERDATA)
+		{
+			found = is_game_object_value(L, 1);
+			if (!found)
+			{
+				::luabind::detail::object_rep* rep = ::luabind::detail::is_class_object(L, 1);
+				if (rep && rep->get_lua_table().is_valid())
+				{
+					rep->get_lua_table().get(L);
+					if (lua_istable(L, -1))
+						found = table_holds_game_object(L, lua_gettop(L));
+					lua_pop(L, 1);
+				}
+			}
+		}
+	}
+	lua_pushboolean(L, found);
+	return 1;
+}
+
 void CLevel::script_register(lua_State* L)
 {
 	module(L)
@@ -2987,6 +3059,9 @@ void CLevel::script_register(lua_State* L)
 					value("BC7", int(IRender_interface::eDXE_BC7))
 				]
 		];
+
+	lua_pushcfunction(L, script_value_holds_game_object);
+	lua_setglobal(L, "script_value_holds_game_object");
 
 	module(L, "level")
 		[

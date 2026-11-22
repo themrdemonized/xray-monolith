@@ -24,6 +24,9 @@ public:
 	void Register(CUIWindow* pChild, LPCSTR name);
 	CUIDialogWndEx();
 	virtual ~CUIDialogWndEx();
+	// A callback added with the window itself as its object keeps the window alive for good. A script that
+	// replaces a window with a new one can let the old one go with this.
+	void ClearCallbacks();
 	void AddCallback(LPCSTR control_id, s16 event, const ::luabind::functor<void>& lua_function);
 	void AddCallback(LPCSTR control_id, s16 event, const ::luabind::functor<void>& functor,
 	                 const ::luabind::object& object);

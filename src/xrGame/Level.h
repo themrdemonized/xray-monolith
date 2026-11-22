@@ -322,6 +322,29 @@ public:
 	virtual ~CLevel();
 	// названияе текущего уровня
 	void set_name(const shared_str& level_name){ map_data.m_name = level_name;}
+
+	// Seamless level change: change the map without saving, disconnecting or reloading the
+	// simulation and scripts. Requested from the console, run at the start of the next frame.
+	// A request starts a short fade to black (drawn by seamless_level_change.script); the swap runs once
+	// the screen is black, then the script fades back in.
+	// The crossing needs seamless_level_change.script (fade, clean-up of the map left behind). Without it
+	// the engine keeps the normal loading screen.
+	static bool seamless_scripts_installed();
+	bool seamless_request(LPCSTR level_name);
+	void seamless_request(u16 game_vertex_id, u32 level_vertex_id, const Fvector& position, const Fvector& angles);
+	void seamless_update();
+	// Background preparation of the next map: its materials (shaders + texture lists, the
+	// slowest part of a map load) are created a few per frame while the player approaches.
+	void seamless_preload_level(LPCSTR level_name, bool immediately = false);
+	void seamless_preload_update();
+	void seamless_preload_clear(LPCSTR keep_a = nullptr, LPCSTR keep_b = nullptr);
+	void seamless_change_level();
+	bool m_seamless_pending = false;
+	u16 m_seamless_game_vertex_id = u16(-1);
+	u32 m_seamless_level_vertex_id = u32(-1);
+	Fvector m_seamless_position;
+	Fvector m_seamless_angles;
+	u32 m_seamless_fade_start = 0;
 	virtual shared_str name() const;
 	// this method can be used ONLY from CCC_ChangeGameType
 	// XXX nitrocaster: why c_str?

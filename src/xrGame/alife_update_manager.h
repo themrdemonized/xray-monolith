@@ -59,6 +59,13 @@ public:
 	void set_switch_offline(ALife::_OBJECT_ID id, bool value);
 	void set_interactive(ALife::_OBJECT_ID id, bool value);
 	void jump_to_level(LPCSTR level_name) const;
+	// Seamless level change (no save, no reload): see CLevel::seamless_change_level.
+	bool find_level_entry(LPCSTR level_name, GameGraph::_GRAPH_ID& game_vertex_id) const;
+	void switch_offline_all();
+	void relocate_actor(GameGraph::_GRAPH_ID game_vertex_id, u32 level_vertex_id, const Fvector& position,
+	                        const Fvector& angles);
+	void switch_online_actor();
+	void update_switch_all(); // one full online/offline pass over the current level, as the loading screen does
 	void teleport_object(ALife::_OBJECT_ID id, GameGraph::_GRAPH_ID game_vertex_id, u32 level_vertex_id,
 	                     const Fvector& position);
 	void add_restriction(ALife::_OBJECT_ID id, ALife::_OBJECT_ID restriction_id,

@@ -37,6 +37,52 @@
 namespace luabind { namespace detail
 {
 
+	void instance_table_ref::push_store(lua_State* L_)
+	{
+		lua_pushliteral(L_, "__luabind_instance_tables");
+		lua_rawget(L_, LUA_REGISTRYINDEX);
+		if (!lua_isnil(L_, -1)) return;
+		lua_pop(L_, 1);
+		lua_newtable(L_);
+		lua_newtable(L_);
+		lua_pushliteral(L_, "__mode");
+		lua_pushliteral(L_, "v");
+		lua_rawset(L_, -3);
+		lua_setmetatable(L_, -2);
+		lua_pushliteral(L_, "__luabind_instance_tables");
+		lua_pushvalue(L_, -2);
+		lua_rawset(L_, LUA_REGISTRYINDEX);
+	}
+
+	void instance_table_ref::set(lua_State* L_)
+	{
+		reset();
+		L = L_;
+		push_store(L_);
+		lua_insert(L_, -2);
+		m_ref = luaL_ref(L_, -2);
+		lua_pop(L_, 1);
+	}
+
+	void instance_table_ref::get(lua_State* L_) const
+	{
+		assert(m_ref != LUA_NOREF);
+		push_store(L_);
+		lua_rawgeti(L_, -1, m_ref);
+		lua_remove(L_, -2);
+	}
+
+	void instance_table_ref::reset()
+	{
+		if (L && m_ref != LUA_NOREF)
+		{
+			push_store(L);
+			luaL_unref(L, -1, m_ref);
+			lua_pop(L, 1);
+		}
+		m_ref = LUA_NOREF;
+	}
+
 	// dest is a function that is called to delete the c++ object this struct holds
 	object_rep::object_rep(void* obj, class_rep* crep, int flags, void(*dest)(void*))
 		: m_object(obj)
@@ -54,7 +100,7 @@ namespace luabind { namespace detail
 #endif
 	}
 
-	object_rep::object_rep(class_rep* crep, int flags, detail::lua_reference const& table_ref)
+	object_rep::object_rep(class_rep* crep, int flags, detail::instance_table_ref const& table_ref)
 		: m_object(0)
 		, m_classrep(crep)
 		, m_flags(flags)

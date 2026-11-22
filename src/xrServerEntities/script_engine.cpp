@@ -218,8 +218,54 @@ xr_vector<xr_string> get_lua_stack(lua_State* L)
 	return res;
 }
 
+// after an in-place map swap a script can fail on state left from the previous map.
+// Instead of ending the game the scripts get one chance to repair it (seamless_script_repair.script):
+// true = repaired, carry on.
+int g_seamless_script_repair = 1;
+u32 g_script_repair_count = 0; // script errors handled by a repair so far
+u32 g_seamless_changes = 0; // seamless level changes since the scripts were last started
+u32 g_script_repair_frame = u32(-1); // frame of the last repair: what failed in it stays registered
+static bool try_script_repair(lua_State* L)
+{
+	static bool busy = false;
+	if (!g_seamless_script_repair || !g_seamless_changes || busy || !ai().get_alife())
+		return false;
+	busy = true;
+	xr_string text = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+	xr_string frames;
+	for (auto const& s : get_lua_stack(L))
+	{
+		frames += s;
+		frames += "|";
+	}
+	// one failed call reports twice (the call itself, then luabind's own handler, without script frames)
+	static bool just_handled = false;
+	if (just_handled && frames.find("[Lua]") == xr_string::npos)
+	{
+		g_script_repair_frame = Device.dwFrame;
+		just_handled = false;
+		busy = false;
+		return true;
+	}
+	bool repaired = false;
+	::luabind::functor<bool> functor;
+	if (ai().script_engine().functor("seamless_script_repair.on_script_error", functor))
+		repaired = functor(text.c_str(), frames.c_str());
+	just_handled = repaired;
+	if (repaired)
+	{
+		++g_script_repair_count;
+		g_script_repair_frame = Device.dwFrame;
+	}
+	busy = false;
+	return repaired;
+}
+
 void CScriptEngine::lua_error(lua_State* L)
 {
+	if (try_script_repair(L))
+		return;
+
 	ai().script_engine().print_stack();
 	print_output(L, "", LUA_ERRRUN);
 	ai().script_engine().on_error(L);
@@ -247,6 +293,11 @@ void CScriptEngine::lua_error(lua_State* L)
 extern BOOL lua_busy_hands_debug;
 void CScriptEngine::lua_error_not_crash(lua_State* L)
 {
+	// these errors do not end the game but silently cut off the running script call,
+	// every frame; give the failing script the same repair
+	// a repaired script must not also raise the mods' "fatal script error" dialog (it pauses the game)
+	if (try_script_repair(L))
+		return;
     if (!lua_busy_hands_debug)
         return;
 
@@ -277,6 +328,12 @@ int CScriptEngine::lua_pcall_failed(lua_State* L)
 {
 	ai().script_engine().print_stack();
 	print_output(L, "", LUA_ERRRUN);
+	if (try_script_repair(L))
+	{
+		if (lua_isstring(L, -1))
+			lua_pop(L, 1);
+		return (LUA_ERRRUN);
+	}
 	ai().script_engine().on_error(L);
 
 	// demonized: print first line with lua error

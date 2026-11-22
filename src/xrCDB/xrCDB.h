@@ -99,6 +99,9 @@ namespace CDB
 			}
 		}
 
+		// take over a model that was built in the background for the next level.
+		void take_over(MODEL& other);
+
 		static void build_thread(void*);
 		// Copies the geometry and runs the material remap callback. This is the cheap
 		// half, and it publishes verts/tris, so callers that only read the arrays

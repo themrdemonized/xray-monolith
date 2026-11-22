@@ -13,6 +13,11 @@ CUIDialogWndEx::~CUIDialogWndEx()
 	delete_data(m_callbacks);
 }
 
+void CUIDialogWndEx::ClearCallbacks()
+{
+	delete_data(m_callbacks);
+}
+
 void CUIDialogWndEx::Register(CUIWindow* pChild)
 {
 	pChild->SetMessageTarget(this);

@@ -8,6 +8,7 @@
 
 #include "stdafx.h"
 #include "alife_graph_registry.h"
+#include "alife_object_registry.h"
 #include "../xrEngine/x_ray.h"
 #include "level.h"
 
@@ -95,6 +96,40 @@ void CALifeGraphRegistry::setup_current_level()
 
 	VERIFY3(levelid >= 0, "Level is corrupted or doesn't exist", *(*I).second.name());
 	ai().load(*(*I).second.name());
+}
+
+void CALifeGraphRegistry::change_level_in_place(const CALifeObjectRegistry& registry)
+{
+	xr_delete(m_level);
+	u8 level_id = ai().game_graph().vertex(actor()->m_tGraphID)->level_id();
+	m_level = xr_new<CALifeLevelRegistry>(level_id);
+	level().set_process_time(m_process_time);
+	// A per-vertex list can hold an entry for an object that no longer exists (released after
+	// its vertex was changed behind the registry's back). A load starts from the save and
+	// never meets them; here they are checked against the list of all objects and dropped.
+	u32 stale = 0;
+	for (int i = 0, n = ai().game_graph().header().vertex_count(); i < n; ++i)
+		if (ai().game_graph().vertex(i)->level_id() == level().level_id())
+		{
+			const D_OBJECT_P_MAP& list = m_objects[i].objects().objects();
+			xr_vector<ALife::_OBJECT_ID> gone;
+			for (D_OBJECT_P_MAP::const_iterator I = list.begin(); I != list.end(); ++I)
+			{
+				if (registry.object((*I).first, true) != (*I).second)
+					gone.push_back((*I).first);
+				else
+					level().add((*I).second);
+			}
+			for (ALife::_OBJECT_ID id : gone)
+			{
+				if (stale < 10)
+					Msg("! seamless: object %u is listed at graph vertex %d but does not exist any more, entry dropped", u32(id), i);
+				++stale;
+				m_objects[i].objects().remove(id, true);
+			}
+		}
+	if (stale)
+		Msg("! seamless: %u entries of objects that no longer exist dropped from the map's lists", stale);
 }
 
 void CALifeGraphRegistry::attach(CSE_Abstract& object, CSE_ALifeInventoryItem* item,
