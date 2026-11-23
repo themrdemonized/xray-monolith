@@ -459,7 +459,8 @@ Fragments are new-game content.
 `configs\patrol_paths.ltx` (vanilla root; extend it with `mod_patrol_paths_<mod>.ltx`) accepts a
 section-level `level = <level name>` key. The points of such a section may omit `game_vertex_id` and
 `level_vertex_id`. The engine approximates them from the position at load and snaps them to the AI
-map when the level is entered, as xrAI would have compiled them.
+map when the level is entered, as xrAI would have compiled them. `p<i>:flags` is optional in any
+section, and a point without it has flags 0.
 
 ```ini
 [my_mod_walk]
