@@ -67,18 +67,23 @@ Each section is described [below](#spawn_overlaysltx-sections).
 * **A placed object takes the nearest graph vertex and that vertex's AI node.** `[spawn_add@]`, a
   `[spawn_patch@]` `position` and level.spawn fragment records don't look up the node under the
   position, because a new game loads only the current level's `level.ai`. An object that uses AI
-  locations, smart terrains and smart covers among them, moves to the node under it once the actor
-  reaches its level; restrictors keep the vertex's node. A script that needs the spot itself,
+  locations, smart terrains and smart covers among them, moves to the node under it and that
+  node's graph vertex in the first ALife switch passes after the actor reaches its level (a
+  second pass when that node belongs to another graph vertex), and the save keeps them;
+  restrictors keep the vertex's node. A smart terrain on that level builds its jobs while the
+  level loads, before those passes, so until the game next loads its task and its animpoint and
+  smart cover jobs point at the vertex's node. A script that needs the spot itself,
   such as a squad spawned at its smart, reads `level.vertex_id(position)` while that level is
   loaded.
 * **Added objects share 65,535 object ids with everything else in ALife.** A new game creates the
   base templates first, then the added ones (fragments, packs, `[spawn_add@]`). An added template
   makes no object once fewer than 16,384 ids are free, and one `!` line gives how many it skipped.
   The check never skips a base template. Stock content that comes back through a pack that
-  rebuilds a level or through `[spawn_replace]` counts as added, so the check can skip it. The
-  check runs while templates spawn, before the game's own scripts spawn anything, so the ids it
-  keeps free are left for those scripts. A script `alife():create(spawn_id)` of an added template
-  passes the same check, returns nil when it fails, and logs one `!` line.
+  rebuilds a level, through `[spawn_replace]`, or through a `[spawn_remove]` with a `[spawn_add@]`
+  of the same name counts as added, so the check can skip it. The check runs while templates
+  spawn, before the game's own scripts spawn anything, so the ids it keeps free are left for those
+  scripts. A script `alife():create(spawn_id)` of an added template passes the same check, returns
+  nil when it fails, and logs one `!` line.
 * **Changing the level set changes the spawn GUID**, and saves made before it don't load. See
   [Spawn GUID and saves](#spawn-guid-and-saves) for exactly what counts.
 * **A compat patch is an ordinary DLTX file.** It can add to any section, override a
@@ -201,6 +206,11 @@ template live in the save. It applies after fragments and packs, so a removed ob
 even when a pack still carries it. The removed template's `story_id` and `spawn_story_id` are freed
 for a `[spawn_patch@]` or `[spawn_add@]` to reuse. Removing a template that has a `spawn_story_id`, here or in
 `[spawn_replace]`, is logged `!` because scripts that spawn it by that id will fail; it is still removed.
+Removes apply before adds, so once every template of a name is removed, a `[spawn_add@]` of that
+name, in the same file or another, creates a new object with a new spawn id. Removing a smart
+terrain drops the start squads that the population file (`misc\simulation.ltx` in stock) places in
+it, with one `sim_board:fill_start_position incorrect smart by name` line for each. A smart added
+back under the same name gets them.
 
 `[spawn_replace]` uses the same syntax but applies before fragments and packs. The base template
 goes, and a fragment's or pack's record of the same name at the same place is taken instead. Without
@@ -218,7 +228,7 @@ Edits one spawn template. The section suffix is the object name. All keys are op
 |---|---|
 | `match_position = x, y, z` | selects the instance when the name is shared (within 0.5 m). A value that isn't x, y, z within the [position bound](#addressing) skips the **whole** section (`!` log). |
 | `level = <level name>` | moves the object to another level. Needs `position` too, because coordinates are level-local and don't carry over. A level that isn't installed skips the **whole** section, with no key applied. An empty value, or a `position` that is missing or isn't x, y, z, also skips the whole section (`!` log). |
-| `position = x, y, z` | level-local position; the graph vertex and AI node are re-resolved as the [rules of thumb](#rules-of-thumb) say. Without `level`, a bad value is ignored (`!` log) and the rest of the patch applies. |
+| `position = x, y, z` | level-local position; the graph vertex and AI node are re-resolved as the [rules of thumb](#rules-of-thumb) say. Without `level`, a bad value is ignored (`!` log) and the rest of the patch applies. Without `position` the template keeps its stored vertex and node, including the graph vertex some smart covers store apart from their node's. |
 | `direction = x, y, z` | angles in radians, each within ±100000. A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `custom_data = ...` | `\n` is a line break and `\\` a literal backslash (needed before a folder starting with `n`) |
 | `custom_data_cfg = scripts\x.ltx` | shorthand for `custom_data = [logic]\ncfg = scripts\x.ltx`, with no escaping, at most 505 characters. Ignored on a smart terrain (`!` log), which reads `[smart_terrain]` instead. A longer value is ignored (`!` log). |
@@ -366,6 +376,9 @@ for `[spawn_add@]`; `[spawn_patch@]` keeps the template's value for a key it lea
 | `is_combat_cover = true`, `can_fire = true` | `is_combat_cover` is the `[smart_cover]` section's value if omitted, and stock makes every cover a combat cover, so an animpoint sets both to `false`. Without a valid `can_fire`, a section that gives a valid `is_combat_cover` sets it as the engine does: a combat cover can fire and any other takes `can_fire` from the object's system.ltx section (`false` for stock `[smart_cover]`, or when the section has no `can_fire`). A mod that overrides `[smart_cover]` changes these defaults. A patch that gives neither keeps the cover's `can_fire`. A value other than `true`, `false`, `yes`, `no`, `on`, `off`, `1` or `0` (any case) is ignored (`!` log). |
 
 The cover's script state (`se_smart_cover`) holds the loophole choice, so a saved game keeps it.
+The save keeps the description id too. Removing the mod whose `smart_covers.descriptions` entry a
+saved cover uses breaks that save: `se_smart_cover.script` logs `has wrong description` and stops
+on the next line.
 
 A file with `[spawn_add@]` smart covers needs an exe that has these keys. An older exe still adds the
 cover, without a description, and `se_smart_cover.script` stops the new game on it.
