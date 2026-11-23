@@ -333,7 +333,10 @@ CSE_Abstract* CALifeSimulator__spawn_ammo(CALifeSimulator* self, LPCSTR section,
 
 ALife::_SPAWN_ID CALifeSimulator__spawn_id(CALifeSimulator* self, ALife::_SPAWN_STORY_ID spawn_story_id)
 {
-	return (((const CALifeSimulator *)self)->spawns().spawn_id(spawn_story_id));
+	const ALife::_SPAWN_ID spawn_id = ((const CALifeSimulator *)self)->spawns().spawn_id(spawn_story_id);
+	if (spawn_id == ALife::_SPAWN_ID(-1))
+		Msg("! alife():spawn_id: spawn story id %u not found", spawn_story_id);
+	return (spawn_id);
 }
 
 void CALifeSimulator__release(CALifeSimulator* self, CSE_Abstract* object, bool)

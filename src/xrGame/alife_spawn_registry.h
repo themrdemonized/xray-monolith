@@ -85,7 +85,8 @@ public:
 	IC const CALifeSpawnHeader& header() const;
 	IC const SPAWN_GRAPH& spawns() const;
 	IC void assign_artefact_position(CSE_ALifeAnomalousZone* anomaly, CSE_ALifeDynamicObject* object) const;
-	IC const ALife::_SPAWN_ID& spawn_id(const ALife::_SPAWN_STORY_ID& spawn_story_id) const;
+	// _SPAWN_ID(-1) when no template carries the story id
+	IC ALife::_SPAWN_ID spawn_id(const ALife::_SPAWN_STORY_ID& spawn_story_id) const;
 	bool added_spawn(const ALife::_SPAWN_ID& spawn_id) const { return spawn_id >= m_first_added_spawn_id; }
 	shared_str const& get_spawn_name() const { return m_spawn_name; }
 	IReader* get_spawn_file() const { return m_file; }
