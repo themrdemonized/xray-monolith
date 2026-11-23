@@ -114,7 +114,7 @@ bool CSE_ALifeDynamicObject::synchronize_location()
 			alife().graph().change(this, m_tGraphID, tGraphID);
 			if (ai().level_graph().inside(ai().level_graph().vertex(level_vertex_id), position))
 			{
-				level_vertex_id = m_tNodeID;
+				m_tNodeID = level_vertex_id;
 				o_Position = position;
 			}
 		}

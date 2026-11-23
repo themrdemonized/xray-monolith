@@ -68,13 +68,17 @@ Each section is described [below](#spawn_overlaysltx-sections).
   `[spawn_patch@]` `position` and level.spawn fragment records don't look up the node under the
   position, because a new game loads only the current level's `level.ai`. An object that uses AI
   locations, smart terrains and smart covers among them, moves to the node under it and that
-  node's graph vertex in the first ALife switch passes after the actor reaches its level (a
-  second pass when that node belongs to another graph vertex), and the save keeps them;
-  restrictors keep the vertex's node. A smart terrain on that level builds its jobs while the
-  level loads, before those passes, so until the game next loads its task and its animpoint and
-  smart cover jobs point at the vertex's node. A script that needs the spot itself,
-  such as a squad spawned at its smart, reads `level.vertex_id(position)` while that level is
-  loaded.
+  node's graph vertex at the first ALife switch pass after the actor reaches its level, and the
+  save keeps them; other space restrictors keep the vertex's node. When the vertex's node lies far
+  from the position, the search from it can miss, and the object keeps the vertex's node while it
+  is offline and reaches the node under it two passes after it comes online. Smart terrains and
+  smart covers can't switch offline, so they come online in that first pass. A smart terrain's
+  client object never looks its node up again and keeps the node it came online with, in that
+  case the vertex's node; a smart cover's client can end up one cell off. Scripts that need the node
+  read the server object. A smart terrain on that level builds its jobs while the level loads,
+  before that pass, so until the game next loads, its task and its animpoint and smart cover jobs
+  point at the vertex's node. A script that needs the spot itself, such as a squad spawned at its
+  smart, reads `level.vertex_id(position)` while that level is loaded.
 * **Added objects share 65,535 object ids with everything else in ALife.** A new game creates the
   base templates first, then the added ones (fragments, packs, `[spawn_add@]`). An added template
   makes no object once fewer than 16,384 ids are free, and one `!` line gives how many it skipped.
