@@ -166,6 +166,9 @@ CSE_ALifeDynamicObject* CALifeSimulator__create(CALifeSimulator* self, ALife::_S
 
 	CSE_ALifeDynamicObject* object;
 	self->create(object, spawn, spawn_id);
+	if (!object)
+		Msg("! alife():create: added spawn %d not created, %d object ids are kept free (%d free)", spawn_id,
+		    CALifeSimulatorBase::ADDED_SPAWN_ID_RESERVE, self->server().free_id_count());
 
 	return (object);
 }

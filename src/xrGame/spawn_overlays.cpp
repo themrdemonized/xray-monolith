@@ -1820,9 +1820,10 @@ CGameGraph* CSpawnOverlays::apply_graph(const CGameGraph& base, void*& buffer)
 	return builder.build(buffer);
 }
 
-void CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph)
+ALife::_SPAWN_ID CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph)
 {
 	STemplates templates(spawns);
+	const ALife::_SPAWN_ID first_added = templates.ids.next_spawn_id;
 
 	u32 removed = 0, patched = 0, added = 0;
 	const xr_vector<GameGraph::_LEVEL_ID> rebuilt = m_packs.rebuilt_object_levels();
@@ -1852,6 +1853,7 @@ void CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, con
 
 	if (removed || patched || added)
 		Msg("* [spawn_overlays] objects: -%d templates, %d patched, +%d added, %d remaining", removed, patched, added, spawns.vertex_count());
+	return first_added;
 }
 
 void CSpawnOverlays::add_paths(CPatrolPathStorage& storage, const CGameGraph& graph)

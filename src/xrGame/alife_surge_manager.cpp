@@ -31,6 +31,7 @@ void CALifeSurgeManager::spawn_new_spawns()
 {
 	xr_vector<ALife::_SPAWN_ID>::const_iterator I = m_temp_spawns.begin();
 	xr_vector<ALife::_SPAWN_ID>::const_iterator E = m_temp_spawns.end();
+	u32 refused = 0;
 	for (; I != E; ++I)
 	{
 		CSE_ALifeDynamicObject *object, *spawn = smart_cast<CSE_ALifeDynamicObject*>(
@@ -43,11 +44,15 @@ void CALifeSurgeManager::spawn_new_spawns()
 		timer.Start				();
 #endif
 		create(object, spawn, *I);
+		if (!object)
+			++refused;
 #ifdef DEBUG
 		if (psAI_Flags.test(aiALife))
 			Msg					("LSS : SURGE : SPAWN : [%s],[%s], level %s, time %f ms",*spawn->s_name,spawn->name_replace(),*ai().game_graph().header().level(ai().game_graph().vertex(spawn->m_tGraphID)->level_id()).name(),timer.GetElapsed_sec()*1000.f);
 #endif
 	}
+	if (refused)
+		Msg("! [spawn_overlays] %d added objects not created, %d object ids are kept free (%d free)", refused, ADDED_SPAWN_ID_RESERVE, server().free_id_count());
 }
 
 void CALifeSurgeManager::fill_spawned_objects()

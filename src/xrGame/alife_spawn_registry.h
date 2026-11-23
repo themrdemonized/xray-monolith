@@ -45,6 +45,8 @@ private:
 	void* m_graph_buffer;
 	xr_vector<u16> m_legacy_vertices;
 	xr_vector<u16> m_legacy_spawn_ids;
+	// templates added by spawn overlays (fragments, packs, ltx) hold this spawn id and every later one
+	ALife::_SPAWN_ID m_first_added_spawn_id;
 
 protected:
 	void save_updates(IWriter& stream);
@@ -84,6 +86,7 @@ public:
 	IC const SPAWN_GRAPH& spawns() const;
 	IC void assign_artefact_position(CSE_ALifeAnomalousZone* anomaly, CSE_ALifeDynamicObject* object) const;
 	IC const ALife::_SPAWN_ID& spawn_id(const ALife::_SPAWN_STORY_ID& spawn_story_id) const;
+	bool added_spawn(const ALife::_SPAWN_ID& spawn_id) const { return spawn_id >= m_first_added_spawn_id; }
 	shared_str const& get_spawn_name() const { return m_spawn_name; }
 	IReader* get_spawn_file() const { return m_file; }
 };

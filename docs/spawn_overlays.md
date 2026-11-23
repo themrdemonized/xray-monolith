@@ -71,6 +71,14 @@ Each section is described [below](#spawn_overlaysltx-sections).
   reaches its level; restrictors keep the vertex's node. A script that needs the spot itself,
   such as a squad spawned at its smart, reads `level.vertex_id(position)` while that level is
   loaded.
+* **Added objects share 65,535 object ids with everything else in ALife.** A new game creates the
+  base templates first, then the added ones (fragments, packs, `[spawn_add@]`). An added template
+  makes no object once fewer than 16,384 ids are free, and one `!` line gives how many it skipped.
+  The check never skips a base template. Stock content that comes back through a pack that
+  rebuilds a level or through `[spawn_replace]` counts as added, so the check can skip it. The
+  check runs while templates spawn, before the game's own scripts spawn anything, so the ids it
+  keeps free are left for those scripts. A script `alife():create(spawn_id)` of an added template
+  passes the same check, returns nil when it fails, and logs one `!` line.
 * **Changing the level set changes the spawn GUID**, and saves made before it don't load. See
   [Spawn GUID and saves](#spawn-guid-and-saves) for exactly what counts.
 * **A compat patch is an ordinary DLTX file.** It can add to any section, override a
@@ -217,7 +225,7 @@ Edits one spawn template. The section suffix is the object name. All keys are op
 | `story_id = <int>` | a whole integer from `-1` to `4294967295`, `-1` = none. Any other value is ignored (`!` log). An id another template already holds is skipped (`!` log). |
 | `spawn_story_id = <int>` | as `story_id` |
 | `object_flags = 0x...` | an unsigned integer up to `0xFFFFFFFF`, in hex with `0x`, decimal, or octal with a leading `0`, with an optional `+`. A minus sign or any other value is ignored (`!` log). |
-| `dest_level = <level name>` | level changers only: the level it leads to. Needs `dest_position`. A level that isn't installed skips the three `dest_*` keys with one `-` line on `dest_position`. An empty value skips them too, with one `!` line on `dest_level` listing the keys it skipped. |
+| `dest_level = <level name>` | level changers only: the level it leads to. Needs `dest_position`. A level that isn't installed skips the three `dest_*` keys with one `-` line on `dest_level`. Without `dest_level`, a changer whose own destination isn't installed skips them with the `-` line on `dest_position`. An empty value skips them too, with one `!` line on `dest_level` listing the keys it skipped. |
 | `dest_position = x, y, z` | level changers only: arrival point on the destination level; its graph vertex and AI node are re-resolved. A bad value, or one with no graph vertex to land on, is ignored together with `dest_level` and `dest_direction` (`!` log) and the rest of the patch applies. |
 | `dest_direction = x, y, z` | level changers only: the actor's facing on arrival, in radians within ±100000. A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `box = width, height, depth` | shaped objects only (restrictors, smart terrains, anomalies, level changers, smart covers): replaces the shape with one box centred on the object, values as in [`[spawn_add@]`](#spawn_addname). Given with `sphere`, both are ignored (`!` log). A bad value is ignored (`!` log) and the rest of the patch applies. |
@@ -358,6 +366,9 @@ for `[spawn_add@]`; `[spawn_patch@]` keeps the template's value for a key it lea
 | `is_combat_cover = true`, `can_fire = true` | `is_combat_cover` is the `[smart_cover]` section's value if omitted, and stock makes every cover a combat cover, so an animpoint sets both to `false`. Without a valid `can_fire`, a section that gives a valid `is_combat_cover` sets it as the engine does: a combat cover can fire and any other takes `can_fire` from the object's system.ltx section (`false` for stock `[smart_cover]`, or when the section has no `can_fire`). A mod that overrides `[smart_cover]` changes these defaults. A patch that gives neither keeps the cover's `can_fire`. A value other than `true`, `false`, `yes`, `no`, `on`, `off`, `1` or `0` (any case) is ignored (`!` log). |
 
 The cover's script state (`se_smart_cover`) holds the loophole choice, so a saved game keeps it.
+
+A file with `[spawn_add@]` smart covers needs an exe that has these keys. An older exe still adds the
+cover, without a description, and `se_smart_cover.script` stops the new game on it.
 
 ```ini
 ; an animpoint for the Marsh base camp
