@@ -46,7 +46,7 @@ spawn_overlays::STemplates::STemplates(SPAWN_GRAPH& spawns_) : spawns(spawns_)
 	collect_ids(spawns, ids);
 }
 
-bool spawn_overlays::find_template(const SPAWN_GRAPH& spawns, const NAME_INDEX& index, const LPCSTR name, const LPCSTR match_position, ALife::_SPAWN_ID& spawn_id, string256& reason)
+bool spawn_overlays::find_template(const SPAWN_GRAPH& spawns, const NAME_INDEX& index, const LPCSTR name, const Fvector* match_position, ALife::_SPAWN_ID& spawn_id, string256& reason)
 {
 	const auto found = index.find(shared_str(name));
 	if (found == index.end() || found->second.empty())
@@ -56,6 +56,17 @@ bool spawn_overlays::find_template(const SPAWN_GRAPH& spawns, const NAME_INDEX& 
 	}
 
 	const xr_vector<ALife::_SPAWN_ID>& candidates = found->second;
+	const LPCSTR first = spawns.vertex(candidates.front())->data()->object().name_replace();
+	for (const auto candidate : candidates)
+	{
+		const LPCSTR other = spawns.vertex(candidate)->data()->object().name_replace();
+		if (xr_strcmp(first, other))
+		{
+			xr_sprintf(reason, "templates %.96s and %.96s differ only in case, rename one", first, other);
+			return false;
+		}
+	}
+
 	if (!match_position)
 	{
 		if (candidates.size() > 1)
@@ -67,17 +78,10 @@ bool spawn_overlays::find_template(const SPAWN_GRAPH& spawns, const NAME_INDEX& 
 		return true;
 	}
 
-	Fvector position;
-	if (3 != sscanf(match_position, "%f,%f,%f", &position.x, &position.y, &position.z))
-	{
-		xr_strcpy(reason, "match_position must be x,y,z");
-		return false;
-	}
-
 	float best = flt_max;
 	for (const auto candidate : candidates)
 	{
-		const float distance = spawns.vertex(candidate)->data()->object().o_Position.distance_to(position);
+		const float distance = spawns.vertex(candidate)->data()->object().o_Position.distance_to(*match_position);
 		if (distance >= best)
 			continue;
 		best = distance;

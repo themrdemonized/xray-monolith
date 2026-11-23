@@ -18,6 +18,9 @@ They come from four places:
 | `configs\patrol_paths.ltx` | patrol paths written as text |
 
 Mods extend `spawn_overlays.ltx` from `configs\mod_spawn_overlays_<mod>.ltx` with `![section]` (DLTX).
+A mod needs the `!` on every section `spawn_overlays.ltx` already declares (`[settings]`, `[graph_links]`,
+`[graph_unlinks]`, `[spawn_remove]`, `[spawn_replace]`, `[path_remove]`, `[level_cut]`). A plain
+`[spawn_remove]` in a mod file stops the load with `[DLTX] Duplicate section 'spawn_remove' wasn't marked as an override`.
 Each section is described [below](#spawn_overlaysltx-sections).
 
 ---
@@ -85,8 +88,29 @@ graph vertices, so their coordinates work.
 
 **Objects** are named by their object name. Some names are shared by several templates
 (furniture, boxes, ladders), and those also need the instance's position, matched within 0.5 m.
+Object ids match without regard to case, because the ini reader lower-cases section headers, so
+`[spawn_patch@ESC_Smart_Terrain_2_12]` reaches the engine as `esc_smart_terrain_2_12`. An id that
+matches two templates differing only in case is refused (`!` log), and a `[spawn_add@]` whose id
+differs from a template's only in case counts as the same object id.
 
 **Levels** are named by their level name.
+
+**Values** are read whole. A number is any finite number C `strtof` reads (`12.5`, `-3`, `+1e2`,
+hex floats such as `0x1p3`); `5abc`, `nan`, `inf`, a second number where one is expected (`1,2`)
+or a fourth coordinate (`1,2,3,4`) are refused with a `!` line. Each kind has a bound, and a value
+beyond it is refused the same way:
+
+| Kind | Keys | Bound |
+|---|---|---|
+| position, x, y, z | `position`, `dest_position`, `match_position`, graph endpoint points | each coordinate within ±100000 m (the physics engine counts a point 100 km outside the level as invalid) |
+| angles, x, y, z in radians | `direction`, `dest_direction` | each within ±100000, kept as written; the engine has no limit here, so the bound only refuses runaway values |
+| box edges, sphere radius | `box`, `sphere` | above 0 and at most 100000 m, a loose bound as for angles |
+| distance | `link_tolerance` | 0 to 100000 |
+| smart cover numbers | `hold_position_time`, `enter_min_enemy_distance`, `exit_min_enemy_distance` | 0 to 100000, a loose bound as for angles |
+
+The `[settings]` and smart cover keys have their own ranges, listed with each key. A section header
+of 256 characters or more is skipped (`!` log) before any of its keys is read; the engine's ini
+reader cannot open it.
 
 ---
 
@@ -118,8 +142,10 @@ link_tolerance = 2.0
 sync_level_offsets = true
 ```
 
-* `link_tolerance`: the largest distance in metres from an endpoint to its graph vertex.
-* `sync_level_offsets`: moves each level of the base spawn to the `offset` of its `[levelNN]`
+* `link_tolerance`: the largest distance in metres from an endpoint to its graph vertex, 0 to
+  100000. Any other value keeps the default 2.0 (`!` log).
+* `sync_level_offsets`: `true`, `false`, `yes`, `no`, `on`, `off`, `1` or `0` (any case); any other
+  value keeps the default `true` (`!` log). It moves each level of the base spawn to the `offset` of its `[levelNN]`
   section in `game.ltx` when that differs from the one compiled into the graph. The `[levelNN]`
   sections are the ones listed under `[levels]`; vanilla keeps them in `game_levels.ltx`, and mods
   add or override theirs with DLTX. The edges that cross into the moved level are reweighted. A
@@ -143,6 +169,9 @@ An edge that already exists is left alone.
 
 `[graph_unlinks]` removes game-graph edges in both directions.
 
+An endpoint of 256 characters or more, or a point that isn't x, y, z within the
+[position bound](#addressing), skips its line (`!` log).
+
 Keys are unique within a section. To cut one level from several, put that level on the value side
 (`l09_deadcity = l07_military`, `k02_trucks_cemetery = l07_military`), or use a suffixed section
 per line. Both sections can be declared with a suffix, such as `[graph_unlinks@<mod>]`. That is a
@@ -158,7 +187,8 @@ level_prefix_inventory_box_0000 = 12.3, 4.5, -6.7
 ```
 
 `[spawn_remove]` removes spawn templates by object name, one per line. A shared name needs the
-instance's position as the value. It affects new games only: objects already created from the
+instance's position as the value; a value that isn't x, y, z within the
+[position bound](#addressing) skips the line (`!` log). It affects new games only: objects already created from the
 template live in the save. It applies after fragments and packs, so a removed object stays removed
 even when a pack still carries it. The removed template's `story_id` and `spawn_story_id` are freed
 for a `[spawn_patch@]` or `[spawn_add@]` to reuse. Removing a template that has a `spawn_story_id`, here or in
@@ -168,24 +198,28 @@ for a `[spawn_patch@]` or `[spawn_add@]` to reuse. Removing a template that has 
 goes, and a fragment's or pack's record of the same name at the same place is taken instead. Without
 it, the base would win over that record.
 
+`spawn_overlays.ltx` declares both sections, so a mod's `mod_spawn_overlays_<mod>.ltx` writes them
+as `![spawn_remove]` and `![spawn_replace]`; the plain header stops the load with a DLTX duplicate
+section error.
+
 ### [spawn_patch@\<name\>]
 
 Edits one spawn template. The section suffix is the object name. All keys are optional:
 
 | Key | Meaning |
 |---|---|
-| `match_position = x, y, z` | selects the instance when the name is shared (within 0.5 m) |
-| `level = <level name>` | moves the object to another level. Needs `position` too, because coordinates are level-local and don't carry over. A level that isn't installed skips the **whole** section, with no key applied. An empty value or a missing `position` also skips the whole section (`!` log). |
-| `position = x, y, z` | level-local position; the graph vertex and AI node are re-resolved as the [rules of thumb](#rules-of-thumb) say |
-| `direction = x, y, z` | |
+| `match_position = x, y, z` | selects the instance when the name is shared (within 0.5 m). A value that isn't x, y, z within the [position bound](#addressing) skips the **whole** section (`!` log). |
+| `level = <level name>` | moves the object to another level. Needs `position` too, because coordinates are level-local and don't carry over. A level that isn't installed skips the **whole** section, with no key applied. An empty value, or a `position` that is missing or isn't x, y, z, also skips the whole section (`!` log). |
+| `position = x, y, z` | level-local position; the graph vertex and AI node are re-resolved as the [rules of thumb](#rules-of-thumb) say. Without `level`, a bad value is ignored (`!` log) and the rest of the patch applies. |
+| `direction = x, y, z` | angles in radians, each within ±100000. A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `custom_data = ...` | `\n` is a line break and `\\` a literal backslash (needed before a folder starting with `n`) |
-| `custom_data_cfg = scripts\x.ltx` | shorthand for `custom_data = [logic]\ncfg = scripts\x.ltx`, with no escaping |
-| `story_id = <int>` | `-1` = none. An id another template already holds is skipped (`!` log). |
-| `spawn_story_id = <int>` | `-1` = none. An id another template already holds is skipped (`!` log). |
-| `object_flags = 0x...` | |
-| `dest_level = <level name>` | level changers only: the level it leads to. Needs `dest_position`. A level that isn't installed skips the three `dest_*` keys. |
-| `dest_position = x, y, z` | level changers only: arrival point on the destination level; its graph vertex and AI node are re-resolved |
-| `dest_direction = x, y, z` | level changers only: the actor's facing on arrival |
+| `custom_data_cfg = scripts\x.ltx` | shorthand for `custom_data = [logic]\ncfg = scripts\x.ltx`, with no escaping, at most 505 characters. Ignored on a smart terrain (`!` log), which reads `[smart_terrain]` instead. A longer value is ignored (`!` log). |
+| `story_id = <int>` | a whole integer from `-1` to `4294967295`, `-1` = none. Any other value is ignored (`!` log). An id another template already holds is skipped (`!` log). |
+| `spawn_story_id = <int>` | as `story_id` |
+| `object_flags = 0x...` | an unsigned integer up to `0xFFFFFFFF`, in hex with `0x`, decimal, or octal with a leading `0`, with an optional `+`. A minus sign or any other value is ignored (`!` log). |
+| `dest_level = <level name>` | level changers only: the level it leads to. Needs `dest_position`. A level that isn't installed skips the three `dest_*` keys with one `-` line on `dest_position`. An empty value skips them too, with one `!` line on `dest_level` listing the keys it skipped. |
+| `dest_position = x, y, z` | level changers only: arrival point on the destination level; its graph vertex and AI node are re-resolved. A bad value, or one with no graph vertex to land on, is ignored together with `dest_level` and `dest_direction` (`!` log) and the rest of the patch applies. |
+| `dest_direction = x, y, z` | level changers only: the actor's facing on arrival, in radians within ±100000. A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `box = width, height, depth` | shaped objects only (restrictors, smart terrains, anomalies, level changers, smart covers): replaces the shape with one box centred on the object, values as in [`[spawn_add@]`](#spawn_addname). Given with `sphere`, both are ignored (`!` log). A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `sphere = radius` | shaped objects only: replaces the shape with one sphere centred on the object, values as in [`[spawn_add@]`](#spawn_addname). A bad value is ignored (`!` log) and the rest of the patch applies. |
 | `restrictor_type = <type>` | restrictors only, smart terrains included: values as in [`[spawn_add@]`](#spawn_addname). A bad value is ignored (`!` log) and the rest of the patch applies. |
@@ -212,7 +246,9 @@ section fully describes:
 * space restrictors and level changers (transitions, see the example below);
 * anomalies (`zone_*` sections), with a `box` or `sphere`;
 * items on the ground: weapons, ammo, consumables, artefacts;
-* smart terrains: `section = smart_terrain` with `custom_data_cfg = scripts\...\<smart>.ltx`;
+* smart terrains: `section = smart_terrain` with `custom_data = [smart_terrain]\ncfg = scripts\...\<smart>.ltx`
+  (a folder starting with `n` needs `\\`). `custom_data_cfg` writes `[logic]`, which doesn't
+  configure a smart terrain, so the engine ignores it there (`!` log);
 * smart covers and animpoints: `section = smart_cover` with a `sphere`, see [Smart covers](#smart-covers);
 * inventory boxes and props whose section has a `visual` line (give a model its own section to
   place it).
@@ -225,13 +261,13 @@ Creatures can't be added (scripts spawn them), nor objects inside a box or on a 
 | `level = <level name>` | required. A level that isn't installed skips the section. |
 | `position = x, y, z` | required, level-local. For a restrictor or level changer, the centre of its shape. The graph vertex and AI node follow the [rules of thumb](#rules-of-thumb). |
 | `direction = x, y, z` | rotates the object and its shape |
-| `box = width, height, depth` | restrictors and level changers need `box` or `sphere`: a box centred on `position`, width along the object's x, height up, depth along z |
-| `sphere = radius` | a sphere centred on `position` |
+| `box = width, height, depth` | every shaped object (restrictors, smart terrains, anomalies, level changers, smart covers) needs `box` or `sphere`, else the section is skipped (`!` log): a box centred on `position`, width along the object's x, height up, depth along z, each edge above 0 and at most 100000 |
+| `sphere = radius` | a sphere centred on `position`, radius above 0 and at most 100000 |
 | `restrictor_type = <type>` | restrictors: `default_none` (if omitted), `default_out`, `default_in`, `none`, `in`, `out` |
 | `custom_data`, `custom_data_cfg`, `story_id`, `spawn_story_id`, `object_flags` | as in [`[spawn_patch@]`](#spawn_patchname) |
-| `dest_level = <level name>`, `dest_position = x, y, z` | level changers, required: where it leads. A destination level that isn't installed skips the section. |
-| `dest_direction = x, y, z` | level changers: facing on arrival |
-| `silent_mode = true` | level changers: change level on contact, without the dialog (`false` if omitted) |
+| `dest_level = <level name>`, `dest_position = x, y, z` | level changers, required: where it leads. A destination level that isn't installed, or a `dest_level` of 256 characters or more, skips the section. |
+| `dest_direction = x, y, z` | level changers: facing on arrival, in radians within ±100000. A bad value is ignored (`!` log) and the rest of the section applies. |
+| `silent_mode = true` | level changers: change level on contact, without the dialog (`false` if omitted). A value other than `true`, `false`, `yes`, `no`, `on`, `off`, `1` or `0` (any case) is ignored (`!` log). |
 | `hint = <string id>` | level changers: the dialog text (`level_changer_invitation` if omitted) |
 | `description = <id>` and the other smart cover keys | smart covers, `description` required, see [Smart covers](#smart-covers) |
 
@@ -317,9 +353,9 @@ for `[spawn_add@]`; `[spawn_patch@]` keeps the template's value for a key it lea
 |---|---|
 | `description = <id>` | an id of the Lua table `smart_covers.descriptions`: `animpoint_sit_ass`, `combat_front`, ... Required on an add. An unknown id skips the add section, or every smart cover key of a patch (`!` log). |
 | `loopholes = <id>, <id>` | the loopholes to enable, the description's others are disabled. If omitted, an add enables every loophole of the description, and a patch keeps the cover's loopholes, or enables every loophole of a new `description`. An id the description doesn't have is dropped (`!` log). A list with no id of the description skips the add section, or every smart cover key of a patch (`!` log). |
-| `hold_position_time = <seconds>` | `0` if omitted. These three take a number of 0 or more; any other value is ignored (`!` log). |
-| `enter_min_enemy_distance = <m>`, `exit_min_enemy_distance = <m>` | the `[smart_cover]` section's values if omitted (15 and 10) |
-| `is_combat_cover = true`, `can_fire = true` | `is_combat_cover` is the `[smart_cover]` section's value if omitted, and that section makes every cover a combat cover, so an animpoint sets both to `false`. Without `can_fire`, a section that gives `is_combat_cover` sets it as the engine does: a combat cover can fire and any other takes `can_fire` from the object's system.ltx section (`false` for `[smart_cover]`, or when the section has no `can_fire`). A patch that gives neither keeps the cover's `can_fire`. |
+| `hold_position_time = <seconds>` | `0` if omitted. These three take a number from 0 to 100000; any other value is ignored (`!` log). The SDK editor offers 0 to 60 here and 0 to 100 for the distances. |
+| `enter_min_enemy_distance = <m>`, `exit_min_enemy_distance = <m>` | the `[smart_cover]` section's values if omitted (15 and 10 in stock; a mod that overrides `[smart_cover]` changes them) |
+| `is_combat_cover = true`, `can_fire = true` | `is_combat_cover` is the `[smart_cover]` section's value if omitted, and stock makes every cover a combat cover, so an animpoint sets both to `false`. Without a valid `can_fire`, a section that gives a valid `is_combat_cover` sets it as the engine does: a combat cover can fire and any other takes `can_fire` from the object's system.ltx section (`false` for stock `[smart_cover]`, or when the section has no `can_fire`). A mod that overrides `[smart_cover]` changes these defaults. A patch that gives neither keeps the cover's `can_fire`. A value other than `true`, `false`, `yes`, `no`, `on`, `off`, `1` or `0` (any case) is ignored (`!` log). |
 
 The cover's script state (`se_smart_cover`) holds the loophole choice, so a saved game keeps it.
 
