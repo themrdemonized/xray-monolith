@@ -210,7 +210,8 @@ template live in the save. It applies after fragments and packs, so a removed ob
 even when a pack still carries it. The removed template's `story_id` and `spawn_story_id` are freed
 for a `[spawn_patch@]` or `[spawn_add@]` to reuse. Removing a template that has a `spawn_story_id`, here or in
 `[spawn_replace]`, is logged `!` because scripts that spawn it by that id will fail; it is still removed.
-`alife():spawn_id` returns 65535 for a story id no template carries and logs a `!` line.
+`alife():spawn_id` returns 65535 for a story id no template carries, and `alife():create` returns nil for a
+spawn id no template has. Both log a `!` line.
 Removes apply before adds, so once every template of a name is removed, a `[spawn_add@]` of that
 name, in the same file or another, creates a new object with a new spawn id. Removing a smart
 terrain drops the start squads that the population file (`misc\simulation.ltx` in stock) places in

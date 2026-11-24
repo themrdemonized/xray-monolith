@@ -159,7 +159,11 @@ u32 get_level_id(CALifeSimulator* self)
 CSE_ALifeDynamicObject* CALifeSimulator__create(CALifeSimulator* self, ALife::_SPAWN_ID spawn_id)
 {
 	const CALifeSpawnRegistry::SPAWN_GRAPH::CVertex* vertex = ai().alife().spawns().spawns().vertex(spawn_id);
-	THROW2(vertex, "Invalid spawn id!");
+	if (!vertex)
+	{
+		Msg("! alife():create: spawn id %d not found", spawn_id);
+		return (nullptr);
+	}
 
 	CSE_ALifeDynamicObject* spawn = smart_cast<CSE_ALifeDynamicObject*>(&vertex->data()->object());
 	THROW(spawn);
