@@ -39,9 +39,9 @@ public:
 	void Draw(float x, float y);
 
     // antglobes
-    float GetTextWidth();
-    float GetTextHeight();
-    Fvector2 GetTextSize();
+    float GetTextWidth(bool per_line = false);
+    float GetTextHeight(bool per_line = false);
+    Fvector2 GetTextSize(bool per_line_width = false, bool per_line_height = false);
 
 
 	// CDeviceResetNotifier methods

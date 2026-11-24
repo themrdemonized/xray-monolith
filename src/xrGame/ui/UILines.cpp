@@ -617,19 +617,25 @@ void CUILines::CutFirstColoredTextEntry(xr_string& entry, u32& color, xr_string&
 	}
 }
 
-float CUILines::GetTextWidth()
+float CUILines::GetTextWidth(bool per_line)
 {
     float _len = m_pFont->SizeOf_(GetText());
+    float size = per_line ? m_lines.size() : 1.f;
     UI().ClientToScreenScaledWidth(_len);
-    return _len;
+    float width = 0;
+    if (_len)
+        width = _len / size;
+    return per_line ? width : _len;
+    
+} 
+
+float CUILines::GetTextHeight(bool per_line)
+{
+    float size = per_line ? m_lines.size() : 1.f;
+    return GetVisibleHeight() * size;
 }
 
-float CUILines::GetTextHeight()
+Fvector2 CUILines::GetTextSize(bool per_line_width, bool per_line_height)
 {
-    return GetVisibleHeight();
-}
-
-Fvector2 CUILines::GetTextSize()
-{
-    return Fvector2().set(GetTextWidth(), GetTextHeight());
+    return Fvector2().set(GetTextWidth(per_line_width), GetTextHeight(per_line_height));
 }
