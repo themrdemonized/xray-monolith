@@ -473,9 +473,9 @@
 
     class CUITextWnd: CUIWindow {
         // antglobes
-        float GetTextWidth() // Get the width of the current text
-        float GetTextHeight() //  Get the height of the current text
-        Fvector2 GetTextSize() // Get both the width and height of the current text as a 2D vector
+        float GetTextWidth(bool per_line = true) // Get the width of the current text
+        float GetTextHeight(bool per_line = true) //  Get the height of the current text
+        Fvector2 GetTextSize(bool per_line_width = true, bool per_line_height = true) // Get both the width and height of the current text as a 2D vector, per_line: get the absolute dimensions if false by default or per line of text if true
 
     }
 
