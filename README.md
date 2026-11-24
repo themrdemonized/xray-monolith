@@ -91,7 +91,7 @@ The original engine is used in S.T.A.L.K.E.R. Call of Pripyat game released by G
 
 # List of patches
 
-* Moved solution to Visual Studio 2022, In case you have problems, make sure you installed the latest Visual C++ Redistributables. You can find them here: https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/
+* Moved solution to Visual Studio 2026 (v145), In case you have problems, make sure you installed the latest Visual C++ Redistributables. You can find them here: https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/
 
 * DLTX by MerelyMezz with edits and bugfixes by demonized, differences compare to original:
   * Attempting to override sections no longer crash the game, but prints the message into the log. All sections that triggers that error will be printed
@@ -219,21 +219,21 @@ How to compile exes:
 1. Fork this xray-monolith repo, the main branch is `all-in-one-vs2022-wpo`
 2. Download the fork onto your pc
 3. Open Git Bash or terminal in the downloaded folder and run `git submodule update --init --recursive` to pull git submodules
-4. Compile the engine-vs2022.sln solution with VS2022
-5. For batch builds of all configurations use `batch_build.bat`
-6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
+4. Compile the `src/engine-vs2026.sln` solution with Visual Studio 2026
+5. For batch builds of all release configurations use `src/batch_build.bat`
+6. Install the **Desktop development with C++ workload, MSVC v145 build tools, MFC and ATL libraries for v145, and a Windows 10/11 SDK**
 
-### Working with Hot Reload feature using VS2022 for quick feedback flow (by lulnope):
+### Working with Hot Reload feature using VS2026 for quick feedback flow (by lulnope):
 1. Follow the "How to compile exes" guide above
-2. Start VS2022 solution as admin
+2. Start VS2026 solution as admin
 3. Select VerifiedDX11 Solution Configuration **note that this configuration compiles .exes in an extremely unoptimized state. To launch the game you might need as much as 20gb of free RAM and the game will run at about 50% of the performance of .exes built using release configurations. The upsides are a working Hot Reload feature and much easier debugging as no symbols are optimized-away and no methods are inlined so the code executes the exact way it reads**
-4. VS2022 -> top menu bar -> Build -> Rebuild Solution
+4. VS2026 -> top menu bar -> Build -> Rebuild Solution
 5. Upon successful build you will see a log output with a path like so: `\xray-monolith\_build\_game\bin_dbg`
 6. Copy the newly built .exe file AND the .pdb file into your Anomaly/bin folder
 7. Start the game using the newly built .exe file, it does not matter if it's vanilla Anomaly, GAMMA or a different modpack as long as you use the newly built .exes
-8. Once the game started ATL+TAB to VS2022 and navigate to Debug -> Attack to process... (CTRL+ALT+P)
-9. Attach to AnomalyDX11.exe **this operation requires VS2022 to be launched using admin permissions, you will be prompted to relaunch the VS2022 as admin if you haven't**
-10. Introduce some minor change to the code, save the edited file and execute Hot Reload (VS2022 -> top menu bar -> Debug -> Apply Code Changes (ALT+F10)) **the option to Hot Reload the code will become available only once you've successfully attached a debugger  to a running process and VS2022 switched to debug view**
+8. Once the game started ATL+TAB to VS2026 and navigate to Debug -> Attack to process... (CTRL+ALT+P)
+9. Attach to AnomalyDX11.exe **this operation requires VS2026 to be launched using admin permissions, you will be prompted to relaunch the VS2026 as admin if you haven't**
+10. Introduce some minor change to the code, save the edited file and execute Hot Reload (VS2026 -> top menu bar -> Debug -> Apply Code Changes (ALT+F10)) **the option to Hot Reload the code will become available only once you've successfully attached a debugger  to a running process and VS2026 switched to debug view**
 11. If everything worked correctly you should see a loading bar indicating recompilation & reload process, once finished you should immediately be able to observe difference in the execution of the code
 12. Happy modding! Makes sure to read Hot Reload documentation: https://learn.microsoft.com/en-us/visualstudio/debugger/supported-code-changes-cpp?view=vs-2022
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38

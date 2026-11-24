@@ -193,10 +193,8 @@
 #include <set>
 #include <map>
 
-#ifndef _EDITOR
-# include <hash_map>
-# include <hash_set>
-#endif
+#include <unordered_map>
+#include <unordered_set>
 
 #include <string>
 #pragma warning (pop)
