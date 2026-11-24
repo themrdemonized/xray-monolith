@@ -80,6 +80,15 @@ void xrServer::SendConnectionData(IClient* _CL)
 	// Replicate current entities on to this client
 	xrS_entities::iterator I = entities.begin(), E = entities.end();
 	for (; I != E; ++I) I->second->net_Processed = FALSE;
+
+    xrS_entities::iterator actor = entities.find(0);
+    if (actor != entities.end())
+    {
+        // since commit d18ebe4c1247d02da2522632e479fe1debd3f60a entities are not sorted by id within buckets
+        // so actor may not be the first one in the bucket, so we need to find it and spawn it first forcefully
+        Perform_connect_spawn(actor->second, CL, P);
+    }
+
 	for (I = entities.begin(); I != E; ++I) Perform_connect_spawn(I->second, CL, P);
 
 	// Start to send server logo and rules
