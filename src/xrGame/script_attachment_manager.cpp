@@ -57,7 +57,7 @@ CCF_Attachment_Skeleton::CCF_Attachment_Skeleton(script_attachment* O) : CCF_Ske
 {
 	IRenderVisual* pVisual = O->Visual();
 	IKinematics* K = PKinematics(pVisual);
-	VERIFY3(K, "Can't create skeleton without Kinematics.", *O->cNameVisual());
+	VERIFY3(K, "Can't create skeleton without Kinematics.", O->GetModelScript());
 	bv_box.set(pVisual->getVisData().box);
 	bv_box.getsphere(bv_sphere.P, bv_sphere.R);
 	vis_mask = 0;
