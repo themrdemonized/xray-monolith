@@ -476,7 +476,9 @@ void CTexture::Preload()
 {
 	if (!Core.ParamsData.test(ECoreParams::r4_dev))
 	{
-	m_bumpmap = DEV->m_textures_description.GetBumpName(cName);
+	// Store only on change so a Load() on a worker never writes it while bump_get() reads it
+	shared_str bump = DEV->m_textures_description.GetBumpName(cName);
+	if (!m_bumpmap.equal(bump)) m_bumpmap = bump;
 	}
 	m_material = DEV->m_textures_description.GetMaterial(cName);
 }
