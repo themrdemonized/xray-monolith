@@ -146,6 +146,7 @@ public:
 	void set_mFirePoint(Fvector &fire_point);
 	void set_mFirePoint2(Fvector &fire_point);
 	void set_mShellPoint(Fvector &fire_point);
+	void set_mFirePointSilencer(Fvector &fire_point);
 	Fmatrix get_mOffset() { return m_Offset; };
 	Fmatrix get_mStrapOffset() { return m_StrapOffset; };
 
@@ -402,6 +403,10 @@ protected:
 	shared_str m_sScopeName;
 	shared_str m_sSilencerName;
 	shared_str m_sGrenadeLauncherName;
+	// Set only while _G.CWeapon_NetSpawn runs, lets SetSilencerName rename an attached suppressor
+	bool m_bNetSpawnHook = false;
+	// Keeps the baked wpn_silencer bone hidden while a suppressor is attached
+	bool m_bSilencerBoneHidden = false;
 
 	//ñìåùåíèå èêîíîâ àïãðåéäîâ â èíâåíòàðå
 	int m_iScopeX, m_iScopeY;
@@ -575,6 +580,9 @@ public:
 	int GetAmmoCount_byIndex_Script(u8 i) const { return i < m_ammoTypes.size() ? GetAmmoCount_forType(m_ammoTypes[i]) : 0; }
 	LPCSTR GetGrenadeLauncherNameScript() const { return *GetGrenadeLauncherName(); }
 	LPCSTR GetSilencerNameScript() const { return *GetSilencerName(); }
+	bool SetSilencerName(LPCSTR section);
+	void SetSilencerBoneHidden(bool hidden);
+	bool IsSilencerBoneHidden() const { return m_bSilencerBoneHidden; }
 	LPCSTR GetScopeNameScript() const { return *GetScopeName(); }
 	float GetFireDispersionScript() const { return fireDispersionBase; }
 	float RPMScript() const { return fOneShotTime; }

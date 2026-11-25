@@ -963,6 +963,10 @@ void CWeapon::set_mShellPoint(Fvector &fire_point) {
 	vLoadedShellPoint = fire_point;
 }
 
+void CWeapon::set_mFirePointSilencer(Fvector &fire_point) {
+	vLoadedFirePointSilencer = fire_point;
+}
+
 // Private_Pirate:
 // Control weapon inertia on mouse movement
 // Getters
@@ -1031,6 +1035,34 @@ void CWeapon::SetInertionMinAngleAim(float angle) {
 	HudItemData()->m_measures.m_inertion_params.m_min_angle_aim = angle;
 }
 // Private_pirate end
+
+// An attached suppressor is renamed only from the net spawn hook, where InitAddons follows
+bool CWeapon::SetSilencerName(LPCSTR section)
+{
+	if (m_eSilencerStatus != ALife::eAddonAttachable || !section || !pSettings->section_exist(section))
+		return false;
+	// Detach spawns this section, so it must share the class of the current suppressor
+	if (!pSettings->line_exist(section, "class") || !pSettings->line_exist(m_sSilencerName.c_str(), "class")
+		|| pSettings->r_clsid(section, "class") != pSettings->r_clsid(m_sSilencerName.c_str(), "class"))
+		return false;
+	if (IsSilencerAttached() && !m_bNetSpawnHook)
+		return false;
+
+	m_sSilencerName = section;
+	CWeaponMagazined* wm = smart_cast<CWeaponMagazined*>(this);
+	if (wm)
+		wm->LoadSilencerKoeffs();
+	return true;
+}
+
+void CWeapon::SetSilencerBoneHidden(bool hidden)
+{
+	if (m_bSilencerBoneHidden == hidden)
+		return;
+
+	m_bSilencerBoneHidden = hidden;
+	UpdateAddonsVisibility();
+}
 
 void CWeapon::LoadFireParams(LPCSTR section)
 {
@@ -1134,6 +1166,14 @@ BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
 		m_fCurrentCartirdgeDisp = m_DefaultCartridge.param_s.kDisp;
 		for (int i = 0; i < iAmmoElapsed; ++i)
 			m_magazine.push_back(m_DefaultCartridge);
+	}
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CWeapon_NetSpawn", funct))
+	{
+		m_bNetSpawnHook = true;
+		funct(this->lua_game_object());
+		m_bNetSpawnHook = false;
 	}
 
 	UpdateAddonsVisibility();
@@ -2047,7 +2087,7 @@ void CWeapon::UpdateHUDAddonsVisibility()
 
 	if (SilencerAttachable())
 	{
-		HudItemData()->set_bone_visible(wpn_silencer, IsSilencerAttached());
+		HudItemData()->set_bone_visible(wpn_silencer, IsSilencerAttached() && !m_bSilencerBoneHidden);
 	}
 	if (m_eSilencerStatus == ALife::eAddonDisabled)
 	{
@@ -2108,7 +2148,7 @@ void CWeapon::UpdateAddonsVisibility()
 	bone_id = pWeaponVisual->LL_BoneID(wpn_silencer);
 	if (SilencerAttachable())
 	{
-		if (IsSilencerAttached())
+		if (IsSilencerAttached() && !m_bSilencerBoneHidden)
 		{
 			if (!pWeaponVisual->LL_GetBoneVisible(bone_id))
 				pWeaponVisual->LL_SetBoneVisible(bone_id, TRUE, TRUE);
