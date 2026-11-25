@@ -78,9 +78,13 @@ void xrServer::SendConnectionData(IClient* _CL)
 	xrClientData* CL = (xrClientData*)_CL;
 	NET_Packet P;
 	// Replicate current entities on to this client
-	xrS_entities::iterator I = entities.begin(), E = entities.end();
-	for (; I != E; ++I) I->second->net_Processed = FALSE;
-	for (I = entities.begin(); I != E; ++I) Perform_connect_spawn(I->second, CL, P);
+	const auto ids = get_entity_ids_in_spawn_order();
+	for (u16 id : ids)
+		if (CSE_Abstract* entity = ID_to_entity(id))
+			entity->net_Processed = FALSE;
+	for (u16 id : ids)
+		if (CSE_Abstract* entity = ID_to_entity(id))
+			Perform_connect_spawn(entity, CL, P);
 
 	// Start to send server logo and rules
 	SendServerInfoToClient(CL->ID);

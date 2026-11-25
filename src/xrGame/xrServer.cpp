@@ -97,6 +97,34 @@ CSE_Abstract* xrServer::ID_to_entity(u16 ID)
 	else return 0;
 }
 
+xr_vector<u16> xrServer::get_entity_ids_in_spawn_order()
+{
+	xr_vector<u16> ids;
+	ids.reserve(entities.size());
+	for (const auto& entry : entities)
+		ids.push_back(entry.first);
+	std::sort(ids.begin(), ids.end());
+
+	xr_vector<u16> ordered_ids;
+	ordered_ids.reserve(ids.size());
+	xr_unordered_set<u16> visited;
+	visited.reserve(ids.size());
+	xr_vector<u16> chain;
+
+	// Actor ID 0 comes first; parents precede children even when their IDs are higher.
+	// Mark IDs before following parents so malformed cycles cannot loop indefinitely.
+	for (u16 id : ids)
+	{
+		chain.clear();
+		for (CSE_Abstract* entity = ID_to_entity(id); entity && visited.insert(entity->ID).second;
+		     entity = ID_to_entity(entity->ID_Parent))
+			chain.push_back(entity->ID);
+		ordered_ids.insert(ordered_ids.end(), chain.rbegin(), chain.rend());
+	}
+
+	return ordered_ids;
+}
+
 //--------------------------------------------------------------------
 IClient* xrServer::client_Create()
 {

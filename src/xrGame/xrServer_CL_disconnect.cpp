@@ -29,24 +29,25 @@ void xrServer::OnCL_Disconnected(IClient* CL)
 	game->AddDelayedEvent(P, GAME_EVENT_PLAYER_DISCONNECTED, 0, clientID);
 
 	//
-	xrS_entities::iterator I = entities.begin(), E = entities.end();
 	if (GetClientsCount() > 1 && !CL->flags.bLocal)
 	{
 		// Migrate entities
-		for (; I != E; ++I)
+		for (u16 id : get_entity_ids_in_spawn_order())
 		{
-			CSE_Abstract* entity = I->second;
-			if (entity->owner == CL) PerformMigration(entity, (xrClientData*)CL,
+			CSE_Abstract* entity = ID_to_entity(id);
+			if (entity && entity->owner == CL) PerformMigration(entity, (xrClientData*)CL,
 			                                          SelectBestClientToMigrateTo(entity,TRUE));
 		}
 	}
 	else
 	{
-		// Destroy entities
+		// Destroy children before parents, keeping the actor until last.
 		while (!entities.empty())
 		{
-			CSE_Abstract* entity = entities.begin()->second;
-			entity_Destroy(entity);
+			const auto ids = get_entity_ids_in_spawn_order();
+			for (auto it = ids.rbegin(); it != ids.rend(); ++it)
+				if (CSE_Abstract* entity = ID_to_entity(*it))
+					entity_Destroy(entity);
 		}
 	}
 	//csPlayers.Leave			();

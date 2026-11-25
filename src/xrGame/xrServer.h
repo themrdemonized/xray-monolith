@@ -92,6 +92,7 @@ private:
 	xrS_entities entities;
 	xr_multiset<svs_respawn> q_respawn;
 	xr_vector<u16> conn_spawned_ids;
+	xr_vector<u16> get_entity_ids_in_spawn_order();
 	cheaters_t m_cheaters;
 
 	file_transfer::server_site* m_file_transfers;
