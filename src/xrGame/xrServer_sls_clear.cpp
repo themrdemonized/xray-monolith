@@ -72,21 +72,20 @@ void xrServer::SLS_Clear()
 	while (!entities.empty())
 	{
 		bool found = false;
-		xrS_entities::const_iterator I = entities.begin();
-		xrS_entities::const_iterator E = entities.end();
-		for (; I != E; ++I)
+		const auto ids = get_entity_ids_in_spawn_order();
+		// Reverse spawn order keeps the actor alive while other roots are removed.
+		// Resolve IDs again because Perform_destroy also erases descendants.
+		for (auto it = ids.rbegin(); it != ids.rend(); ++it)
 		{
-			if ((*I).second->ID_Parent != 0xffff)
+			CSE_Abstract* entity = ID_to_entity(*it);
+			if (!entity || entity->ID_Parent != 0xffff)
 				continue;
 			found = true;
-			Perform_destroy((*I).second, mode);
-			break;
+			Perform_destroy(entity, mode);
 		}
 		if (!found) //R_ASSERT(found);
 		{
-			I = entities.begin();
-			E = entities.end();
-			for (; I != E; ++I)
+			for (auto I = entities.begin(); I != entities.end(); ++I)
 			{
 				if (I->second)
 					Msg("! ERROR: can't destroy object [%d][%s] with parent [%d]",
