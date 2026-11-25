@@ -82,6 +82,8 @@ void CEntity::Die(CObject* who)
 	{
 		VERIFY(m_registered_member);
 	}
+	if (!m_registered_member)
+		return;
 	m_registered_member = false;
 	if (IsGameTypeSingle())
 		Level().seniority_holder().team(g_Team()).squad(g_Squad()).group(g_Group()).unregister_member(this);
@@ -392,6 +394,14 @@ void CEntity::ChangeTeam(int team, int squad, int group)
 	if (IsGameTypeSingle())
 	{
 		VERIFY(m_registered_member);
+	}
+	// dead or never registered: not in any group, so only the ids change
+	if (!m_registered_member)
+	{
+		id_Team = team;
+		id_Squad = squad;
+		id_Group = group;
+		return;
 	}
 	// remove from current team
 	on_before_change_team();
