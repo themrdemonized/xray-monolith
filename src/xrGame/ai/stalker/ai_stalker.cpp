@@ -1160,7 +1160,8 @@ void CAI_Stalker::shedule_Update(u32 DT)
 				animation().play_delayed_callbacks();
 
 				::luabind::functor<bool> funct;
-				float distance = Actor()->Position().distance_to(Position());
+				// a stalker can update before the actor is spawned
+				float distance = Actor() ? Actor()->Position().distance_to(Position()) : flt_max;
 				auto luaObject = lua_game_object();
 				if (luaObject && distance < NPCsLookAtActorMinDistance && ai().script_engine().functor("_G.CNPCBeforeLookAtActor", funct))
 				{
