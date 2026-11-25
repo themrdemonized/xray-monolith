@@ -47,6 +47,8 @@ void CSoundRender_Emitter::update(float dt)
 
 	if (m_current_state != stStopped && !_valid(p_source.position))
 	{
+		// release the target, the stopped emitter gets deleted this frame
+		if (target) SoundRender->i_stop(this);
 		m_current_state = stStopped;
 	}
 
