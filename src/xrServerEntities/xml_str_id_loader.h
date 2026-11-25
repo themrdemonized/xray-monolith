@@ -21,6 +21,8 @@ struct ITEM_DATA
 	int index;
 	int pos_in_file;
 	CUIXml* _xml;
+	//item node in _xml, same as NavigateToNode(tag_name, pos_in_file) from the root
+	XML_NODE* _node;
 };
 
 typedef xr_vector<ITEM_DATA> T_VECTOR;
@@ -191,6 +193,7 @@ typename void CSXML_IdToIndex::InitInternal()
 			data.pos_in_file = i;
 			//.				data.file_name		= xml_file;
 			data._xml = uiXml;
+			data._node = item_node;
 			m_pItemDataVector->push_back(data);
 
 			index++;
