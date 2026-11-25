@@ -173,6 +173,8 @@ public:
 		return r_dx10Texture(ResourceName, texture.c_str());
 	};
 	u32 r_dx10Sampler(LPCSTR ResourceName);
+	// the pass constant of that name, null when no stage declares it
+	R_constant* r_Constant(LPCSTR name) { return ctable.get(name); }
 #else	//	USE_DX10
 	u32 r_Sampler(LPCSTR name, LPCSTR texture, bool b_ps1x_ProjectiveDivide = false, u32 address = D3DTADDRESS_WRAP,
 	              u32 fmin = D3DTEXF_LINEAR, u32 fmip = D3DTEXF_LINEAR, u32 fmag = D3DTEXF_LINEAR);

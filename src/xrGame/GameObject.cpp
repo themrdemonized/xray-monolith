@@ -37,6 +37,7 @@
 #include "CharacterPhysicsSupport.h"
 #include "debug_renderer.h"
 #include "../xrPhysics/PHElement.h"
+#include "../xrEngine/shader_bus.h"
 
 extern MagicBox3 MagicMinBox(int iQuantity, const Fvector* akPoint);
 
@@ -763,9 +764,14 @@ void CGameObject::renderable_Render(IDSGraphManager* DM)
 {
 	inherited::renderable_Render(DM);
 	if (m_instance_holder && !m_instance_holder->ModelInstanceMultirender()) return;
+	// an object drawn by its parent adds its own mask bits to the parent's
+	const u32 bus_tag = DM->get_BusTag();
+	if (H_Parent() && renderable.bus_mask)
+		DM->set_BusTag(bus_tag | (renderable.bus_mask & ShaderBus::mask_live_bits()));
 	DM->add_Dynamic(Visual(), &XFORM());
 	Visual()->getVisData().hom_frame = Device.dwFrame;
 	RenderAttachments(DM);
+	DM->set_BusTag(bus_tag);
 }
 
 void CGameObject::RenderAttachments(IDSGraphManager* DM)

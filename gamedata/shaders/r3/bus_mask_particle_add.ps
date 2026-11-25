@@ -1,0 +1,17 @@
+// object mask for an additive particle, the tag wherever the particle's own shader adds light that can move an 8-bit pixel
+// the particle shader's soft fade, clip and fog run unchanged
+#define main bus_particle_main
+#include "particle.ps"
+#undef main
+
+float main(v2p I) : SV_Target
+{
+	float4 c = bus_particle_main(I);
+#ifdef BUS_ADD_ALPHA
+	c.rgb *= c.a;
+#endif
+	// D3D rounds float to UNORM within 0.6 of a step, so 0.4 of a step can already move a pixel
+	if (max(c.r, max(c.g, c.b)) < 0.4 / 255)
+		discard;
+	return 1.0;
+}

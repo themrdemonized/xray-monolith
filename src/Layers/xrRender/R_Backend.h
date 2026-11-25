@@ -61,12 +61,16 @@ class ECORE_API R_bus_object
 	ShaderBus::lane* lanes[ShaderBus::max_object_lanes];
 	u32 count;
 	bool object_applied;
+	IRenderable* drawn;
 
 	void write_object(IRenderable* O);
 	void write_defaults();
 
 public:
-	R_bus_object() { unmap(); }
+	// true while a mask target is bound, so a particle drawn into it keeps its smoothing as the colour draw left it
+	bool redraw;
+
+	R_bus_object() : drawn(nullptr), redraw(false) { unmap(); }
 	void unmap()
 	{
 		count = 0;
@@ -74,7 +78,9 @@ public:
 	}
 	// writes the lane's value and keeps the constant for the draws of this table
 	void map(R_constant* C, ShaderBus::lane* l);
-	ICF void apply(IRenderable* O) { if (count) write_object(O); }
+	ICF void apply(IRenderable* O) { drawn = O; if (count) write_object(O); }
+	// the object of the draw in flight, for draws that read its values themselves
+	IRenderable* object() const { return drawn; }
 	ICF void apply_static() { if (count) write_defaults(); }
 };
 
@@ -301,6 +307,14 @@ public:
 
 	void set_Textures(STextureList* T);
 	IC void set_Textures(ref_texture_list& T) { set_Textures(&*T); }
+#if defined(USE_DX10) || defined(USE_DX11)
+	// drops a texture from every stage it is bound to before a copy writes it
+	void unbind_texture(CTexture* t);
+#endif
+#ifdef USE_DX11
+	// unbinds every compute shader view through the cache
+	void clear_cs_resources();
+#endif
 
 #ifdef _EDITOR
 	IC	void						set_Matrices		(SMatrixList* M);
@@ -447,6 +461,7 @@ public:
 
 #ifdef USE_DX11
 	ICF void Compute(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ);
+	ICF void ComputeIndirect(ID3D11Buffer* args, UINT offset);
 #endif
 
 	// Device create / destroy / frame signaling
