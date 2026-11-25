@@ -81,6 +81,8 @@ u32 lvInterpSteps = 0;
 BOOL spawn_antifreeze = TRUE;
 BOOL spawn_antifreeze_debug = FALSE;
 static HANDLE prefetch_thread_signal;
+// set by the prefetch thread when it has left, so the level can wait for it before freeing what it uses
+static HANDLE prefetch_thread_done = nullptr;
 
 static void unpausePrefetchThreadSignal()
 {
@@ -280,6 +282,9 @@ CLevel::CLevel() :
     prefetched_models = xr_new<models_set>();
     auto events = new spawn_and_prefetch_events({ spawn_events, spawn_events_data, prefetch_events, prefetched_models, &closeSignal, &prefetch_lock });
     createPrefetchThreadSignal();
+    if (!prefetch_thread_done)
+        prefetch_thread_done = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+    ResetEvent(prefetch_thread_done);
     thread_spawn(ProcessPrefetchEvents, "Pre-Spawn Prefetcher Thread", 0, events);
     Msg("CLevel::CLevel() Spawn Antifreeze initialized");
 #endif
@@ -337,12 +342,17 @@ CLevel::~CLevel()
     xr_delete(game_events);
 
 #ifdef SPAWN_ANTIFREEZE
+    // The prefetch thread loads models and writes to these queues. Stop it and wait until it has left
+    // before freeing them: it used to go on loading models while the level and the model pool were
+    // torn down, which corrupted the heap on a quit shortly after a load.
+    closeSignal = true; // signal ProcessPrefetchEvents thread to exit
+    unpausePrefetchThreadSignal();
+    if (prefetch_thread_done && WaitForSingleObject(prefetch_thread_done, 60000) != WAIT_OBJECT_0)
+        Msg("! the model prefetch thread did not stop within a minute");
     xr_delete(spawn_events);
     xr_delete(spawn_events_data);
     xr_delete(prefetch_events);
     xr_delete(prefetched_models);
-    closeSignal = true; // signal ProcessPrefetchEvents thread to exit
-    unpausePrefetchThreadSignal();
 #endif
 
     xr_delete(m_pBulletManager);
@@ -574,13 +584,14 @@ void CLevel::ProcessPrefetchEvents(void* args)
 
     while (true)
     {
-        WaitForSingleObject(prefetch_thread_signal, INFINITE); // wait for prefetch queue event to be signaled
+        WaitForSingleObject(prefetch_thread_signal, 200); // wait for prefetch queue event to be signaled; wakes regularly so a close signal is never missed
 
         if (*closeSignal == true)
         {
             if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] closeSignal received, destroying thread");
             closePrefetchThreadSignal();
             delete events;
+            SetEvent(prefetch_thread_done);
             return;
         }
 
@@ -607,6 +618,8 @@ void CLevel::ProcessPrefetchEvents(void* args)
         {
             for (const auto& model : E.models)
             {
+                if (*closeSignal)
+                    break; // the level is closing, load nothing more
                 bool not_prefetched = false;
 
                 {
@@ -626,6 +639,9 @@ void CLevel::ProcessPrefetchEvents(void* args)
                 }
             }
         }
+
+        if (*closeSignal)
+            continue; // back to the top, which sees the close signal (it stays set) and leaves
 
         {
             xrSRWLockGuard g(prefetch_lock);
@@ -679,6 +695,27 @@ void CLevel::ProcessSpawnEvents()
 			CObject* parent = Objects.net_Find(parent_id);
 			if (!parent || parent->getDestroy())
 				continue;
+		}
+
+		// The same object can be queued twice when it went online, offline and online again while
+		// its first spawn still waited. A second copy fails in net_Spawn and its clean-up then
+		// frees the first copy's data (heap corruption). Wait for a pending destroy, else skip.
+		if (obj_id != 0xffff)
+		{
+			if (CObject* present = Objects.net_Find(obj_id))
+			{
+				if (present->getDestroy())
+				{
+					xrSRWLockGuard g(prefetch_lock);
+					spawn_events->queue.push_back(E);
+					auto waiting = spawn_events_data_copy.find(obj_id);
+					if (waiting != spawn_events_data_copy.end() && spawn_events_data->find(obj_id) == spawn_events_data->end())
+						spawn_events_data->insert(*waiting);
+				}
+				else
+					Msg("* spawn of [%s][%d] skipped: the object is already on the level", section.c_str(), obj_id);
+				continue;
+			}
 		}
 
 		if (spawn_antifreeze_debug) Msg("[ProcessSpawnEvents] spawning section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
