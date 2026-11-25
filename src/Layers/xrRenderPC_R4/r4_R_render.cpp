@@ -445,7 +445,7 @@ void CRender::render_forward()
 		GMBase.r_dsgraph_render_dynamic(1);
 		GMBase.fade_render(); // faded-portals
 		GMBase.r_dsgraph_render_sorted(false); // strict-sorted geoms
-		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
+		//g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 
 		// Item and camera attachment UI draws before the sorted HUD so nearer glass and the post chain cover it
 		if (g_hud)
