@@ -22,7 +22,7 @@ class IRenderable;
 
 void CKinematics::CalculateBones(BOOL bForceExact)
 {
-	PROF_EVENT("CKinematics::CalculateBones", PROF_CAT(Animation));
+	PROF_EVENT("CKinematics::CalculateBones");
 	// early out.
 	// check if the info is still relevant
 	// skip all the computations - assume nothing changes in a small period of time :)

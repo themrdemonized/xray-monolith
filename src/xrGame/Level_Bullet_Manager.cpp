@@ -317,7 +317,6 @@ void CBulletManager::UpdateWorkload()
 {
 	//	VERIFY						( m_thread_id == GetCurrentThreadId() );
 
-	PROF_TAG("bullets", m_Bullets.size());
 	rq_storage.r_clear();
 
 	u32 const time_delta = Device.dwTimeDelta;

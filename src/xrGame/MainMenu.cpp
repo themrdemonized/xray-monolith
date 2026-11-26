@@ -433,15 +433,11 @@ void CMainMenu::OnRender()
 	if (m_Flags.test(flGameSaveScreenshot))
 		return;
 
-	// The world render between the two keeps its own top level scope
-	{
-		RENDER_SCOPE(ui_main_menu);
-		if (g_pGameLevel)
-			Render->Calculate();
+	if (g_pGameLevel)
+		Render->Calculate();
 
-		if (use_reshade)
-			render_reshade_effects();
-	}
+	if (use_reshade)
+		render_reshade_effects();
 
 	const bool render_pp_ui = OnRenderPPUI_query();
 	if (render_pp_ui)
@@ -450,7 +446,6 @@ void CMainMenu::OnRender()
 
 	if (!render_pp_ui)
 	{
-		RENDER_SCOPE(ui_main_menu);
 		CUI3dStatic::PrepareAtlas();
 		DoRenderDialogs();
 	}

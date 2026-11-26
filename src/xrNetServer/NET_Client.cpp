@@ -1175,7 +1175,7 @@ void IPureClient::Sync_Average()
 
 void sync_thread(void* P)
 {
-	PROF_EVENT(PROF_CAT(Network));
+	PROF_EVENT();
 
 	IPureClient* C = (IPureClient*)P;
 	C->Sync_Thread();

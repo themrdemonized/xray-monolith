@@ -102,7 +102,7 @@ IC void CSelectorTemplate::select_location(const _vertex_id_type start_vertex_id
 TEMPLATE_SPECIALIZATION
 IC void CSelectorTemplate::perform_search(const _vertex_id_type vertex_id)
 {
-	START_PROFILE("Build Path/Selector Path", PROF_CAT(Navigation))
+	START_PROFILE("Build Path/Selector Path")
 		;
 
 		VERIFY(m_evaluator && m_graph);

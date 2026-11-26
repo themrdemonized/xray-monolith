@@ -107,7 +107,7 @@ float CItemManager::evaluate(const CGameObject* object) const
 
 void CItemManager::update()
 {
-	START_PROFILE("Memory Manager/items::update", PROF_CAT(AI))
+	START_PROFILE("Memory Manager/items::update")
 #ifdef DEBUG
 	OBJECTS::const_iterator	I = m_objects.begin();
 	OBJECTS::const_iterator	E = m_objects.end();

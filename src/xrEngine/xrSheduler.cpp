@@ -441,7 +441,6 @@ SwitchToFiber (fiber_main);
 */
 void CSheduler::Update()
 {
-	PROF_EVENT(PROF_CAT(GameLogic));
 	R_ASSERT(Device.Statistic);
 	// Initialize
 	Device.Statistic->Sheduler.Begin();

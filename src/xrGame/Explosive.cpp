@@ -458,7 +458,7 @@ void CExplosive::Explode()
 	}
 
 	GetExplosionBox(m_vExplodeSize);
-	START_PROFILE("explosive/activate explosion box", PROF_CAT(Physics))
+	START_PROFILE("explosive/activate explosion box")
 		ActivateExplosionBox(m_vExplodeSize, m_vExplodePos);
 	STOP_PROFILE
 	//---------------------------------------------------------------------

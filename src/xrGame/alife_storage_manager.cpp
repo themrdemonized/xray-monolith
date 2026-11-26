@@ -45,7 +45,7 @@ CALifeStorageManager::~CALifeStorageManager()
 
 void CALifeStorageManager::save(LPCSTR save_name_no_check, bool update_name)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 	LPCSTR game_saves_path = FS.get_path("$game_saves$")->m_Path;
 
 	string_path save_name;
@@ -169,7 +169,6 @@ void CALifeStorageManager::load(void* buffer, const u32& buffer_size, LPCSTR fil
 
 bool CALifeStorageManager::load(LPCSTR save_name_no_check)
 {
-	PROF_EVENT("CALifeStorageManager::load", PROF_CAT(IO));
 	LPCSTR game_saves_path = FS.get_path("$game_saves$")->m_Path;
 
 	string_path save_name;
@@ -235,7 +234,7 @@ bool CALifeStorageManager::load(LPCSTR save_name_no_check)
 
 void CALifeStorageManager::save(NET_Packet& net_packet)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 	prepare_objects_for_save();
 
 	shared_str game_name;
@@ -245,7 +244,7 @@ void CALifeStorageManager::save(NET_Packet& net_packet)
 
 void CALifeStorageManager::prepare_objects_for_save()
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 	Level().ClientSend();
 	Level().ClientSave();
 }

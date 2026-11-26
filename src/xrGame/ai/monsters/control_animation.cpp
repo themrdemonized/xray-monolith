@@ -42,22 +42,22 @@ void CControlAnimation::update_frame()
 	if (m_freeze) return;
 
 	// move to schedule update
-	START_PROFILE("BaseMonster/Animation/Update Tracks", PROF_CAT(Animation))
+	START_PROFILE("BaseMonster/Animation/Update Tracks")
 		;
 		m_skeleton_animated->UpdateTracks();
 	STOP_PROFILE;
 
-	START_PROFILE("BaseMonster/Animation/Check callbacks", PROF_CAT(Animation))
+	START_PROFILE("BaseMonster/Animation/Check callbacks")
 		;
 		check_callbacks();
 	STOP_PROFILE;
 
-	START_PROFILE("BaseMonster/Animation/Play", PROF_CAT(Animation))
+	START_PROFILE("BaseMonster/Animation/Play")
 		;
 		play();
 	STOP_PROFILE;
 
-	START_PROFILE("BaseMonster/Animation/Check Events", PROF_CAT(Animation))
+	START_PROFILE("BaseMonster/Animation/Check Events")
 		;
 		check_events(m_data.global);
 		check_events(m_data.torso);

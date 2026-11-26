@@ -244,7 +244,7 @@ void CStalkerAnimationManager::update_impl()
 
 void CStalkerAnimationManager::update()
 {
-	START_PROFILE("stalker/client_update/animations", PROF_CAT(Animation))
+	START_PROFILE("stalker/client_update/animations")
 		try
 		{
 			update_impl();

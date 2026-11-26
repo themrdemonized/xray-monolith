@@ -161,7 +161,7 @@ void CStepManager::on_animation_start(MotionID motion_id, CBlend* blend)
 
 void CStepManager::update(bool b_hud_view)
 {
-	START_PROFILE("Step Manager", PROF_CAT(AI))
+	START_PROFILE("Step Manager")
 		if (m_step_info.disable) return;
 		if (!m_blend) return;
 

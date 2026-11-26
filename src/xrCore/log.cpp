@@ -30,11 +30,11 @@ static LogCallback LogCB = 0;
 
 void FlushLog()
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	if (!no_log)
 	{
-		PROF_EVENT("Flushing", PROF_CAT(IO));
+		PROF_EVENT("Flushing");
 		logCS.Enter();
 		IWriter* f = FS.w_open(logFName);
 		if (f)

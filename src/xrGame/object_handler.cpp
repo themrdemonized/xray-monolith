@@ -140,7 +140,7 @@ CInventoryItem* CObjectHandler::best_weapon() const
 
 void CObjectHandler::update()
 {
-	START_PROFILE("Object Handler", PROF_CAT(AI))
+	START_PROFILE("Object Handler")
 		planner().update();
 	STOP_PROFILE
 }

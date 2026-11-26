@@ -55,7 +55,7 @@ void CControlPathBuilder::reinit()
 
 void CControlPathBuilder::update_schedule()
 {
-	START_PROFILE("Base Monster/Path Builder/Schedule Update", PROF_CAT(Navigation))
+	START_PROFILE("Base Monster/Path Builder/Schedule Update")
 		;
 
 		// the one and only reason is because of the restriction-change, so wait until

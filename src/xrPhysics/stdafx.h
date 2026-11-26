@@ -22,8 +22,6 @@
 
 #include "xrPhysics.h"
 
-#include "../xrCore/profiler.h"
-
 #include "../include/xrapi/xrapi.h"
 #ifdef	DEBUG
 #include "d3d9types.h"

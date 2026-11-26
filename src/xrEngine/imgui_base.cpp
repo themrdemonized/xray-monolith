@@ -4,7 +4,6 @@
 #include <imgui/IconsFontAwesome6.h>
 #include "device.h"
 #include "IGame_Persistent.h"
-#include "XR_IOConsole.h"
 
 static const char* GetCustomCompressedFontDataTTF(int* out_size);
 static const char* GetIconCompressedFontDataTTF(int* out_size);
@@ -204,9 +203,6 @@ namespace xr_imgui
             {
                 if (ImGui::MenuItem("Stats", nullptr, psDeviceFlags.test(rsStatistic)))
                     psDeviceFlags.set(rsStatistic, !psDeviceFlags.test(rsStatistic));
-
-                if (ImGui::MenuItem("Performance"))
-                    Console->Execute("gpu_timeline");
 
                 g_pGamePersistent->ImGui_OnRender("MenuFile");
 
