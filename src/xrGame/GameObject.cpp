@@ -1102,7 +1102,7 @@ void CGameObject::DestroyObject()
 
 void CGameObject::shedule_Update(u32 dt)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	//уничтожить
 	if (NeedToDestroyObject())
 	{

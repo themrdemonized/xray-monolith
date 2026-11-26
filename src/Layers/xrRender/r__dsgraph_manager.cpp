@@ -41,7 +41,7 @@ const PortalTraverseDebugStats& PortalTraverseDbg_Peek()
 void CDSGraphManager::traverse(CSector* start, CFrustum& F, Fvector& vBase, Fmatrix& mXFORM)
 {
 	if (!start) return;
-	PROF_EVENT("CDSGraphManager::traverse")
+	PROF_EVENT("CDSGraphManager::traverse", PROF_CAT(Visibility))
 
 	if (i_options & VQ_FADE)
 	{

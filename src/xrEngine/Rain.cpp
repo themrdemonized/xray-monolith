@@ -179,7 +179,7 @@ void CEffect_Rain::RenewItem(Item& dest, float height, BOOL bHit)
 
 void CEffect_Rain::OnFrame()
 {
-	PROF_EVENT("CEffect_Rain::OnFrame");
+	PROF_EVENT("CEffect_Rain::OnFrame", PROF_CAT(VFX));
 #ifndef _EDITOR
 	if (!g_pGameLevel) return;
 #endif
@@ -262,7 +262,7 @@ extern float r_rain_exp;
 extern float r_rain_k;
 void CEffect_Rain::UpdateItems()
 {
-	PROF_EVENT("CEffect_Rain::UpdateItems");
+	PROF_EVENT("CEffect_Rain::UpdateItems", PROF_CAT(VFX));
 	xrCriticalSectionGuard guard(&rainCS);
 
 	float factor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
@@ -382,7 +382,7 @@ void CEffect_Rain::UpdateItems()
 
 void CEffect_Rain::Render()
 {
-	PROF_EVENT("CEffect_Rain::Render");
+	PROF_EVENT("CEffect_Rain::Render", PROF_CAT(VFX));
 #ifndef _EDITOR
 	if (!g_pGameLevel) return;
 #endif

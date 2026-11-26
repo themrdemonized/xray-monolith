@@ -56,6 +56,7 @@ u32 last_render_frame = 0;
 
 void CUICursor::OnRender()
 {
+	RENDER_SCOPE(ui_cursor);
 	g_btnHint->OnRender();
 	g_statHint->OnRender();
 
