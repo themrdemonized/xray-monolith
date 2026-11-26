@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set "VSWHERE=%Program Files(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if not exist "%VSWHERE%" set "VSWHERE=vswhere.exe"
 set "MSBUILD_EXE="
-for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -version "[18.0,19.0)" -requires Microsoft.Component.MSBuild Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find MSBuild\Current\Bin\amd64\MSBuild.exe`) do set "MSBUILD_EXE=%%i"
+for /f "usebackq tokens=*" %%i in (`%VSWHERE% -latest -products * -version "[18.0,19.0)" -requires Microsoft.Component.MSBuild Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find MSBuild\Current\Bin\amd64\MSBuild.exe`) do set "MSBUILD_EXE=%%i"
 
 if not defined MSBUILD_EXE (
   echo Visual Studio 2026 or Build Tools 2026 with MSVC v145 is required.
