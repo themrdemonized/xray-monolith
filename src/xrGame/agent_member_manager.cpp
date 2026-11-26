@@ -66,6 +66,10 @@ void CAgentMemberManager::remove(CEntity* member)
 	if (!stalker)
 		return;
 
+	// not a member (e.g. a corpse): nothing to remove, mask() and erase() would run past the end
+	if (std::find_if(m_members.begin(), m_members.end(), CMemberPredicate(stalker)) == m_members.end())
+		return;
+
 	if (registered_in_combat(stalker))
 		unregister_in_combat(stalker);
 
