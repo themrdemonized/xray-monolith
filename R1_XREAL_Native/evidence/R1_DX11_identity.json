@@ -1,0 +1,11 @@
+{
+  "path": "C:\\04_anomaly_MT\\bin\\AnomalyDX11.exe",
+  "sha256": "c43701f5822950172c9d13a9cd4c92cbda3e94060cae794fba81dedfd5ba43d0",
+  "timestamp": 1789198894,
+  "image_size": 37376000,
+  "pdb": {
+    "guid": "52941685-9551-4677-9d46-42dca45b5d67",
+    "age": 1,
+    "name": "AnomalyDX11.pdb"
+  }
+}
