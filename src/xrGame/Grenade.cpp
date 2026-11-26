@@ -296,7 +296,7 @@ void CGrenade::OnAnimationEnd(u32 state)
 
 void CGrenade::UpdateCL()
 {
-	PROF_EVENT(PROF_CAT(GameLogic));
+	PROF_EVENT();
 	inherited::UpdateCL();
 	CExplosive::UpdateCL();
 

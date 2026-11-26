@@ -187,6 +187,7 @@ public:
 
 void _stab(const AABBNoLeafNode* node)
 {
+    PROF_EVENT("xrCDB_ray::_stab")
 	// Intersection filter stoping 
 	//if (!continue_work)
 	//	return;
@@ -225,7 +226,7 @@ void _stab(const AABBNoLeafNode* node)
 
 void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvector& r_dir, float r_range)
 {
-	PROF_EVENT("COLLIDER::ray_query", PROF_CAT(Physics));
+	PROF_EVENT("COLLIDER::ray_query");
 	if (!m_def)
 		return;
 

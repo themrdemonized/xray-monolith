@@ -129,16 +129,12 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 			continue;
 
 		// 1. Sort by generated sort key to replicate previous fixed map behaviour
-		{
-			PROF_EVENT("r_dsgraph_sort", PROF_CAT(Rendering));
-			if (queue.size() < 4096)
-				std::sort(queue.begin(), queue.end());
-			else
-				xr_parallel_sort(queue.begin(), queue.end());
-		}
+		if (queue.size() < 4096)
+            std::sort(queue.begin(), queue.end());
+		else
+            xr_parallel_sort(queue.begin(), queue.end());
 
 		// 2. Render
-		PROF_EVENT("r_dsgraph_submit", PROF_CAT(Rendering));
 		vs_type pVS = nullptr;
 
 #if defined(USE_DX10) || defined(USE_DX11)
@@ -245,7 +241,7 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 // HUD render
 void CDSGraphManager::r_dsgraph_render_hud()
 {
-	PROF_EVENT("r_dsgraph_render_hud", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_hud");
 	CHudInitializer initializer(true);
 
 	// Rendering
@@ -283,7 +279,7 @@ void CDSGraphManager::r_dsgraph_render_hud()
 
 void CDSGraphManager::r_dsgraph_render_hud_ui()
 {
-	PROF_EVENT("r_dsgraph_render_hud_ui", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_hud_ui");
 	CHudInitializer initializer(true);
 
 	RImplementation.rmNear();
@@ -293,7 +289,7 @@ void CDSGraphManager::r_dsgraph_render_hud_ui()
 
 void CDSGraphManager::r_dsgraph_render_cam_ui()
 {
-	PROF_EVENT("r_dsgraph_render_cam_ui", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_cam_ui");
 
 	// Change projection
 	CHudInitializer initializer(2);
@@ -310,7 +306,7 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 {
 	r_dsgraph_render_ui();
 	{
-		PROF_EVENT("r_dsgraph_render_sorted", PROF_CAT(Rendering));
+		PROF_EVENT("r_dsgraph_render_sorted");
 		// Rendering
 		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, true);
 		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, true);
@@ -350,7 +346,7 @@ void CDSGraphManager::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shad
 
 void CDSGraphManager::r_dsgraph_render_sorted_hud()
 {
-	PROF_EVENT("r_dsgraph_render_sorted_hud", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_sorted_hud");
 #if	RENDER==R_R4
 	HW.pContext->CopyResource(RImplementation.Target->rt_Accumulator->pSurface, RImplementation.Target->rt_Generic_0->pSurface);
 #endif
@@ -367,7 +363,7 @@ void CDSGraphManager::r_dsgraph_render_sorted_hud()
 // strict-sorted render
 void CDSGraphManager::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 {
-	PROF_EVENT("r_dsgraph_render_emissive", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_emissive");
 #if	RENDER!=R_R1
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Emissive, clear);
 	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Emissive, clear);
@@ -389,7 +385,7 @@ void CDSGraphManager::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 void CDSGraphManager::r_dsgraph_render_water_ssr()
 {
 #ifdef USE_DX11
-	PROF_EVENT("r_dsgraph_render_water_ssr", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_water_ssr");
 	std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end());
 	for (auto& N : RGraph.mapWater)
 	{
@@ -415,7 +411,7 @@ void CDSGraphManager::r_dsgraph_render_water_ssr()
 
 void CDSGraphManager::r_dsgraph_render_water()
 {
-	PROF_EVENT("r_dsgraph_render_water_ssr", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_water_ssr");
     std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end());
     for (auto& N : RGraph.mapWater)
 	{
@@ -447,7 +443,7 @@ void CDSGraphManager::r_dsgraph_render_water()
 // strict-sorted render
 void CDSGraphManager::r_dsgraph_render_wmarks()
 {
-	PROF_EVENT("r_dsgraph_render_wmarks", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_wmarks");
 #if	RENDER!=R_R1
 	// Rendering
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Wmark);
@@ -465,7 +461,7 @@ void CDSGraphManager::r_dsgraph_render_wmarks()
 // strict-sorted render
 void CDSGraphManager::r_dsgraph_render_distort()
 {
-	PROF_EVENT("r_dsgraph_render_distort", PROF_CAT(Rendering));
+	PROF_EVENT("r_dsgraph_render_distort");
 	// Rendering
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Distort, true);
 	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Distort, true);
@@ -481,7 +477,7 @@ void CDSGraphManager::r_dsgraph_render_distort()
 #include"LightTrack.h"
 void CDSGraphManager::r_dsgraph_capture_static()
 {
-	PROF_EVENT("r_dsgraph_capture_static", PROF_CAT(Visibility))
+	PROF_EVENT("r_dsgraph_capture_static")
 	const bool dbg_enabled = PortalTraverseDbg_Enabled();
 	PortalTraverseDebugStats* dbg = dbg_enabled ? &PortalTraverseDbg_Get() : nullptr;
 	const bool opt_bucket = PortalTraverseDbg_IsOptions(i_options);
@@ -558,7 +554,7 @@ void CDSGraphManager::r_dsgraph_capture_static()
 
 void CDSGraphManager::r_dsgraph_capture_lights()
 {
-	PROF_EVENT("r_dsgraph_capture_lights", PROF_CAT(Visibility))
+	PROF_EVENT("r_dsgraph_capture_lights")
 	g_SpatialSpaceLights->q_frustum
 	(
 		lstLights,
@@ -606,7 +602,7 @@ void CDSGraphManager::r_dsgraph_capture_lights()
 
 void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 {
-	PROF_EVENT("r_dsgraph_capture_dynamic", PROF_CAT(Visibility))
+	PROF_EVENT("r_dsgraph_capture_dynamic")
 	const bool dbg_enabled = PortalTraverseDbg_Enabled();
 	PortalTraverseDebugStats* dbg = dbg_enabled ? &PortalTraverseDbg_Get() : nullptr;
 	const bool opt_bucket = PortalTraverseDbg_IsOptions(i_options);
@@ -787,7 +783,7 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 
 void CDSGraphManager::r_dsgraph_capture(bool lights, bool dynamic, CObject* O)
 {
-	PROF_EVENT("r_dsgraph_capture", PROF_CAT(Visibility))
+	PROF_EVENT("r_dsgraph_capture")
 	r_dsgraph_capture_static();
 
 	if(lights)

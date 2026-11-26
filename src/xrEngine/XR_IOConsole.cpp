@@ -7,7 +7,6 @@
 
 #include "igame_level.h"
 #include "igame_persistent.h"
-#include "Render.h"
 
 #include "x_ray.h"
 #include "xr_input.h"
@@ -352,13 +351,9 @@ void CConsole::OnRender()
 	{
 		return;
 	}
-	RENDER_SCOPE(console);
 
 	if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Device.Statistic->errors.size())
-	{
-		RENDER_SCOPE(console_stats);
 		Device.Statistic->Show();
-	}
 
 	if (!m_hShader_back)
 	{

@@ -328,7 +328,7 @@ void execUserScript()
 
 void slowdownthread(void*)
 {
-	PROF_EVENT(PROF_CAT(Debug));
+	PROF_EVENT();
 
 	// Sleep (30*1000);
 	for (;;)
@@ -402,7 +402,7 @@ void DiscordLog(discord::LogLevel level, std::string message)
 
 void updateDiscordPresence()
 {
-	PROF_EVENT(PROF_CAT(Network));
+	PROF_EVENT();
 
 	if (!use_discord)
 		return;
@@ -1429,7 +1429,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	}
 	else if (E == eStart)
 	{
-		PROF_EVENT("CApplication::OnEvent: eStart", PROF_CAT(Scene));
+		PROF_EVENT("CApplication::OnEvent: eStart");
 		LPSTR op_server = LPSTR(P1);
 		LPSTR op_client = LPSTR(P2);
 		Level_Current = u32(-1);
@@ -1585,7 +1585,7 @@ void CApplication::destroy_loading_shaders()
 
 PROTECT_API void CApplication::LoadDraw()
 {
-	PROF_EVENT(PROF_CAT(UI));
+	PROF_EVENT();
 
 	if (g_appLoaded) return;
 	Device.dwFrame += 1;
@@ -1631,7 +1631,7 @@ void CApplication::LoadSwitch()
 // Sequential
 void CApplication::OnFrame()
 {
-	PROF_EVENT(PROF_CAT(GameLogic));
+	PROF_EVENT();
 
 	Engine.Event.OnFrame();
 	g_SpatialSpace->update();
@@ -1640,7 +1640,7 @@ void CApplication::OnFrame()
 
 void CApplication::Level_Append(LPCSTR folder)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	string_path N1, N2, N3, N4;
 	strconcat(sizeof(N1), N1, folder, "level");
@@ -1663,7 +1663,7 @@ void CApplication::Level_Append(LPCSTR folder)
 
 void CApplication::Level_Scan()
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	//SECUROM_MARKER_PERFORMANCE_ON(8)
 
@@ -1688,7 +1688,7 @@ void CApplication::Level_Scan()
 
 void gen_logo_name(string_path& dest, LPCSTR level_name, int num)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	strconcat(sizeof(dest), dest, "intro\\intro_", level_name);
 
@@ -1743,7 +1743,7 @@ void CApplication::LoadScreenSetLevelLogo(LPCSTR level_name)
 
 void CApplication::Level_Set(u32 L)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	//SECUROM_MARKER_PERFORMANCE_ON(9)
 
@@ -1796,7 +1796,7 @@ void CApplication::Level_Set(u32 L)
 
 int CApplication::Level_ID(LPCSTR name, LPCSTR ver, bool bSet)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	int result = -1;
 
@@ -1848,7 +1848,7 @@ int CApplication::Level_ID(LPCSTR name, LPCSTR ver, bool bSet)
 
 CInifile* CApplication::GetArchiveHeader(LPCSTR name, LPCSTR ver)
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	CLocatorAPI::archives_it it = FS.m_archives.begin();
 	CLocatorAPI::archives_it it_e = FS.m_archives.end();
@@ -1869,7 +1869,7 @@ CInifile* CApplication::GetArchiveHeader(LPCSTR name, LPCSTR ver)
 
 void CApplication::LoadAllArchives()
 {
-	PROF_EVENT(PROF_CAT(IO));
+	PROF_EVENT();
 
 	if (FS.load_all_unloaded_archives())
 	{

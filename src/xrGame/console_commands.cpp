@@ -383,7 +383,7 @@ static xr_atomic_bool g_mem_stats_async_in_progress = false;
 
 static void full_memory_stats(bool assert = true)
 {
-	PROF_EVENT("full_memory_stats", PROF_CAT(Debug));
+	PROF_EVENT("full_memory_stats");
 	Msg("* [x-ray]: Full Memory Stats");
 	Memory.mem_compact();
 	size_t _process_heap = ::Memory.mem_usage(assert);
@@ -460,7 +460,7 @@ static void mem_stats_async_thread(void*)
 {
     try
     {
-        PROF_EVENT("mem_stats_async_thread", PROF_CAT(Debug));
+        PROF_EVENT("mem_stats_async_thread");
         full_memory_stats(false);
     }
     catch (...)

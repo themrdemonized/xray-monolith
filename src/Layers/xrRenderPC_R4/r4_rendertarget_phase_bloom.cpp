@@ -144,10 +144,7 @@ void CRenderTarget::phase_bloom()
 	}
 
 	// Capture luminance values
-	{
-		PIX_EVENT(phase_luminance);
-		phase_luminance();
-	}
+	phase_luminance();
 
 	if (RImplementation.o.ssfx_bloom)
 		return;

@@ -587,7 +587,7 @@ void CCustomZone::UpdateCL()
 // called as usual
 void CCustomZone::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CCustomZone::shedule_Update", PROF_CAT(GameLogic));
+	PROF_EVENT("CCustomZone::shedule_Update");
 	m_zone_flags.set(eZoneIsActive, FALSE);
 
 	if (IsEnabled())

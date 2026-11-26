@@ -158,7 +158,7 @@ void CDestroyablePhysicsObject::InitServerObject(CSE_Abstract* D)
 
 void CDestroyablePhysicsObject::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CDestroyablePhysicsObject::shedule_Update", PROF_CAT(Physics));
+	PROF_EVENT("CDestroyablePhysicsObject::shedule_Update");
 	inherited::shedule_Update(dt);
 	CPHDestroyable::SheduleUpdate(dt);
 }

@@ -13,41 +13,19 @@
 BOOL mt_Scheduler = TRUE;
 BOOL mt_SchedulerRT = FALSE;
 
-namespace
-{
-// Stamps a task body into the perf hub's frame record while the hub reads it
-struct task_stamp
-{
-	u64* span;
-
-	task_stamp(u32 task) : span(Device.frame_record_on ? Device.frame_record.task[task] : nullptr)
-	{
-		if (span)
-			span[0] = CPU::QPC();
-	}
-
-	~task_stamp()
-	{
-		if (span)
-			span[1] = CPU::QPC();
-	}
-};
-}
-
 void XRay::Engine::PreRenderThread()
 {
 	PROF_THREAD("Secondary Task 1");
-	task_stamp stamp(CRenderDevice::FrameRecord::task_pre_render);
 
 	if (g_pGamePersistent && g_pGamePersistent->pEnvironment && g_pGamePersistent->pEnvironment->eff_Rain)
 	{
-		PROF_EVENT("CEffect_Rain::UpdateItems", PROF_CAT(VFX));
+		PROF_EVENT("CEffect_Rain::UpdateItems");
 		g_pGamePersistent->pEnvironment->eff_Rain->UpdateItems();
 	}
 
 	if (g_pGamePersistent && Device.ParticleWorkerCallback)
 	{
-		PROF_EVENT("Process Particles", PROF_CAT(VFX));
+		PROF_EVENT("Process Particles");
 		Device.ParticleWorkerCallback();
 	}
 }
@@ -55,9 +33,8 @@ void XRay::Engine::PreRenderThread()
 void XRay::Engine::PreRenderPostTransformsThread()
 {
     PROF_THREAD("Secondary Task 1.1");
-    task_stamp stamp(CRenderDevice::FrameRecord::task_parallel_render);
     {
-        PROF_EVENT("seqParallelRender", PROF_CAT(Rendering));
+        PROF_EVENT("seqParallelRender");
         for (auto& it : Device.seqParallelRender)
             it();
     }
@@ -74,9 +51,8 @@ struct SpatialSnapshot
 void XRay::Engine::CalculateBonesThread()
 {
 	PROF_THREAD("Secondary Task 3");
-	task_stamp stamp(CRenderDevice::FrameRecord::task_bones);
 
-	PROF_EVENT("CalculateBones", PROF_CAT(Animation));
+	PROF_EVENT("CalculateBones");
 
 	if (!g_SpatialSpace) return;
 	if (Device.Paused()) return;
@@ -148,18 +124,17 @@ int psLua_ParallelGC_CallAmount = 25;
 void XRay::Engine::GameThread()
 {
 	PROF_THREAD("Secondary Task 2")
-	task_stamp stamp(CRenderDevice::FrameRecord::task_game);
 		
 	// we has granted permission to execute
 	if (g_hud)
 	{
-		PROF_EVENT("g_hud OnFrameMT", PROF_CAT(UI));
+		PROF_EVENT("g_hud OnFrameMT");
 		g_hud->OnFrameMT();
 	}
 
 	if (g_pGameLevel && g_pGameLevel->bReady)
 	{
-		PROF_EVENT("SoundEvent_Dispatch", PROF_CAT(Audio));
+		PROF_EVENT("SoundEvent_Dispatch");
 		g_pGameLevel->SoundEvent_Dispatch();
 	}
 
@@ -167,7 +142,7 @@ void XRay::Engine::GameThread()
 	{
 		if (mt_Scheduler)
 		{
-			PROF_EVENT("Sheduler Deferred", PROF_CAT(GameLogic));
+			PROF_EVENT("Sheduler Deferred");
             if (mt_SchedulerRT)
             {
                 ::Engine.Sheduler.Update();
@@ -181,7 +156,7 @@ void XRay::Engine::GameThread()
 	}
 
 	{
-		PROF_EVENT("seqParallel", PROF_CAT(GameLogic));
+		PROF_EVENT("seqParallel");
 		for (u32 pit = 0; pit < Device.seqParallel.size(); pit++)
 			Device.seqParallel[pit]();
 		Device.seqParallel.clear();
@@ -189,7 +164,7 @@ void XRay::Engine::GameThread()
 
 	// Physics contact callbacks in seqFrameMT can enter Lua. Do before GC
 	{
-		PROF_EVENT("seqFrameMT", PROF_CAT(GameLogic));
+		PROF_EVENT("seqFrameMT");
 		Device.seqFrameMT.Process(rp_Frame);
 	}
 
@@ -197,11 +172,10 @@ void XRay::Engine::GameThread()
     // Reduces stutters since less work will be done in main GC step or no work at all
     static auto LuaGC = []()
     {
-        PROF_EVENT("seqLuaGC", PROF_CAT(Script));
+        PROF_EVENT("seqLuaGC");
         // Do at least once
         do
         {
-            PROF_EVENT("LuaGC step", PROF_CAT(Script));
             Device.LuaGCCount++;
             if (Device.LuaGC() == 1) // 1 informs that GC cycle is complete
             {

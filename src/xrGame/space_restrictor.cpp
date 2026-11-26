@@ -338,6 +338,6 @@ void CSpaceRestrictor::OnRender	()
 
 void CSpaceRestrictor::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CSpaceRestrictor::shedule_Update", PROF_CAT(GameLogic));
+	PROF_EVENT("CSpaceRestrictor::shedule_Update");
 	inherited::shedule_Update(dt);
 }

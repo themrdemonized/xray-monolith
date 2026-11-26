@@ -114,7 +114,6 @@ public:
             {
                 if (m_functor)
                 {
-                    PROF_EVENT("CScriptCallbackEx::operator()", PROF_CAT(Script));
                     VERIFY(m_functor.is_valid());
                     if (m_object.is_valid())
                     {
@@ -145,7 +144,6 @@ public:
             {
                 if (m_functor)
                 {
-                    PROF_EVENT("CScriptCallbackEx::operator()", PROF_CAT(Script));
                     VERIFY(m_functor.is_valid());
                     if (m_object.is_valid())
                     {
@@ -178,7 +176,6 @@ void CScriptCallbackEx<void>::operator()(Args &&...args) const
         {
             if (m_functor)
             {
-                PROF_EVENT("CScriptCallbackEx::operator()", PROF_CAT(Script));
                 VERIFY(m_functor.is_valid());
                 if (m_object.is_valid())
                 {
@@ -210,7 +207,6 @@ void CScriptCallbackEx<void>::operator()(Args &&...args)
         {
             if (m_functor)
             {
-                PROF_EVENT("CScriptCallbackEx::operator()", PROF_CAT(Script));
                 VERIFY(m_functor.is_valid());
                 if (m_object.is_valid())
                 {

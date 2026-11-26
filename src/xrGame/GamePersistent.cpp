@@ -308,7 +308,7 @@ float CGamePersistent::OnRainSound(LPCSTR file)
 
 void CGamePersistent::WeathersUpdate()
 {
-	PROF_EVENT("CGamePersistent WeathersUpdate", PROF_CAT(Scene));
+	PROF_EVENT("CGamePersistent WeathersUpdate");
 	if (g_pGameLevel && !g_dedicated_server)
 	{
 		CActor* actor = smart_cast<CActor*>(Level().CurrentViewEntity());
@@ -676,7 +676,7 @@ extern CUISequencer* g_tutorial2;
 
 void CGamePersistent::OnFrame()
 {
-	PROF_EVENT("CGamePersistent OnFrame", PROF_CAT(GameLogic));
+	PROF_EVENT("CGamePersistent OnFrame");
 	if (Device.dwPrecacheFrame == 5 && m_intro_event.empty())
 	{
 		m_intro_event.bind(this, &CGamePersistent::game_loaded);
@@ -795,14 +795,14 @@ void CGamePersistent::OnFrame()
 	{
 		if (!mt_Scheduler)
 		{
-			PROF_EVENT("Sheduler", PROF_CAT(GameLogic));
+			PROF_EVENT("Sheduler");
 			::Engine.Sheduler.Update();
 		}
 		else
 		{
             if (!mt_SchedulerRT)
             {
-                PROF_EVENT("Sheduler RT", PROF_CAT(GameLogic));
+                PROF_EVENT("Sheduler RT");
                 ::Engine.Sheduler.UpdateInit();
                 ::Engine.Sheduler.UpdateRT();
             }
@@ -873,7 +873,7 @@ void CGamePersistent::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuickLoad)
 	{
-		PROF_EVENT("eQuickLoad", PROF_CAT(Scene));
+		PROF_EVENT("eQuickLoad");
 		if (Device.Paused())
 			Device.Pause(FALSE, TRUE, TRUE, "eQuickLoad");
 
@@ -1068,7 +1068,7 @@ void CGamePersistent::RestoreEffectorDOF()
 //	m_dof		[4];	// 0-dest 1-current 2-from 3-original
 void CGamePersistent::UpdateDof()
 {
-	PROF_EVENT("CGamePersistent UpdateDof", PROF_CAT(Camera));
+	PROF_EVENT("CGamePersistent UpdateDof");
 
 	static float diff_far = pSettings->r_float("zone_pick_dof", "far"); //70.0f;
 	static float diff_near = pSettings->r_float("zone_pick_dof", "near"); //-70.0f;

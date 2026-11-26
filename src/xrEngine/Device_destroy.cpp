@@ -68,7 +68,7 @@ extern ENGINE_API u32 psCurrentVidMode[];
 
 void CRenderDevice::Reset(bool precache)
 {
-	PROF_EVENT("CRenderDevice::Reset", PROF_CAT(Rendering));
+	PROF_EVENT("CRenderDevice::Reset");
 	if (use_reshade)
 		unregister_reshade();
 

@@ -385,7 +385,7 @@ void _stdcall CIKLimbsController::IKVisualCallback(IKinematics* K)
 					    }
 
                         {
-                            PROF_EVENT("IK_UPDATE_CALCULATE", PROF_CAT(Animation));
+                            PROF_EVENT("IK_UPDATE_CALCULATE");
                             ik->_pose_extrapolation.update(O->XFORM());
                             // A completed blend is normal; clear it without reporting an error.
                             IKinematicsAnimated* animated = O->Visual()->dcast_PKinematicsAnimated();

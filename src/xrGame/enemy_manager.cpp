@@ -76,7 +76,7 @@ bool CEnemyManager::is_useful(const CEntityAlive* entity_alive) const
 int enemy_manager_useful_cache_time = 200;
 bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 {
-	PROF_EVENT("CEnemyManager::useful", PROF_CAT(AI));
+	PROF_EVENT("CEnemyManager::useful");
 	if (!entity_alive->g_Alive())
 		return (false);
 
@@ -472,7 +472,7 @@ void CEnemyManager::try_change_enemy()
 
 void CEnemyManager::update()
 {
-	START_PROFILE("Memory Manager/enemies::update", PROF_CAT(AI))
+	START_PROFILE("Memory Manager/enemies::update")
 		if (!m_ready_to_save)
 		{
 			//		Msg						("%6d %s DEcreased enemy counter for player (%d -> %d)",Device.dwTimeGlobal,*m_object->cName(),Level().autosave_manager().not_ready_count(),Level().autosave_manager().not_ready_count()-1);

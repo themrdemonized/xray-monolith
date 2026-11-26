@@ -1125,7 +1125,7 @@ float CActor::currentFOV()
 
 void CActor::UpdateCL()
 {
-	PROF_EVENT("CActor UpdateCL", PROF_CAT(GameLogic));
+	PROF_EVENT("CActor UpdateCL");
 	if (g_Alive() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)
@@ -1771,7 +1771,7 @@ void CActor::set_state_box(u32 mstate)
 
 void CActor::shedule_Update(u32 DT)
 {
-	PROF_EVENT("CActor shedule_Update", PROF_CAT(GameLogic));
+	PROF_EVENT("CActor shedule_Update");
 	setSVU(OnServer());
 	//.	UpdateInventoryOwner			(DT);
 
@@ -2688,7 +2688,7 @@ void CActor::OnItemBelt(CInventoryItem* inventory_item, const SInvItemPlace& pre
 
 void CActor::UpdateArtefactsOnBeltAndOutfit()
 {
-	PROF_EVENT(PROF_CAT(GameLogic));
+	PROF_EVENT();
 	static float update_time = 0;
 
 	float f_update_time = 0;

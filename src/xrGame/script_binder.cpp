@@ -80,7 +80,7 @@ void CScriptBinder::Load(LPCSTR section)
 
 void CScriptBinder::reload(LPCSTR section)
 {
-	PROF_EVENT("CScriptBinder::reload", PROF_CAT(Script));
+	PROF_EVENT("CScriptBinder::reload");
 #ifdef DEBUG_MEMORY_MANAGER
 	size_t									start = 0;
 	if (g_bMEMO)
@@ -134,7 +134,7 @@ void CScriptBinder::reload(LPCSTR section)
 
 BOOL CScriptBinder::net_Spawn(CSE_Abstract* DC)
 {
-	PROF_EVENT("CScriptBinder::net_Spawn", PROF_CAT(Script));
+	PROF_EVENT("CScriptBinder::net_Spawn");
 #ifdef DEBUG_MEMORY_MANAGER
 	size_t									start = 0;
 	if (g_bMEMO)
@@ -167,7 +167,7 @@ BOOL CScriptBinder::net_Spawn(CSE_Abstract* DC)
 
 void CScriptBinder::net_Destroy()
 {
-	PROF_EVENT("CScriptBinder::net_Destroy", PROF_CAT(Script));
+	PROF_EVENT("CScriptBinder::net_Destroy");
 	if (m_object)
 	{
 #ifdef _DEBUG
@@ -201,17 +201,9 @@ void CScriptBinder::set_object(CScriptBinderObject* object)
 	}
 }
 
-#if XRCORE_PROFILER == PROFILER_OPTICK
-// Binder updates since the level last tagged the count
-std::atomic<u32> g_prof_binder_updates = 0;
-#endif
-
 void CScriptBinder::shedule_Update(u32 time_delta)
 {
-	PROF_EVENT("CScriptBinder::shedule_Update", PROF_CAT(Script));
-#if XRCORE_PROFILER == PROFILER_OPTICK
-	++g_prof_binder_updates;
-#endif
+	PROF_EVENT("CScriptBinder::shedule_Update");
 	if (m_object)
 	{
 		try
@@ -227,7 +219,7 @@ void CScriptBinder::shedule_Update(u32 time_delta)
 
 void CScriptBinder::save(NET_Packet& output_packet)
 {
-	PROF_EVENT("CScriptBinder::save", PROF_CAT(Script));
+	PROF_EVENT("CScriptBinder::save");
 	if (m_object)
 	{
 		try
@@ -243,7 +235,7 @@ void CScriptBinder::save(NET_Packet& output_packet)
 
 void CScriptBinder::load(IReader& input_packet)
 {
-	PROF_EVENT("CScriptBinder::load", PROF_CAT(Script));
+	PROF_EVENT("CScriptBinder::load");
 	if (m_object)
 	{
 		try
@@ -275,7 +267,7 @@ BOOL CScriptBinder::net_SaveRelevant()
 
 void CScriptBinder::net_Relcase(CObject* object)
 {
-	PROF_EVENT("CScriptBinder::net_Relcase", PROF_CAT(Script));
+	PROF_EVENT("CScriptBinder::net_Relcase");
 	CGameObject* game_object = smart_cast<CGameObject*>(object);
 	if (m_object && game_object)
 	{

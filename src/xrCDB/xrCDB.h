@@ -21,8 +21,6 @@
 #define ALIGN(a)
 #endif
 
-#include "../xrCore/profiler.h"
-
 // forward declarations
 class CFrustum;
 
@@ -97,7 +95,6 @@ namespace CDB
 			if (S_READY != status)
 			{
 				Log ("! WARNING: syncronized CDB::query");
-				PROF_EVENT("CDB::MODEL::syncronize", PROF_CAT(Wait));
 				async_cform_load.wait();
 			}
 		}
