@@ -398,6 +398,8 @@ void CScriptStorage::reinit()
 #else
 	m_virtual_machine = luaL_newstate();
 #endif //-USE_GSC_MEM_ALLOC
+	if (m_virtual_machine)
+		luaJIT_gc_udhint(m_virtual_machine); // GC userdata walk hints go to the game state
 
 	if (!m_virtual_machine)
 	{
