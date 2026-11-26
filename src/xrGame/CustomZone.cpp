@@ -554,7 +554,8 @@ void CCustomZone::UpdateWorkload(u32 dt)
 	default: NODEFAULT;
 	}
 
-	if (Level().CurrentEntity())
+	// the control entity is set only when the actor spawns
+	if (Level().CurrentEntity() && Level().CurrentControlEntity())
 	{
 		Fvector P = Level().CurrentControlEntity()->Position();
 		P.y -= 0.9f;
@@ -644,7 +645,9 @@ void CCustomZone::shedule_Update(u32 dt)
 		inherited::shedule_Update(dt);
 
 		// check "fast-mode" border
-		float act_distance = Level().CurrentControlEntity()->Position().distance_to(P) - s.R;
+		// no control entity before the actor spawns: treat as far away
+		CObject* control_entity = Level().CurrentControlEntity();
+		float act_distance = control_entity ? control_entity->Position().distance_to(P) - s.R : flt_max;
 		if (act_distance > FASTMODE_DISTANCE && !m_zone_flags.test(eAlwaysFastmode))
 			o_switch_2_slow();
 		else
