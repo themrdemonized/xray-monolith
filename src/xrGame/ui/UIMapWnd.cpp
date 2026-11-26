@@ -33,6 +33,11 @@ CUIMapWnd* GetMapWnd()
 
 CUIMapWnd::CUIMapWnd()
 {
+	m_script_map_ready = false;
+	m_script_map_layers = R1PdaMap::create(*this);
+	m_UILevelFrame = NULL;
+	m_UIPropertiesBox = NULL;
+	m_btn_nav_parent = NULL;
 	m_tgtMap = NULL;
 	m_GlobalMap = NULL;
 	m_view_actor = false;
@@ -56,6 +61,8 @@ CUIMapWnd::CUIMapWnd()
 
 CUIMapWnd::~CUIMapWnd()
 {
+	m_script_map_ready = false;
+	R1PdaMap::destroy(m_script_map_layers);
 	delete_data(m_ActionPlanner);
 	delete_data(m_GameMaps);
 	delete_data(m_map_location_hint);
@@ -137,6 +144,7 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	m_GlobalMap->Initialize();
 
 	m_UILevelFrame->AttachChild(m_GlobalMap);
+	m_UILevelFrame->AttachChild(R1PdaMap::create_canvas(*m_script_map_layers));
 	m_GlobalMap->OptimalFit(m_UILevelFrame->GetWndRect());
 	m_GlobalMap->SetMinZoom(m_GlobalMap->GetCurrentZoom().x);
 	m_currentZoom = m_GlobalMap->GetCurrentZoom().x;
@@ -207,6 +215,7 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	AttachChild(m_UIScratchBox);
 	m_UIScratchBox->Hide();
 	m_UIScratchBox->SetWindowName("property_box_scratch");
+	m_script_map_ready = true;
 }
 
 void CUIMapWnd::Show(bool status)
@@ -246,6 +255,7 @@ void CUIMapWnd::Show(bool status)
 		InventoryUtilities::SendInfoToActor("ui_pda_map_local");
 	}
 	HideCurHint();
+	R1PdaMap::visibility(*m_script_map_layers, status);
 }
 
 void CUIMapWnd::Activated()
@@ -421,6 +431,7 @@ bool CUIMapWnd::OnKeyboardHold(int dik)
 
 bool CUIMapWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 {
+	if (R1PdaMap::input(*m_script_map_layers, keyboard_action, dik)) return true;
 	switch (dik)
 	{
 	case DIK_NUMPADMINUS:
@@ -444,9 +455,24 @@ bool CUIMapWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	return inherited::OnKeyboardAction(dik, keyboard_action);
 }
 
+bool CUIMapWnd::ScriptInputAllowed(const Fvector2& cursor)
+{
+	if (!IsShown() || !GlobalMap() || GlobalMap()->Locked() || !m_UILevelFrame || !ActiveMapRect().in(cursor.x, cursor.y))
+		return false;
+	if (m_UIPropertiesBox && m_UIPropertiesBox->IsShown()) return false;
+	if (m_btn_nav_parent)
+	{
+		Frect nav;
+		m_btn_nav_parent->GetAbsoluteRect(nav);
+		if (nav.in(cursor.x, cursor.y)) return false;
+	}
+	return true;
+}
+
 extern BOOL mouseWheelInvertZoom;
 bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 {
+	if (R1PdaMap::input(*m_script_map_layers, mouse_action)) return true;
 	if (inherited::OnMouseAction(x, y, mouse_action) /*|| m_btn_nav_parent->OnMouseAction(x,y,mouse_action)*/)
 	{
 		return true;
@@ -1149,6 +1175,7 @@ void CUIMapWnd::Hint(const shared_str& text)
 
 void CUIMapWnd::Reset()
 {
+	R1PdaMap::reset(*m_script_map_layers);
 	inherited::Reset();
 	ResetActionPlanner();
 }
