@@ -58,7 +58,7 @@ CUIGameCustom::~CUIGameCustom()
 
 void CUIGameCustom::OnFrame()
 {
-	PROF_EVENT("CUIGameCustom::OnFrame");
+	PROF_EVENT("CUIGameCustom::OnFrame", PROF_CAT(UI));
 	CDialogHolder::OnFrame();
 	{
 		xrCriticalSectionGuard lock(m_customs_lock);
@@ -89,7 +89,7 @@ void CUIGameCustom::OnFrame()
 
 void CUIGameCustom::Render()
 {
-	PROF_EVENT("CUIGameCustom::Render");
+	PROF_EVENT("CUIGameCustom::Render", PROF_CAT(UI));
 	{
 		xrCriticalSectionGuard lock(m_customs_lock);
 		for (StaticDrawableWrapper* item : CustomStatics)

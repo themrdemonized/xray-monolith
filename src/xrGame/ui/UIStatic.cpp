@@ -101,7 +101,7 @@ float CUIStatic::SetLineTo(float x1, float y1, float x2, float y2, float thickne
 
 void CUIStatic::Draw()
 {
-	PROF_EVENT("CUIStatic::Draw");
+	PROF_EVENT("CUIStatic::Draw", PROF_CAT(UI));
 	DrawTexture();
 	inherited::Draw();
 	DrawText();

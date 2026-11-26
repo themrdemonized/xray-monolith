@@ -81,7 +81,7 @@ void CPHCommander::clear()
 void CPHCommander::update()
 {
 	xrCriticalSectionGuard guard(&lock);
-	PROF_EVENT("CPHCommander::update");
+	PROF_EVENT("CPHCommander::update", PROF_CAT(Physics));
 	for (u32 i = 0; i < m_calls.size(); i++)
 	{
 		try

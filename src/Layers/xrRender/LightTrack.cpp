@@ -189,7 +189,7 @@ void CROS_impl::update(IRenderable* O)
 	if (0 == O->renderable.visual) return;
 	VERIFY(smart_cast<CROS_impl*> (O->renderable_ROS()));
 	//float	dt			=	Device.fTimeDelta;
-	PROF_EVENT("CROS_impl::update");
+	PROF_EVENT("CROS_impl::update", PROF_CAT(Rendering));
 	CObject* _object = O->dcast_CObject();
 
 	// select sample, randomize position inside object
@@ -353,7 +353,7 @@ void CROS_impl::update_smooth(IRenderable* O)
 		return;
 
 	dwFrameSmooth = Device.dwFrame;
-	PROF_EVENT("CROS_impl::update_smooth");
+	PROF_EVENT("CROS_impl::update_smooth", PROF_CAT(Rendering));
 #if RENDER==R_R1
 	if (O && (0 == result_count))
 		update(O); // First time only

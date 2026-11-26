@@ -116,7 +116,7 @@ void CDangerManager::reload(LPCSTR section)
 
 void CDangerManager::update()
 {
-	START_PROFILE("Memory Manager/dangers::update")
+	START_PROFILE("Memory Manager/dangers::update", PROF_CAT(AI))
 		m_objects.erase(
 			std::remove_if(
 				m_objects.begin(),
@@ -270,7 +270,7 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 
 void CDangerManager::add(const CVisibleObject& object)
 {
-	PROF_EVENT("DangerManager::add_VisibleObject");
+	PROF_EVENT("DangerManager::add_VisibleObject", PROF_CAT(AI));
 	if (!object.m_enabled || object.m_object->getDestroy())
 		return;
 
@@ -285,7 +285,7 @@ void CDangerManager::add(const CVisibleObject& object)
 
 void CDangerManager::add(const CSoundObject& object)
 {
-	PROF_EVENT("DangerManager::add_SoundObject");
+	PROF_EVENT("DangerManager::add_SoundObject", PROF_CAT(AI));
 	if (!object.m_enabled || object.m_object->getDestroy())
 		return;
 
@@ -329,7 +329,7 @@ void CDangerManager::add(const CSoundObject& object)
 
 void CDangerManager::add(const CHitObject& object)
 {
-	PROF_EVENT("DangerManager::add_HitObject");
+	PROF_EVENT("DangerManager::add_HitObject", PROF_CAT(AI));
 	if (!object.m_enabled || object.m_object->getDestroy())
 		return;
 
@@ -346,7 +346,7 @@ void CDangerManager::add(const CHitObject& object)
 
 void CDangerManager::add(const CDangerObject& object)
 {
-	PROF_EVENT("DangerManager::add_DangerObject");
+	PROF_EVENT("DangerManager::add_DangerObject", PROF_CAT(AI));
 	if (m_object->memory().enemy().selected() && object.object()) // && !object.object()->g_Alive())
 		ignore(object.object());
 

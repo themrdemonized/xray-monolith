@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#include "../xrCore/profiler.h"
+
 typedef struct TTAPI_WORKER_PARAMS
 {
 	volatile LONG vlFlag;
@@ -31,6 +33,12 @@ DWORD WINAPI ttapiThreadProc(LPVOID lpParameter)
 {
 	LPTTAPI_WORKER_PARAMS pParams = (LPTTAPI_WORKER_PARAMS)lpParameter;
 	DWORD i, dwFastIter = ttapi_dwFastIter, dwSlowIter = ttapi_dwSlowIter;
+
+#if defined(XRCORE_PROFILER) && defined(PROFILER_OPTICK) && XRCORE_PROFILER == PROFILER_OPTICK
+	char szThreadName[32];
+	sprintf_s(szThreadName, "Helper Thread #%u", u32(pParams - ttapi_worker_params));
+	PROF_THREAD(szThreadName);
+#endif
 
 	while (TRUE)
 	{

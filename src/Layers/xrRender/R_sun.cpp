@@ -80,7 +80,7 @@ void CRender::render_sun_cascades()
 
 void CRender::render_sun_cascade(u32 cascade_ind)
 {
-	PROF_EVENT("Render Cascade");
+	PROF_EVENT("Render Cascade", PROF_CAT(Rendering));
 	light* fuckingsun = (light*)Lights.sun_adapted._get();
 	sun::cascade& cascade = m_sun_cascades[cascade_ind];
 
@@ -90,7 +90,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 	Fmatrix& cull_xform = cascade.cull_xform;
 
 	{
-		PROF_EVENT("Render Cascade: Prepass");
+		PROF_EVENT("Render Cascade: Prepass", PROF_CAT(Rendering));
 
 		// calculate view-frustum bounds in world space
 		Fmatrix ex_project, ex_full, ex_full_inverse;
@@ -285,7 +285,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
 	// Begin SMAP-render
     {
-        PROF_EVENT("Render Cascade: SMAP traverse");
+        PROF_EVENT("Render Cascade: SMAP traverse", PROF_CAT(Rendering));
         phase = PHASE_SMAP;
         cascade.GMCascade.traverse(pOutdoorSector, cascade.cull_frustum, cascade.cull_COP, cascade.cull_xform);
         cascade.GMCascade.r_dsgraph_capture(false, true);
@@ -293,7 +293,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
     // Finalize & Cleanup
     {
-        PROF_EVENT("Render Cascade: SMAP Finalize");
+        PROF_EVENT("Render Cascade: SMAP Finalize", PROF_CAT(Rendering));
 
         fuckingsun->X.D.combine = cull_xform;
 
@@ -304,6 +304,9 @@ void CRender::render_sun_cascade(u32 cascade_ind)
             bool bForward_Shadows = cascade.GMCascade.RGraph.mapStaticPasses[1][0].size() || cascade.GMCascade.RGraph.mapDynamicPasses[1][0].size() || cascade.GMCascade.RGraph.mapStaticSorted.Sorted.size() || cascade.GMCascade.RGraph.mapDynamicSorted.Sorted.size();
             if (bDeffered_Shadows || bForward_Shadows)
             {
+#if defined(USE_DX10) || defined(USE_DX11)
+                PIX_EVENT(SE_SUN_SMAP);
+#endif
                 Target->phase_smap_direct(fuckingsun, SE_SUN_FAR);
                 RCache.set_xform_world(Fidentity);
                 RCache.set_xform_view(Fidentity);
@@ -312,6 +315,9 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
                 if (psDeviceFlags2.test(rsGrassShadow) && cascade_ind <= ps_ssfx_grass_shadows.x)
                 {
+#if defined(USE_DX10) || defined(USE_DX11)
+                    PIX_EVENT(SE_SUN_SMAP_GRASS);
+#endif
                     Details->fade_distance = dm_fade * dm_fade * ps_ssfx_grass_shadows.y;
                     Details->Render();
                 }
@@ -331,7 +337,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
     }	
 
 	// Accumulate
-	PROF_EVENT("Render Cascade: Accumulate");
+	PROF_EVENT("Render Cascade: Accumulate", PROF_CAT(Rendering));
 	Target->phase_accumulator();
 
 #if defined(USE_DX10) || defined(USE_DX11)
