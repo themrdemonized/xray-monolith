@@ -3,6 +3,9 @@
 
 #include "ResourceManager.h"
 #include "../../xrEngine/shader_bus.h"
+#if defined(USE_DX11)
+#include "../xrRenderDX10/dx10GpuTimeline.h"
+#endif
 
 // a shader bus texture lane's $user$bus_ alias and the texture it shows
 struct bus_texture_slot
@@ -421,6 +424,12 @@ void dxRenderDeviceRender::Begin()
 #if !defined(USE_DX10) && !defined(USE_DX11)
 	CHK_DX(HW.pDevice->BeginScene());
 #endif	//	USE_DX10
+
+#if defined(USE_DX11)
+	if (ps_r__gpu_timeline)
+		gpu_timeline::frame_start();
+#endif
+
 	RCache.OnFrameBegin();
 	RCache.set_CullMode(CULL_CW);
 	RCache.set_CullMode(CULL_CCW);
@@ -457,10 +466,16 @@ void dxRenderDeviceRender::End()
 
 	if (HW.Caps.SceneMode) overdrawEnd();
 
+	// Draw calls and polys this frame
+	PROF_TAG("draws", RCache.stat.calls);
+	PROF_TAG("polys", RCache.stat.polys);
 	RCache.OnFrameEnd();
 	Memory.dbg_check();
 
-	DoAsyncScreenshot();
+	{
+		PROF_EVENT("Async Screenshot", PROF_CAT(IO));
+		DoAsyncScreenshot();
+	}
 
 #if defined(USE_DX10) || defined(USE_DX11)
     UINT present_flags = 0;
@@ -473,11 +488,29 @@ void dxRenderDeviceRender::End()
 	if (is_windowed && !use_vsync && HW.m_SupportsVRR) {
         present_flags |= DXGI_PRESENT_ALLOW_TEARING;
 	}
+
+	if (ps_r__gpu_timeline)
+		gpu_timeline::frame_end();
 # endif
 
-	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady) {
-		HW.m_pSwapChain->Present(present_interval, present_flags);
+	CRenderDevice::FrameRecord* const record = Device.frame_record_on ? &Device.frame_record : nullptr;
+	if (record)
+	{
+		record->present[0] = CPU::QPC();
+		record->presented = false;
 	}
+	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady) {
+		const HRESULT hr = HW.m_pSwapChain->Present(present_interval, present_flags);
+		// Occluded windows or failed Presents show nothing
+		if (record)
+			record->presented = hr == S_OK;
+# if defined(USE_DX11)
+		if (ps_r__gpu_timeline)
+			gpu_timeline::frame_presented();
+# endif
+	}
+	if (record)
+		record->present[1] = CPU::QPC();
 #else //!USE_DX10 || USE_DX11
 	CHK_DX(HW.pDevice->EndScene());
 

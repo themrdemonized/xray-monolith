@@ -76,7 +76,7 @@ struct BTHREAD_params
 
 void MODEL::build_thread(void* params)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Physics));
 
 	_initialize_cpu_thread();
 	FPU::m64r();
@@ -118,7 +118,7 @@ void MODEL::build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, vo
 
 void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Physics));
 
 	// verts
 	verts_count = Vcnt;

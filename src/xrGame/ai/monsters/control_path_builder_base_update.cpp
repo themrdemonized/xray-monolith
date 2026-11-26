@@ -6,7 +6,7 @@
 
 void CControlPathBuilderBase::update_frame()
 {
-	START_PROFILE("Base Monster/Path Builder Base/Frame Update")
+	START_PROFILE("Base Monster/Path Builder Base/Frame Update", PROF_CAT(Navigation))
 		;
 
 		// обновить состояние билдера

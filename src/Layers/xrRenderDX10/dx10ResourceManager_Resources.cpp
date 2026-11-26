@@ -142,6 +142,7 @@ void CResourceManager::_DeletePass(const SPass* P)
 //--------------------------------------------------------------------------------------------------------------
 SVS* CResourceManager::_CreateVS(LPCSTR _name)
 {
+	PROF_EVENT("CResourceManager::_CreateVS", PROF_CAT(Streaming));
 	xrCriticalSectionGuard guard(creationGuard);
 	int skinning = -1;
 	string_path name;
@@ -258,6 +259,7 @@ void CResourceManager::_DeleteVS(const SVS* vs)
 //--------------------------------------------------------------------------------------------------------------
 SPS* CResourceManager::_CreatePS(LPCSTR _name)
 {
+	PROF_EVENT("CResourceManager::_CreatePS", PROF_CAT(Streaming));
 	xrCriticalSectionGuard guard(creationGuard);
 	string_path name;
 	xr_strcpy(name, _name);

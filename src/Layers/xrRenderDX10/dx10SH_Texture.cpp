@@ -396,6 +396,7 @@ void CTexture::Preload()
 
 void CTexture::Load()
 {
+	PROF_EVENT("CTexture::Load", PROF_CAT(Streaming));
 	flags.bLoaded = true;
 	desc_cache = 0;
 	if (pSurface) return;

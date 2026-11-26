@@ -44,7 +44,7 @@ private:
 
 		IC void operator()(_iterator& i, u64 cycle_count) const
 		{
-			START_PROFILE("ALife/scheduled/update")
+			START_PROFILE("ALife/scheduled/update", PROF_CAT(AI))
 				(*i).second->update();
 			STOP_PROFILE
 		}

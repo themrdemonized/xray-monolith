@@ -93,7 +93,7 @@ void CALifeUpdateManager::update_switch()
 {
 	init_ef_storage();
 
-	START_PROFILE("ALife/switch")
+	START_PROFILE("ALife/switch", PROF_CAT(AI))
 		;
 		graph().level().update(CSwitchPredicate(this), Device.dwPrecacheFrame > 0);
 	STOP_PROFILE
@@ -104,7 +104,7 @@ void CALifeUpdateManager::update_scheduled(bool init_ef)
 	if (init_ef)
 		init_ef_storage();
 
-	START_PROFILE("ALife/scheduled")
+	START_PROFILE("ALife/scheduled", PROF_CAT(AI))
 		;
 		scheduled().update();
 	STOP_PROFILE
@@ -136,7 +136,7 @@ void CALifeUpdateManager::shedule_Update(u32 dt)
 
 	m_first_time = false;
 
-	START_PROFILE("ALife/update")
+	START_PROFILE("ALife/update", PROF_CAT(AI))
 		update();
 	STOP_PROFILE
 }
