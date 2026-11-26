@@ -3,7 +3,7 @@
 
 #include "xrXMLParser.h"
 
-extern void XMLLuaCallback(CXml &m_xml, LPCSTR xml_string);
+extern bool XMLLuaCallback(CXml &m_xml, LPCSTR xml_string);
 
 XRXMLPARSER_API CXml::CXml()
 	: m_root(NULL),
@@ -131,6 +131,10 @@ void CXml::Load(LPCSTR path, LPCSTR xml_filename)
 	W.w_stringZ("");
 	FS.r_close(F);
 
+	// Parse the raw text only if the Lua callback did not load its result
+	if (XMLLuaCallback(*this, (LPCSTR)W.pointer()))
+		return;
+
 	m_Doc.Parse(&m_Doc, (LPCSTR)W.pointer());
 	if (m_Doc.Error())
 	{
@@ -140,7 +144,6 @@ void CXml::Load(LPCSTR path, LPCSTR xml_filename)
 	}
 
 	m_root = m_Doc.FirstChildElement();
-	XMLLuaCallback(*this, (LPCSTR)W.pointer());
 }
 
 void CXml::LoadFromString(LPCSTR xml_string)

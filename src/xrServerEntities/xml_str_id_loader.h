@@ -21,9 +21,12 @@ struct ITEM_DATA
 	int index;
 	int pos_in_file;
 	CUIXml* _xml;
+	//item node in _xml, same as NavigateToNode(tag_name, pos_in_file) from the root
+	XML_NODE* _node;
 };
 
 typedef xr_vector<ITEM_DATA> T_VECTOR;
+typedef xr_unordered_map<shared_str, int> T_ID_MAP;
 
 void _destroy_item_data_vector_cont(T_VECTOR* vec);
 
@@ -37,6 +40,8 @@ public:
 
 private:
 	static T_VECTOR* m_pItemDataVector;
+	//id -> position in m_pItemDataVector, built together with it in InitInternal
+	static T_ID_MAP* m_pItemIdMap;
 
 protected:
 	//имена xml файлов (разделенных запятой) из которых 
@@ -74,6 +79,8 @@ public:
 
 TEMPLATE_SPECIALIZATION
 typename T_VECTOR* CSXML_IdToIndex::m_pItemDataVector = NULL;
+TEMPLATE_SPECIALIZATION
+typename T_ID_MAP* CSXML_IdToIndex::m_pItemIdMap = NULL;
 
 TEMPLATE_SPECIALIZATION
 LPCSTR CSXML_IdToIndex::file_str = NULL;
@@ -97,15 +104,9 @@ TEMPLATE_SPECIALIZATION
 const typename ITEM_DATA* CSXML_IdToIndex::GetById(const shared_str& str_id, bool no_assert)
 {
 	T_INIT::InitXmlIdToIndex();
-	T_VECTOR::iterator it = m_pItemDataVector->begin();
+	T_ID_MAP::const_iterator it = m_pItemIdMap->find(str_id);
 
-	for (; m_pItemDataVector->end() != it; ++it)
-	{
-		if ((*it).id == str_id)
-			break;
-	}
-
-	if (m_pItemDataVector->end() == it)
+	if (m_pItemIdMap->end() == it)
 	{
 		int i = 0;
         Msg("item with id [%s] not found in files:", str_id.c_str());
@@ -116,7 +117,7 @@ const typename ITEM_DATA* CSXML_IdToIndex::GetById(const shared_str& str_id, boo
 		return NULL;
 	}
 
-	return &(*it);
+	return &(*m_pItemDataVector)[it->second];
 }
 
 TEMPLATE_SPECIALIZATION
@@ -137,6 +138,7 @@ void CSXML_IdToIndex::DeleteIdToIndexData()
 	_destroy_item_data_vector_cont(m_pItemDataVector);
 
 	xr_delete(m_pItemDataVector);
+	xr_delete(m_pItemIdMap);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -146,6 +148,7 @@ typename void CSXML_IdToIndex::InitInternal()
 	T_INIT::InitXmlIdToIndex();
 
 	m_pItemDataVector = xr_new<T_VECTOR>();
+	m_pItemIdMap = xr_new<T_ID_MAP>();
 
 	VERIFY(file_str);
 	VERIFY(tag_name);
@@ -166,9 +169,12 @@ typename void CSXML_IdToIndex::InitInternal()
 		//общий список
 		int items_num = uiXml->GetNodesNum(uiXml->GetRoot(), tag_name);
 
+		//walk the item nodes once instead of searching node i from the first child every time
+		XML_NODE* item_node = NULL;
 		for (int i = 0; i < items_num; ++i)
 		{
-			LPCSTR item_name = uiXml->ReadAttrib(uiXml->GetRoot(), tag_name, i, "id", NULL);
+			item_node = i ? item_node->NextSibling(tag_name) : uiXml->GetRoot()->FirstChild(tag_name);
+			LPCSTR item_name = uiXml->ReadAttrib(item_node, "id", NULL);
 
 			string256 buf;
 			xr_sprintf(buf, "id for item don't set, number %d in %s", i, xml_file);
@@ -176,21 +182,18 @@ typename void CSXML_IdToIndex::InitInternal()
 
 
 			//проверетить ID на уникальность
-			T_VECTOR::iterator t_it = m_pItemDataVector->begin();
-			for (; m_pItemDataVector->end() != t_it; ++t_it)
-			{
-				if (shared_str((*t_it).id) == shared_str(item_name))
-					break;
-			}
+			shared_str item_id = item_name;
+			R_ASSERT3(m_pItemIdMap->end() == m_pItemIdMap->find(item_id), "duplicate item id", item_name);
 
-			R_ASSERT3(m_pItemDataVector->end() == t_it, "duplicate item id", item_name);
+			m_pItemIdMap->emplace(item_id, (int)m_pItemDataVector->size());
 
 			ITEM_DATA data;
-			data.id = item_name;
+			data.id = item_id;
 			data.index = index;
 			data.pos_in_file = i;
 			//.				data.file_name		= xml_file;
 			data._xml = uiXml;
+			data._node = item_node;
 			m_pItemDataVector->push_back(data);
 
 			index++;
