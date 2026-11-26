@@ -122,7 +122,7 @@ void CMemoryManager::update_enemies(const bool& registered_in_combat)
 
 void CMemoryManager::update(float time_delta)
 {
-	START_PROFILE("Memory Manager")
+	START_PROFILE("Memory Manager", PROF_CAT(AI))
 		visual().update(time_delta);
 		sound().update();
 		hit().update();

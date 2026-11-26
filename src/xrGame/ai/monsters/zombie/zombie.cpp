@@ -111,7 +111,7 @@ void CZombie::BoneCallback(CBoneInstance* B)
 {
 	CZombie* this_class = static_cast<CZombie*>(B->callback_param());
 
-	START_PROFILE("Zombie/Bones Update")
+	START_PROFILE("Zombie/Bones Update", PROF_CAT(Animation))
 		;
 		this_class->Bones.Update(B, Device.dwTimeGlobal);
 	STOP_PROFILE

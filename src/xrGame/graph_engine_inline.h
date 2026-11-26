@@ -53,8 +53,8 @@ IC bool CGraphEngine::search(
 
 #ifndef AI_COMPILER
 	Device.Statistic->AI_Path.Begin();
-	START_PROFILE("graph_engine")
-		START_PROFILE("graph_engine/search")
+	START_PROFILE("graph_engine", PROF_CAT(Navigation))
+		START_PROFILE("graph_engine/search", PROF_CAT(Navigation))
 #endif
 			typedef CPathManager<_Graph, CAlgorithm::CDataStorage, _Parameters, _dist_type, _index_type, _iteration_type
 			> CPathManagerGeneric;
@@ -99,8 +99,8 @@ IC bool CGraphEngine::search(
 
 #ifndef AI_COMPILER
 	Device.Statistic->AI_Path.Begin();
-	START_PROFILE("graph_engine")
-		START_PROFILE("graph_engine/search")
+	START_PROFILE("graph_engine", PROF_CAT(Navigation))
+		START_PROFILE("graph_engine/search", PROF_CAT(Navigation))
 #endif
 			typedef CPathManager<_Graph, CAlgorithm::CDataStorage, _Parameters, _dist_type, _index_type, _iteration_type
 			> CPathManagerGeneric;
@@ -147,8 +147,8 @@ IC bool CGraphEngine::search(
 
 #ifndef AI_COMPILER
 	Device.Statistic->AI_Path.Begin();
-	START_PROFILE("graph_engine")
-		START_PROFILE("graph_engine/search")
+	START_PROFILE("graph_engine", PROF_CAT(Navigation))
+		START_PROFILE("graph_engine/search", PROF_CAT(Navigation))
 #endif
 			path_manager.setup(
 				&graph,
@@ -202,8 +202,8 @@ IC bool CGraphEngine::search(
 {
 #ifndef AI_COMPILER
 	Device.Statistic->AI_Path.Begin();
-	START_PROFILE("graph_engine")
-		START_PROFILE("graph_engine/proble_solver")
+	START_PROFILE("graph_engine", PROF_CAT(Navigation))
+		START_PROFILE("graph_engine/proble_solver", PROF_CAT(Navigation))
 #endif
 			typedef CProblemSolver<T1, T2, T3, T4, T5, T6, T7, T8> CSProblemSolver;
 			typedef CPathManager<CSProblemSolver, CSolverAlgorithm::CDataStorage, _Parameters, _solver_dist_type,
@@ -246,8 +246,8 @@ IC bool CGraphEngine::search(
 {
 #ifndef AI_COMPILER
 	Device.Statistic->AI_Path.Begin();
-	START_PROFILE("graph_engine")
-		START_PROFILE("graph_engine/search")
+	START_PROFILE("graph_engine", PROF_CAT(Navigation))
+		START_PROFILE("graph_engine/search", PROF_CAT(Navigation))
 #endif
 
 			typedef CPathManager<_Graph, CStringAlgorithm::CDataStorage, _Parameters, float, shared_str, u32>
