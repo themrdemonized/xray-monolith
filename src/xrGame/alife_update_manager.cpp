@@ -93,7 +93,7 @@ void CALifeUpdateManager::update_switch()
 {
 	init_ef_storage();
 
-	START_PROFILE("ALife/switch")
+	START_PROFILE("ALife/switch", PROF_CAT(AI))
 		;
 		graph().level().update(CSwitchPredicate(this), Device.dwPrecacheFrame > 0);
 	STOP_PROFILE
@@ -104,7 +104,7 @@ void CALifeUpdateManager::update_scheduled(bool init_ef)
 	if (init_ef)
 		init_ef_storage();
 
-	START_PROFILE("ALife/scheduled")
+	START_PROFILE("ALife/scheduled", PROF_CAT(AI))
 		;
 		scheduled().update();
 	STOP_PROFILE
@@ -112,7 +112,7 @@ void CALifeUpdateManager::update_scheduled(bool init_ef)
 
 void CALifeUpdateManager::update()
 {
-	PROF_EVENT("AI: A-Life Update");
+	PROF_EVENT("AI: A-Life Update", PROF_CAT(AI));
 	update_switch();
 	update_scheduled(false);
 }
@@ -137,14 +137,15 @@ void CALifeUpdateManager::shedule_Update(u32 dt)
 
 	m_first_time = false;
 
-	START_PROFILE("ALife/update")
+	START_PROFILE("ALife/update", PROF_CAT(AI))
 		update();
 	STOP_PROFILE
 }
 
 void CALifeUpdateManager::set_process_time(int microseconds)
 {
-	graph().set_process_time(float(microseconds) - float(microseconds) * update_monster_factor() / 1000000.f);
+	// process_time is in microseconds; the switch scan compares seconds
+	graph().set_process_time(float(microseconds) * (1.f - update_monster_factor()) / 1000000.f);
 }
 
 void CALifeUpdateManager::objects_per_update(const u32& objects_per_update)
@@ -285,7 +286,7 @@ extern xr_task_group level_load;
 
 void CALifeUpdateManager::load(LPCSTR game_name, bool no_assert, bool new_only)
 {
-	PROF_EVENT("Load Alife Simulator");
+	PROF_EVENT("Load Alife Simulator", PROF_CAT(Scene));
 	//	g_pGamePersistent->LoadTitle		("st_loading_alife_simulator");
 	g_pGamePersistent->LoadTitle();
 
@@ -310,6 +311,7 @@ void CALifeUpdateManager::load(LPCSTR game_name, bool no_assert, bool new_only)
 #endif
 	//	g_pGamePersistent->LoadTitle		("st_server_connecting");
 	g_pGamePersistent->LoadTitle(true, g_pGameLevel->name());
+	PROF_EVENT("CALifeUpdateManager::load level_load wait", PROF_CAT(Wait));
 	level_load.wait();
 }
 

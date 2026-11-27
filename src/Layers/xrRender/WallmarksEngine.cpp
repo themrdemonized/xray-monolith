@@ -368,7 +368,7 @@ void CWallmarksEngine::AddSkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm)
 extern float r_ssaDISCARD;
 ICF void BeginStream(ref_geom hGeom, u32& w_offset, FVF::LIT*& w_verts, FVF::LIT*& w_start)
 {
-	PROF_EVENT("BeginStream");
+	PROF_EVENT("BeginStream", PROF_CAT(VFX));
 	w_offset = 0;
 	w_verts = (FVF::LIT*)RCache.Vertex.Lock(MAX_TRIS * 3, hGeom->vb_stride, w_offset);
 	w_start = w_verts;
@@ -377,7 +377,7 @@ ICF void BeginStream(ref_geom hGeom, u32& w_offset, FVF::LIT*& w_verts, FVF::LIT
 ICF void FlushStream(ref_geom hGeom, ref_shader shader, u32& w_offset, FVF::LIT*& w_verts, FVF::LIT*& w_start,
                      BOOL bSuppressCull)
 {
-	PROF_EVENT("FlushStream");
+	PROF_EVENT("FlushStream", PROF_CAT(VFX));
 	u32 w_count = u32(w_verts - w_start);
 	RCache.Vertex.Unlock(w_count, hGeom->vb_stride);
 	if (w_count)
@@ -501,7 +501,7 @@ void CWallmarksEngine::Render()
             // static wallmarks
             if (!static_empty)
             {
-                PROF_EVENT("STATIC_WALLMARKS");
+                PROF_EVENT("STATIC_WALLMARKS", PROF_CAT(VFX));
                 for (auto& [sector, static_vec] : slot->static_items)
                 {
                     if (!RImplementation.GMBase.is_sector_visible(static_cast<CSector*>(sector)))
@@ -540,7 +540,7 @@ void CWallmarksEngine::Render()
             // dynamic wallmarks
             if (!skeleton_empty)
             {
-                PROF_EVENT("DYNAMIC_WALLMARKS");
+                PROF_EVENT("DYNAMIC_WALLMARKS", PROF_CAT(VFX));
                 for (int j = 0; j < slot->skeleton_items.size(); j++)
                 {
                     intrusive_ptr<CSkeletonWallmark> W = slot->skeleton_items[j];

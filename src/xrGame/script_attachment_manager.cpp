@@ -57,7 +57,7 @@ CCF_Attachment_Skeleton::CCF_Attachment_Skeleton(script_attachment* O) : CCF_Ske
 {
 	IRenderVisual* pVisual = O->Visual();
 	IKinematics* K = PKinematics(pVisual);
-	VERIFY3(K, "Can't create skeleton without Kinematics.", *O->cNameVisual());
+	VERIFY3(K, "Can't create skeleton without Kinematics.", O->GetModelScript());
 	bv_box.set(pVisual->getVisData().box);
 	bv_box.getsphere(bv_sphere.P, bv_sphere.R);
 	vis_mask = 0;
@@ -268,6 +268,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name)
 	m_type = eSA_World;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
+	m_current_motion_def = nullptr;
 	m_model_name = "";
 	m_userdata = nullptr;
     m_bInstanceMultirender = false;
@@ -1353,6 +1354,7 @@ u32 script_attachment::PlayMotion(LPCSTR name, bool mixin, float speed)
 		m_bStopAtEndAnimIsRunning = false;
 
 	m_current_motion = name;
+	m_current_motion_def = k->LL_GetMotionDef(M2);
     xr_delete(m_motion_end_cb);
 
 	k->UpdateTracks();

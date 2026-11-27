@@ -313,7 +313,6 @@ IC void CBackend::RenderInstancedIndexed(D3DPRIMITIVETYPE T_, u32 baseV, u32 sta
 
 IC void CBackend::Render(D3DPRIMITIVETYPE T, u32 baseV, u32 startV, u32 countV, u32 startI, u32 PC)
 {
-	PROF_EVENT("RCache.Render_ibvb");
 	//VERIFY(vs);
 	//HW.pDevice->VSSetShader(vs);
 	//HW.pDevice->GSSetShader(0);
@@ -363,7 +362,6 @@ IC void CBackend::Render(D3DPRIMITIVETYPE T, u32 baseV, u32 startV, u32 countV, 
 
 IC void CBackend::Render(D3DPRIMITIVETYPE T, u32 startV, u32 PC)
 {
-	PROF_EVENT("RCache.Render_vb");
 	//	TODO: DX10: Remove triangle fan usage from the engine
 	if (T == D3DPT_TRIANGLEFAN)
 		return;
@@ -490,7 +488,6 @@ ICF void CBackend::set_CullMode(u32 _mode)
 
 IC void CBackend::ApplyVertexLayout()
 {
-	PROF_EVENT("CBackend::ApplyVertexLayout");
 	VERIFY(vs);
 	VERIFY(decl);
 	VERIFY(m_pInputSignature);
@@ -558,7 +555,6 @@ IC bool CBackend::CBuffersNeedUpdate(ref_cbuffer buf1[MaxCBuffers], ref_cbuffer 
 
 IC void CBackend::set_Constants(R_constant_table* C)
 {
-	PROF_EVENT("CBackend::set_Constants");
 	// caching
 	if (ctable == C) return;
 	ctable = C;
@@ -797,7 +793,6 @@ ICF void CBackend::ApplyRTandZB()
 
 IC void CBackend::get_ConstantDirect(shared_str& n, u32 DataSize, void** pVData, void** pGData, void** pPData)
 {
-	PROF_EVENT("CBackend::get_ConstantDirect");
 	R_constant* C = get_c(n);
 
 	if (C)

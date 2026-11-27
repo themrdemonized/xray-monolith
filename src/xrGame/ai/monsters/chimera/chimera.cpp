@@ -131,6 +131,8 @@ void CChimera::reinit()
 {
 	inherited::reinit();
 
+	m_attack_phase = 0;
+
 	move().load_velocity(*cNameSect(),
 	                     "Velocity_JumpGround",
 	                     MonsterMovement::eChimeraVelocityParameterJumpGround);

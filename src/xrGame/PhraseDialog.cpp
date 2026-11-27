@@ -245,7 +245,7 @@ void CPhraseDialog::load_shared(LPCSTR)
 	pXML->SetLocalRoot(pXML->GetRoot());
 
 	// loading from XML
-	XML_NODE* dialog_node = pXML->NavigateToNode(id_to_index::tag_name, item_data.pos_in_file);
+	XML_NODE* dialog_node = item_data._node;
 	THROW3(dialog_node, "dialog id=", *item_data.id);
 
 	pXML->SetLocalRoot(dialog_node);

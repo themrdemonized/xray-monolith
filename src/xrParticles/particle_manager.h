@@ -1,5 +1,6 @@
 #pragma once
 #include "particle_actions.h"
+#include "particle_effect.h"
 #include <atomic>
 
 namespace PAPI
@@ -14,8 +15,8 @@ namespace PAPI
         using SharedParticleEffect = intrusive_ptr<ParticleEffect>;
         using SharedParticleActions = intrusive_ptr<ParticleActions>;
 
-        using ParticleEffectVec = xr_hash_map<int, SharedParticleEffect>;
-        using ParticleActionsVec = xr_hash_map<int, SharedParticleActions>;
+        using ParticleEffectVec = xr_unordered_map<int, SharedParticleEffect>;
+        using ParticleActionsVec = xr_unordered_map<int, SharedParticleActions>;
         ParticleEffectVec m_effect_map;
         ParticleActionsVec m_alist_map;
         xr_atomic_s32 m_effect_counter;

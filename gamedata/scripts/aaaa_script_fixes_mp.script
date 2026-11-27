@@ -997,6 +997,11 @@ function anomaly_restrictor_update()
 
 	-- Couple of anomalies per update, goal is to pass all anomalies in 1 second independent of frame time
 	for i = 1, anomaly_amount_per_update do
+		-- An entry removed below leaves its key behind only until the table is rebuilt; anomalies added
+		-- meanwhile rebuild it, and next() then fails on the old key
+		if anomaly_restrictor_db_k ~= nil and anomaly_restrictor_db[anomaly_restrictor_db_k] == nil then
+			anomaly_restrictor_db_k = nil
+		end
 		anomaly_restrictor_db_k, anomaly_restrictor_db_v = next(anomaly_restrictor_db, anomaly_restrictor_db_k)
 		if anomaly_restrictor_db_k and anomaly_restrictor_db_v then
 			anomaly_restrictor_db_count = anomaly_restrictor_db_count + 1

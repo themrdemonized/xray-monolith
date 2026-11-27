@@ -6057,9 +6057,6 @@
     <ClInclude Include="CarLights.h">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClInclude>
-    <ClInclude Include="CarDrone.h">
-      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
-    </ClInclude>
     <ClInclude Include="CarWeapon.h">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
     </ClInclude>
@@ -7402,6 +7399,10 @@
     <ClInclude Include="iscript_attachment.h">
       <Filter>Core\Client\Objects\base</Filter>
     </ClInclude>
+    <ClInclude Include="CarDrone.h" />
+    <ClInclude Include="script_monster_enemy_info.h" />
+    <ClInclude Include="script_monster_home_info.h" />
+    <ClInclude Include="script_monster_movement_info.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -9729,9 +9730,6 @@
     <ClCompile Include="DBG_Car.cpp">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClCompile>
-    <ClCompile Include="CarDrone.cpp">
-      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
-    </ClCompile>
     <ClCompile Include="CarWeapon.cpp">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
     </ClCompile>
@@ -11139,6 +11137,12 @@
       <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClCompile>
     <ClCompile Include="UI3dStatic.cpp" />
+    <ClCompile Include="CarDrone.cpp" />
+    <ClCompile Include="script_monster_enemy_info_script.cpp" />
+    <ClCompile Include="script_monster_home_info_script.cpp" />
+    <ClCompile Include="script_monster_movement_info_script.cpp" />
+    <ClCompile Include="searchlight_script.cpp" />
+    <ClCompile Include="searchlight_struct.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Explosive.h">

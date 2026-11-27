@@ -61,7 +61,7 @@ public:
 	u32 m_dwAliveCount;
 	u32 m_dwStandingCount;
 
-private:
+public:
 	IC CAgentManager* get_agent_manager() const;
 private:
 	IC VISIBLE_OBJECTS& visible_objects() const;

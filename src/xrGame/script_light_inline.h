@@ -34,8 +34,11 @@ public:
 		auto it_e = g_pGamePersistent->ScriptGlows.end();
 		for (; it != it_e; ++it)
 		{
-			if (*it == this) g_pGamePersistent->ScriptGlows.erase(it);
-			break;
+			if (*it == this)
+			{
+				g_pGamePersistent->ScriptGlows.erase(it);
+				break;
+			}
 		}
 
 		m_glow.destroy();

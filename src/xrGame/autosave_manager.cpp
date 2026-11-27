@@ -49,7 +49,7 @@ float CAutosaveManager::shedule_Scale()
 
 void CAutosaveManager::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CAutosaveManager::shedule_Update");
+	PROF_EVENT("CAutosaveManager::shedule_Update", PROF_CAT(GameLogic));
 	inherited::shedule_Update(dt);
 #pragma todo("Plecha to Plecha : AUTOSAVE (do not forgive to enable it in release version:-))))!!!!")
 	if (true) return;

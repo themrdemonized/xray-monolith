@@ -31,4 +31,7 @@ protected:
 	void dropCurrentRocket();
 	u32 getRocketCount();
 	float m_fLaunchSpeed;
+
+public:
+    float LaunchSpeed() { return m_fLaunchSpeed; }
 };

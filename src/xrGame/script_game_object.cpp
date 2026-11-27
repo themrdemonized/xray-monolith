@@ -50,6 +50,7 @@
 #include "script_attachment_manager.h"
 #include "CustomDevice.h"
 #include "CharacterPhysicsSupport.h"
+#include "ph_shell_interface.h"
 
 class CScriptBinderObject;
 
@@ -715,6 +716,10 @@ void CScriptGameObject::set_bone_visible(u16 bone_id, bool bVisibility, bool bRe
 			phys->RecreateSkeleton();
 		else if (holder->m_pPhysicsShell && holder->m_pPhysicsShell->isActive())
 		{
+			// CPhysicObject needs spawn data to recreate its shell; preserve it here.
+			if (!smart_cast<IPhysicShellCreator*>(holder))
+				return;
+
 			holder->deactivate_physics_shell();
 			holder->activate_physic_shell();
 		}

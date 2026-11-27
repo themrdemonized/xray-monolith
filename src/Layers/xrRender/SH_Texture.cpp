@@ -210,13 +210,15 @@ void CTexture::apply_normal(u32 dwStage)
 
 void CTexture::Preload()
 {
-	m_bumpmap = DEV->m_textures_description.GetBumpName(cName);
+	// Store only on change so a Load() on a worker never writes it while bump_get() reads it
+	shared_str bump = DEV->m_textures_description.GetBumpName(cName);
+	if (!m_bumpmap.equal(bump)) m_bumpmap = bump;
 	m_material = DEV->m_textures_description.GetMaterial(cName);
 }
 
 void CTexture::Load()
 {
-	PROF_EVENT("CTexture::Load");
+	PROF_EVENT("CTexture::Load", PROF_CAT(Streaming));
 	if (flags.bLoaded || flags.bLoading) return;
 	flags.bLoading = true;
 	flags.bLoaded = false;

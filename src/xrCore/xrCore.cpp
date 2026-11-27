@@ -44,6 +44,10 @@ void xrCore::_initialize(LPCSTR _ApplicationName, xrLogger::LogCallback cb, BOOL
 	xr_strcpy(ApplicationName, _ApplicationName);
 	if (0 == init_counter)
 	{
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// Keeps the worker wrappers from registering the main thread as a worker when it runs pool tasks before the first frame
+		::xrProfiler::MainThread();
+#endif
 #ifdef XRCORE_STATIC
 		_clear87();
 		_control87(_PC_53, MCW_PC);

@@ -88,7 +88,7 @@ extern bool g_enemy_manager_second_update;
 
 void CMemoryManager::update_enemies(const bool& registered_in_combat)
 {
-	PROF_EVENT("CMemoryManager::update_enemies");
+	PROF_EVENT("CMemoryManager::update_enemies", PROF_CAT(AI));
 #ifdef _DEBUG
 	g_enemy_manager_second_update	= false;
 #endif // _DEBUG
@@ -123,8 +123,8 @@ void CMemoryManager::update_enemies(const bool& registered_in_combat)
 
 void CMemoryManager::update(float time_delta)
 {
-	PROF_EVENT("CMemoryManager::update");
-	START_PROFILE("Memory Manager")
+	PROF_EVENT("CMemoryManager::update", PROF_CAT(AI));
+	START_PROFILE("Memory Manager", PROF_CAT(AI))
 		visual().update(time_delta);
 		sound().update();
 		hit().update();
@@ -160,7 +160,7 @@ void CMemoryManager::enable(const CObject* object, bool enable)
 template <typename T>
 void CMemoryManager::update(const xr_vector<T>& objects, bool add_enemies)
 {
-	PROF_EVENT("CMemoryManager::update");
+	PROF_EVENT("CMemoryManager::update", PROF_CAT(AI));
 	squad_mask_type mask = m_stalker ? m_stalker->agent_manager().member().mask(m_stalker) : 0;
 	xr_vector<T>::const_iterator I = objects.begin();
 	xr_vector<T>::const_iterator E = objects.end();
@@ -358,6 +358,36 @@ void CMemoryManager::make_object_visible_somewhen(const CEntityAlive* enemy)
     {
         Msg("![CMemoryManager::make_object_visible_somewhen] tried to make obj1 visible, but its nullptr");
     }
+}
+
+void CMemoryManager::make_object_visible_somewhen(const CEntityAlive* enemy, const CMemoryManager& source)
+{
+	const CMemoryInfo known = source.memory(enemy);
+	if (!known.m_object)
+		return;
+
+	const MemorySpace::CVisibleObject* own = visual().visible_object(enemy);
+	const MemorySpace::CVisibleObject* seen = source.visual().visible_object(enemy);
+
+	MemorySpace::CVisibleObject taken;
+	bool take = true;
+	if (!own)
+		taken = static_cast<CVisibleObject>(known);
+	else if (seen && (own->m_level_time < seen->m_level_time))
+		taken = *seen;
+	else
+		take = false;
+
+	make_object_visible_somewhen(enemy);
+
+	if (!take)
+		return;
+
+	MemorySpace::CVisibleObject* obj = visual().visible_object(enemy);
+	VERIFY(obj);
+	obj->m_object_params = taken.m_object_params;
+	obj->m_level_time = taken.m_level_time;
+	obj->m_last_level_time = taken.m_last_level_time;
 }
 
 void CMemoryManager::save(NET_Packet& packet) const
