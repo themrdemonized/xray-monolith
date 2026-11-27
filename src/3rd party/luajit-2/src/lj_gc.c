@@ -110,14 +110,79 @@ static void gc_mark_uv(global_State *g)
   }
 }
 
+/* -- Userdata walk prefetch hints --------------------------------------- */
+
+#if defined(_MSC_VER) && defined(_M_X64)
+#define LJ_GC_UDHINT	1
+#else
+#define LJ_GC_UDHINT	0
+#endif
+
+#if LJ_GC_UDHINT
+#include <stdlib.h>
+#include <xmmintrin.h>
+
+void *_InterlockedCompareExchangePointer(void *volatile *, void *, void *);
+#pragma intrinsic(_InterlockedCompareExchangePointer)
+
+/*
+** Node addresses of the previous userdata walk of the owner state, in list
+** order. They are only prefetched or compared, never dereferenced. Plain
+** malloc memory, so GC pacing is unaffected. Only the owner state (set with
+** luaJIT_gc_udhint) touches them.
+*/
+#define GCUDH_DIST	24	/* Prefetch distance in nodes. */
+#define GCUDH_WIN	8	/* Resync window. */
+
+static void *volatile gc_udh_owner;  /* Owning global_State or NULL. */
+static GCobj **gc_udh_prev, **gc_udh_next, **gc_udh_mv;
+static size_t gc_udh_nprev, gc_udh_szprev, gc_udh_sznext;
+static size_t gc_udh_nmv, gc_udh_szmv;
+
+#define gc_udh_prefetch(o)	_mm_prefetch((const char *)(o), _MM_HINT_T0)
+
+/* Grow a hint buffer. Frees it and returns NULL on failure. */
+static GCobj **gc_udh_grow(GCobj **buf, size_t *sz)
+{
+  size_t nsz = *sz ? *sz*2 : 16384;
+  GCobj **nb = (GCobj **)realloc(buf, nsz*sizeof(GCobj *));
+  if (nb) *sz = nsz; else { free(buf); *sz = 0; }
+  return nb;
+}
+
+/* Free the hint buffers. Only called by the owner. */
+static void gc_udh_release(global_State *g)
+{
+  free(gc_udh_prev); free(gc_udh_next); free(gc_udh_mv);
+  gc_udh_prev = gc_udh_next = gc_udh_mv = NULL;
+  gc_udh_nprev = gc_udh_szprev = gc_udh_sznext = 0;
+  gc_udh_nmv = gc_udh_szmv = 0;
+  _InterlockedCompareExchangePointer(&gc_udh_owner, NULL, (void *)g);
+}
+#endif
+
 /* Mark userdata in mmudata list. */
 static void gc_mark_mmudata(global_State *g)
 {
   GCobj *root = gcref(g->gc.mmudata);
   GCobj *u = root;
+#if LJ_GC_UDHINT
+  GCobj **hm = NULL;
+  size_t nm = 0, j = 0, pf = 0;
+  if (gc_udh_owner == (void *)g) {  /* Nodes just moved here, in list order. */
+    hm = gc_udh_mv; nm = gc_udh_nmv;
+    for (; pf < nm && pf < GCUDH_DIST; pf++) gc_udh_prefetch(hm[pf]);
+  }
+#endif
   if (u) {
     do {
       u = gcnext(u);
+#if LJ_GC_UDHINT
+      if (j < nm && hm[j] == u) {
+	j++;
+	if (pf < nm) gc_udh_prefetch(hm[pf++]);
+      }
+#endif
       makewhite(g, u);  /* Could be from previous GC. */
       gc_mark(g, u);
     } while (u != root);
@@ -130,7 +195,41 @@ size_t lj_gc_separateudata(global_State *g, int all)
   size_t m = 0;
   GCRef *p = &mainthread(g)->nextgc;
   GCobj *o;
+#if LJ_GC_UDHINT
+  GCobj **hp = NULL, **hn = NULL, **hm = NULL;
+  size_t np = 0, j = 0, pf = 0, nn = 0, szn = 0, nm = 0, szm = 0;
+  int own = (gc_udh_owner == (void *)g), rec = 1, recm = 1;
+  if (own && all) {  /* Closing the state. */
+    gc_udh_release(g);
+    own = 0;
+  } else if (own) {
+    hp = gc_udh_prev; np = gc_udh_nprev;
+    hn = gc_udh_next; szn = gc_udh_sznext;
+    hm = gc_udh_mv; szm = gc_udh_szmv;
+    for (; pf < np && pf < GCUDH_DIST; pf++) gc_udh_prefetch(hp[pf]);
+  }
+#endif
   while ((o = gcref(*p)) != NULL) {
+#if LJ_GC_UDHINT
+    if (own) {
+      /* List = [new nodes] + [survivors of the last walk, same order]. */
+      size_t k, e = j + GCUDH_WIN < np ? j + GCUDH_WIN : np;
+      for (k = j; k < e; k++)
+	if (hp[k] == o) {
+	  j = k+1;
+	  if (pf < j) pf = j;
+	  for (e = j + GCUDH_DIST < np ? j + GCUDH_DIST : np; pf < e; pf++)
+	    gc_udh_prefetch(hp[pf]);
+	  break;
+	}
+      if (rec && !iswhite(o)) {  /* Only nodes surviving this cycle. */
+	if (nn == szn && !(hn = gc_udh_grow(hn, &szn)))
+	  rec = 0;
+	else
+	  hn[nn++] = o;
+      }
+    }
+#endif
     if (!(iswhite(o) || all) || isfinalized(gco2ud(o))) {
       p = &o->gch.nextgc;  /* Nothing to do. */
     } else if (!lj_meta_fastg(g, tabref(gco2ud(o)->metatable), MM_gc)) {
@@ -139,6 +238,14 @@ size_t lj_gc_separateudata(global_State *g, int all)
     } else {  /* Otherwise move userdata to be finalized to mmudata list. */
       m += sizeudata(gco2ud(o));
       markfinalized(o);
+#if LJ_GC_UDHINT
+      if (own && recm) {  /* Order of the mmudata appends. */
+	if (nm == szm && !(hm = gc_udh_grow(hm, &szm)))
+	  recm = 0;
+	else
+	  hm[nm++] = o;
+      }
+#endif
       *p = o->gch.nextgc;
       if (gcref(g->gc.mmudata)) {  /* Link to end of mmudata list. */
 	GCobj *root = gcref(g->gc.mmudata);
@@ -151,7 +258,24 @@ size_t lj_gc_separateudata(global_State *g, int all)
       }
     }
   }
+#if LJ_GC_UDHINT
+  if (own) {  /* This walk's survivors become the next walk's hints. */
+    gc_udh_next = hp; gc_udh_sznext = gc_udh_szprev;
+    gc_udh_prev = hn; gc_udh_szprev = szn; gc_udh_nprev = rec ? nn : 0;
+    gc_udh_mv = hm; gc_udh_szmv = szm; gc_udh_nmv = recm ? nm : 0;
+  }
+#endif
   return m;
+}
+
+/* Let this state use the userdata walk hints (one state, until it is closed). */
+LUA_API void luaJIT_gc_udhint(lua_State *L)
+{
+#if LJ_GC_UDHINT
+  _InterlockedCompareExchangePointer(&gc_udh_owner, (void *)G(L), NULL);
+#else
+  UNUSED(L);
+#endif
 }
 
 /* -- Propagation phase --------------------------------------------------- */
@@ -558,6 +682,10 @@ void lj_gc_finalize_cdata(lua_State *L)
 void lj_gc_freeall(global_State *g)
 {
   MSize i, strmask;
+#if LJ_GC_UDHINT
+  if (gc_udh_owner == (void *)g)
+    gc_udh_release(g);
+#endif
   /* Free everything, except super-fixed objects (the main thread). */
   g->gc.currentwhite = LJ_GC_WHITES | LJ_GC_SFIXED;
   gc_fullsweep(g, &g->gc.root);
