@@ -79,6 +79,10 @@ class CControlJump : public CControl_ComCustom<SControlJumpData>
 	// script-forced flag mask applied at activate(); 0 = vanilla
 	u32 m_script_flags_mask = 0;
 
+	// set by load(): a species that registers the ability after the manager loaded (bloodsucker.cpp Load order)
+	// never fills the band above, and can_jump on the zero band refuses every target
+	bool m_config_loaded = false;
+
 	// run-time params
 	u32 m_time_next_allowed;
 	u32 m_time_started; // time jump started
@@ -126,6 +130,7 @@ public:
 
 	float get_max_distance() const { return m_max_distance; }
 	float get_min_distance() const { return m_min_distance; }
+	bool is_config_loaded() const { return m_config_loaded; }
 
 	// negative argument keeps the current value
 	void set_jump_params(float min_dist, float max_dist, float max_angle, float max_height, float delay_ms)

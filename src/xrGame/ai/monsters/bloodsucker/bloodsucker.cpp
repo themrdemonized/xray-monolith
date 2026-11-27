@@ -24,6 +24,8 @@
 
 #include "../../../PHDestroyable.h"
 #include "../../../CharacterPhysicsSupport.h"
+#include "pch_script.h"
+#include "../../../script_game_object.h"
 
 #ifdef DEBUG
 #	include <dinput.h>
@@ -315,6 +317,8 @@ void CAI_Bloodsucker::reinit()
 	m_visual_default = cNameVisual();
 
 	m_vampire_want_value = 0.f;
+	m_force_vampire = false;
+	m_veto_vampire = false;
 	m_predator = false;
 	m_vis_state = 0;
 
@@ -450,6 +454,12 @@ void CAI_Bloodsucker::SatisfyVampire()
 
 	health = _min(health, conditions().GetMaxHealth());
 	conditions().SetHealth(health);
+
+	// The grab bypasses actor_on_before_hit, so the drain is invisible to every Lua hit seam. Fire a
+	// callback so a mod can attribute the drain to this bloodsucker. The victim is always the actor.
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CBloodsuckerOnVampire", funct))
+		funct(lua_game_object());
 }
 
 void CAI_Bloodsucker::CheckSpecParams(u32 spec_params)

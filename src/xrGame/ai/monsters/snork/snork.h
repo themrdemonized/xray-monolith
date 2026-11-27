@@ -42,6 +42,9 @@ public:
 
 	u32 m_target_node;
 	bool start_threaten;
+	bool m_script_roar_enabled = false; // script-armed roar, consumed by the roar it allows; false = vanilla (GSC hardwires the roar off)
+	void set_script_roar_enabled(bool v) { m_script_roar_enabled = v; }
+	bool get_script_roar_enabled() const { return m_script_roar_enabled; }
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

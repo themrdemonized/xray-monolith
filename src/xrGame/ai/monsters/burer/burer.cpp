@@ -25,6 +25,7 @@
 #include "../../../../xrCore/_vector3d_ext.h"
 #include "../control_direction_base.h"
 #include "../../script_game_object.h"
+#include "pch_script.h"
 
 bool CBurer::can_scan = true;
 
@@ -221,6 +222,7 @@ void CBurer::Load(LPCSTR section)
 #endif
 
 	m_force_gravi_attack = false;
+	m_request_gravi_attack = false;
 
 	PostLoad(section);
 }
