@@ -262,6 +262,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name): ISpatial(g
 	m_type = eSA_World;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
+	m_current_motion_def = nullptr;
 	m_model_name = "";
 	m_userdata = nullptr;
     m_bInstanceMultirender = false;
@@ -1327,6 +1328,7 @@ u32 script_attachment::PlayMotion(LPCSTR name, bool mixin, float speed)
 		m_bStopAtEndAnimIsRunning = false;
 
 	m_current_motion = name;
+	m_current_motion_def = k->LL_GetMotionDef(M2);
     xr_delete(m_motion_end_cb);
 
 	k->UpdateTracks();

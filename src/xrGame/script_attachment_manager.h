@@ -89,6 +89,7 @@ private:
 
 	shared_str m_model_name;
 	shared_str m_current_motion;
+	CMotionDef* m_current_motion_def;
 	u16 m_parent_bone;
     bool m_bVisible;
     Fmatrix m_previous_matrix;
@@ -297,7 +298,9 @@ public:
 	u32 PlayMotionCB(LPCSTR name, bool mixin, float speed, LPCSTR motion_end_cb);
 	u32 PlayMotion(LPCSTR name, bool mixin = true, float speed = 1.f);
 	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed);
-	
+	LPCSTR CurrentMotion() { return m_current_motion.size() ? m_current_motion.c_str() : nullptr; }
+	const CMotionDef* CurrentMotionDef() { return m_current_motion_def; }
+
 	void AddToParentShell(CGameObject* obj);
 	void RemoveFromParentShell(CGameObject* obj);
 	void OnParentCreatePhysicsShell();
@@ -356,6 +359,7 @@ public:
     const Fmatrix& XFORM_prev() { return m_previous_matrix; }
 	IRenderVisual* Visual() const;
 	IKinematics* Kinematics() const;
+    CPhysicsShell* PPhysicsShell() { return m_physics_shell; }
 	Fmatrix GetOffset() const { return m_offset; }
 	Fvector Position() const;
 	Fvector Center() const;
