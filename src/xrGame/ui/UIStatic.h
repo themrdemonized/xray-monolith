@@ -198,6 +198,14 @@ public:
 
 	virtual void ColorAnimationSetTextColor(u32 color, bool only_alpha);
 
+    	// antglobes
+   	float GetTextWidth(bool per_line = false) { return TextItemControl().GetTextWidth(per_line); }
+    float GetTextHeight(bool per_line = false) { return TextItemControl().GetTextHeight(per_line); }
+    Fvector2 GetTextSize(bool per_line_width = false, bool per_line_height = false)
+    {
+        return TextItemControl().GetTextSize(per_line_width, per_line_height);
+    };
+
 	virtual CUIWindow* ui_cast_window() { return this; }
 	virtual CUILightAnimColorConroller* ui_cast_light_anim_color_controller() { return this; }
 

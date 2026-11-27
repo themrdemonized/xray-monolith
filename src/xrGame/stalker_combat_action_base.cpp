@@ -54,7 +54,7 @@ bool CStalkerActionCombatBase::fire_make_sense() const
 
 void CStalkerActionCombatBase::fire()
 {
-	Fvector enemy_position = object().memory().enemy().selected()->Position();
+	Fvector enemy_position = object().known_enemy_position(object().memory().enemy().selected());
 	Fvector object_position = object().Position();
 	Fvector direction = Fvector().sub(enemy_position, object_position);
 	float yaw, pitch;
@@ -76,7 +76,7 @@ void CStalkerActionCombatBase::fire()
 void CStalkerActionCombatBase::aim_ready()
 {
 	u32 min_queue_size, max_queue_size, min_queue_interval, max_queue_interval;
-	float distance = object().memory().enemy().selected()->Position().distance_to(object().Position());
+	float distance = object().known_enemy_position(object().memory().enemy().selected()).distance_to(object().Position());
 	select_queue_params(distance, min_queue_size, max_queue_size, min_queue_interval, max_queue_interval);
 	object().CObjectHandler::set_goal(eObjectActionAimReady1, object().best_weapon(), min_queue_size, max_queue_size,
 	                                  min_queue_interval, max_queue_interval);
@@ -85,7 +85,7 @@ void CStalkerActionCombatBase::aim_ready()
 void CStalkerActionCombatBase::aim_ready_force_full()
 {
 	u32 min_queue_size, max_queue_size, min_queue_interval, max_queue_interval;
-	float distance = object().memory().enemy().selected()->Position().distance_to(object().Position());
+	float distance = object().known_enemy_position(object().memory().enemy().selected()).distance_to(object().Position());
 	select_queue_params(distance, min_queue_size, max_queue_size, min_queue_interval, max_queue_interval);
 	object().CObjectHandler::set_goal(eObjectActionAimForceFull1, object().best_weapon(), min_queue_size,
 	                                  max_queue_size, min_queue_interval, max_queue_interval);

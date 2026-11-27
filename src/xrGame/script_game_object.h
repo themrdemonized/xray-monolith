@@ -877,6 +877,11 @@ public:
 
 	int get_monster_state();
 	bool is_monster_jumping();
+	u32 get_monster_jump_flags();
+	bool get_burer_shield_active();
+	int get_chimera_attack_phase();
+	bool get_poltergeist_hidden();
+	int get_poltergeist_subtype();
 	int get_monster_rank();
 	bool ability_invisibility();
 	bool ability_can_drag();
@@ -1114,6 +1119,7 @@ public:
 	bool HasUpgrade(LPCSTR upgrade);
 	void IterateInstalledUpgrades(const ::luabind::functor<bool>& functor);
 	bool WeaponInGrenadeMode();
+	float GetLaunchSpeed();
 
 	//Car
 	CScriptGameObject* GetAttachedVehicle();

@@ -165,6 +165,11 @@ public:
 	void set_force_gravi_attack(bool force_gravi) { m_force_gravi_attack = force_gravi; }
 	bool get_force_gravi_attack() const { return m_force_gravi_attack; }
 
+	// Shield currently raised (the telekinetic shield that blocks incoming hits). A read.
+	bool get_shield_active() const { return m_shield_active; }
+	// Fired from the gravi state when a gravi blast launches; relays the burer_on_gravi callback.
+	void on_gravi_fired();
+
 
 private:
 	bool m_force_gravi_attack;

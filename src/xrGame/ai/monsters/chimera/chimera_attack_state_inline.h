@@ -62,6 +62,8 @@ void ChimeraAttackState<Object>::initialize()
 template <class Object>
 void ChimeraAttackState<Object>::finalize()
 {
+	object->m_attack_phase = 0;
+
 	if (m_state == state_rotate || m_state == state_prepare_jump)
 	{
 		if (object->control().get_capturer(ControlCom::eControlPath) == m_capturer)
@@ -322,6 +324,10 @@ void ChimeraAttackState<Object>::execute()
 	CEntityAlive* enemy = const_cast<CEntityAlive*>(object->EnemyMan.get_enemy());
 	Fvector const enemy_pos = enemy->Position();
 	Fvector const self_pos = object->Position();
+
+	// Expose the phase this tick acts under to the script reader (get_chimera_attack_phase).
+	object->m_attack_phase = (u32)m_state;
+
 	Fvector const self2enemy = enemy_pos - self_pos;
 	float const self2enemy_mag = magnitude(self2enemy);
 	Fvector const self2enemy_norm = normalize(self2enemy);
