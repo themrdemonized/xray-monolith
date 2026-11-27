@@ -275,6 +275,7 @@ public:
 		m_nj--;
 	}
 
+	int dbg_exact = -1, dbg_nj = 0, dbg_nb = 0; // what the last Step did, for the handling trace
 	void SetPrefereExactIntegration() { m_flags.set_prefere_exact_integration(); }
 	void SetForceExactIntegration() { m_flags.set_force_exact_integration(); }
 	void Step(dReal step);

@@ -2,6 +2,7 @@
 #include "telekinesis.h"
 #include "../../entity_alive.h"
 #include "../../../xrphysics/PhysicsShell.h"
+#include "../../CarPush.h"
 
 CTelekinesis::CTelekinesis()
 {
@@ -20,6 +21,9 @@ CTelekinesis::~CTelekinesis()
 CTelekineticObject* CTelekinesis::activate(CPhysicsShellHolder* obj, float strength, float height, u32 max_time_keep,
                                            bool rot)
 {
+	// cars with the handling overhaul cannot be lifted by gravi anomalies, whirlwinds, burers or poltergeists
+	if (vehicle_blocks_push(obj, nullptr)) return nullptr;
+
 	active = true;
 
 	CTelekineticObject* tele_object = alloc_tele_object();

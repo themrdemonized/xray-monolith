@@ -279,6 +279,7 @@ bool CPolterTele::tele_raise_objects()
 
 		CTelekineticObject* tele_obj = m_object->CTelekinesis::activate(obj, m_pmt_raise_speed, m_pmt_object_height,
 		                                                                m_pmt_time_object_keep, rotate);
+		if (!tele_obj) return false;
 		tele_obj->set_sound(m_sound_tele_hold, m_sound_tele_throw);
 
 		return true;

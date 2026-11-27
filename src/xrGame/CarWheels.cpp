@@ -15,18 +15,35 @@ CCar::SWheel::SWheelCollisionParams::SWheelCollisionParams()
 	spring_factor = 1;
 	damping_factor = 1;
 	mu_factor = 1;
+	wheel = NULL;
 }
 
-IC void CCar::SWheel::applywheelCollisionParams(const dxGeomUserData* ud, bool& do_colide, dContact& c,
-                                                SGameMtl* material_1, SGameMtl* material_2)
+// material_2 is the surface the wheel touches (the callback passes them in that order for either geom).
+// tyre_done: the other geom's tyre (two overhaul cars wheel to wheel) has already set the contact up. Returns true
+// when the handling overhaul set it up.
+IC bool CCar::SWheel::applywheelCollisionParams(dxGeomUserData* ud, bool& do_colide, dContact& c,
+                                                SGameMtl* material_1, SGameMtl* material_2, bool tyre_done)
 {
 	if (ud && ud->object_callbacks && ud->object_callbacks->HasCallback(WheellCollisionCallback))
 	{
 		SWheelCollisionParams& cp = *((SWheelCollisionParams*)(ud->callback_data));
+		bool overhaul = cp.wheel && cp.wheel->car->HandlingActive();
+		// an overhaul tyre keeps its own grip while it is pushed back out of a triangle it passed (the collider would
+		// give that contact unlimited friction, which glued the wheel in place); the stock wheel keeps the stock rule
+		ud->push_keeps_mu = overhaul;
+		if (overhaul)
+		{
+			cp.wheel->car->HandlingContact(*cp.wheel, c, material_2, !tyre_done);
+			ud->contact_fb = cp.wheel->car->HandlingTraceSlots(*cp.wheel);
+			// set by the triangle collider before the callbacks
+			if (ud->pushing_neg || ud->pushing_b_neg) cp.wheel->vho_dbg_neg = true;
+			return true;
+		}
 		dSurfaceParameters& sp = c.surface;
 		sp.mu *= cp.mu_factor;
 		MulSprDmp(sp.soft_cfm, sp.soft_cfm, cp.spring_factor, cp.damping_factor);
 	}
+	return false;
 }
 
 void CCar::SWheel::WheellCollisionCallback(bool& do_colide, bool bo1, dContact& c, SGameMtl* material_1,
@@ -34,8 +51,8 @@ void CCar::SWheel::WheellCollisionCallback(bool& do_colide, bool bo1, dContact& 
 {
 	dxGeomUserData* ud1 = PHRetrieveGeomUserData(c.geom.g1);
 	dxGeomUserData* ud2 = PHRetrieveGeomUserData(c.geom.g2);
-	applywheelCollisionParams(ud1, do_colide, c, material_1, material_2);
-	applywheelCollisionParams(ud2, do_colide, c, material_1, material_2);
+	bool done = applywheelCollisionParams(ud1, do_colide, c, material_1, material_2, false);
+	applywheelCollisionParams(ud2, do_colide, c, material_2, material_1, done);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +88,12 @@ void CCar::SWheel::Init()
 	e->add_ObjectContactCallback(WheellCollisionCallback);
 	e->set_CallbackData((void*)&collision_params);
 	e->SetAirResistance(0, 0);
+
+	element = e;
+	collision_params.wheel = this;
+	pos = PKinematics(car->Visual())->LL_GetTransform(bone_id).c;
+	joint->GetJointSDfactors(stock_spring, stock_damping);
+	vho_spring_mul = vho_damping_mul = 1.f;
 	inited = true;
 }
 

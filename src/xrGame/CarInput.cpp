@@ -177,6 +177,9 @@ void CCar::OnKeyboardPress(int cmd)
     }
 #endif
 
+	if (HandlingActive() && HandlingInput(cmd, true))
+		return;
+
 	switch (cmd)
 	{
 	case kCAM_1: OnCameraChange(ectFirst);
@@ -235,6 +238,9 @@ void CCar::OnKeyboardRelease(int cmd)
 		return;
 	}
 #endif
+
+	if (HandlingActive() && HandlingInput(cmd, false))
+		return;
 
 	switch (cmd)
 	{

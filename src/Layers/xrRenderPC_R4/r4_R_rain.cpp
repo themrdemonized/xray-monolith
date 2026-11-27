@@ -239,7 +239,9 @@ void CRender::render_rain()
 
 	// Fill the database
 	//r_dsgraph_render_subspace				(cull_sector, &cull_frustum, cull_xform, cull_COP, TRUE);
-	r_dsgraph_render_subspace(cull_sector, &cull_frustum, cull_xform, cull_COP, FALSE);
+	// static geometry, and the dynamic objects flagged as rain occluders (vehicles), so their interiors stay dry;
+	// with none (no Vehicle Handling Overhaul) static geometry only, as stock
+	r_dsgraph_render_subspace(cull_sector, &cull_frustum, cull_xform, cull_COP, IRenderable::rain_occluders > 0 ? 2 : FALSE);
 
 	// Finalize & Cleanup
 	RainLight.X.D.combine = cull_xform; //*((Fmatrix*)&m_LightViewProj);
