@@ -25,6 +25,7 @@
 #include "../../../../xrCore/_vector3d_ext.h"
 #include "../control_direction_base.h"
 #include "../../script_game_object.h"
+#include "pch_script.h"
 
 bool CBurer::can_scan = true;
 
@@ -82,6 +83,13 @@ void CBurer::ActivateShield()
 void CBurer::DeactivateShield()
 {
 	m_shield_active = false;
+}
+
+void CBurer::on_gravi_fired()
+{
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CBurerOnGravi", funct))
+		funct(lua_game_object());
 }
 
 void CBurer::Load(LPCSTR section)
