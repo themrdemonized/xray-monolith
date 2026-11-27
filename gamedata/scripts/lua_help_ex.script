@@ -1219,6 +1219,9 @@
 		// Devices
 		function set_device_enabled(bool)
 		function is_device_enabled()
+		
+		// Weapons
+		function get_launch_speed()
 
 		// Explosive
 		function set_initiator(obj)

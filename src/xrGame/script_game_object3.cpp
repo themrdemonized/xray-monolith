@@ -2573,6 +2573,12 @@ bool CScriptGameObject::WeaponInGrenadeMode()
 	return wpn->m_bGrenadeMode;
 }
 
+float CScriptGameObject::GetLaunchSpeed()
+{
+    CRocketLauncher* wpn = smart_cast<CRocketLauncher*>(&object());
+    return (wpn) ? wpn->LaunchSpeed() : 0.0f;
+}
+
 void CScriptGameObject::SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud)
 {
 	IKinematics* k = nullptr;

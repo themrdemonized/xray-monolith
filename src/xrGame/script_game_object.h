@@ -1119,6 +1119,7 @@ public:
 	bool HasUpgrade(LPCSTR upgrade);
 	void IterateInstalledUpgrades(const ::luabind::functor<bool>& functor);
 	bool WeaponInGrenadeMode();
+	float GetLaunchSpeed();
 
 	//Car
 	CScriptGameObject* GetAttachedVehicle();
