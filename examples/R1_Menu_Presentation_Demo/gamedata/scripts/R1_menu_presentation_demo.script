@@ -1,0 +1,44 @@
+-- Optional Lua example. Install only into an isolated test profile.
+-- The native API contains no orbit, subject or addon configuration.
+local token, started, center, saved = nil, nil, nil, nil
+
+function stop()
+    if token then level.menu_scene_end(token) end
+    if saved then
+        exec_console_cmd("show_actor_body " .. saved.body)
+        exec_console_cmd("hud_weapon " .. (saved.weapon and "on" or "off"))
+    end
+    token, started, center, saved = nil, nil, nil, nil
+end
+
+function update()
+    if not db.actor or not level.present() or type(level.menu_scene_begin) ~= "function" then return end
+    if token and not level.menu_scene_active(token) then stop() end
+    if not token then
+        local acquired = level.menu_scene_begin(false)
+        if acquired == 0 then return end
+        token, started = acquired, device():time_continual()
+        center = vector():set(db.actor:position()):add(vector():set(0,1,0))
+        local console = get_console()
+        saved = {body=console:get_integer("show_actor_body"),weapon=console:get_bool("hud_weapon")}
+        exec_console_cmd("show_actor_body 2")
+        exec_console_cmd("hud_weapon off")
+    end
+    local angle = (device():time_continual()-started)*0.00015
+    local position = vector():set(center.x+math.sin(angle)*3,center.y+0.4,center.z+math.cos(angle)*3)
+    local direction = vector():set(center):sub(position)
+    if not level.menu_scene_set_camera(token,position,direction,vector():set(0,1,0),60) then stop() end
+end
+
+function on_game_start()
+    local cls = ui_main_menu.main_menu
+    local original_update = cls.Update
+    cls.Update = function(self,...)
+        original_update(self,...)
+        if self:IsShown() then update() end
+    end
+    RegisterScriptCallback("actor_on_update",function()
+        if token and not level.menu_scene_active(token) then stop() end
+    end)
+    RegisterScriptCallback("actor_on_net_destroy",stop)
+end

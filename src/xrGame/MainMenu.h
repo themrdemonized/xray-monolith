@@ -53,6 +53,22 @@ class CMainMenu :
 {
 	CUIDialogWnd* m_startDialog;
 
+	struct SceneCamera
+	{
+		Fvector position, direction, up, right;
+		Fmatrix view, projection;
+		float fov, aspect;
+	};
+	SceneCamera m_sceneCamera, m_sceneSavedCamera;
+	IGame_Level* m_sceneLevel = nullptr;
+	IGame_Level* m_sceneResumeLevel = nullptr;
+	u32 m_sceneLevelFrame = u32(-1);
+	u32 m_sceneToken = 0;
+	u32 m_sceneThreadId = GetCurrentThreadId();
+	bool m_sceneUpdateLevel = false, m_sceneWasPaused = false;
+	bool m_sceneSavedSVP = false, m_sceneUsed = false;
+	static void ApplySceneCamera(const SceneCamera& camera);
+
 
 	enum
 	{
@@ -139,6 +155,12 @@ public:
 	virtual void Activate(bool bActive);
 	virtual bool IsActive();
 	virtual bool CanSkipSceneRendering();
+	u32 BeginScene(bool updateLevel);
+	bool SetSceneCamera(u32 token, const Fvector& position, const Fvector& direction, const Fvector& up, float fov);
+	bool EndScene(u32 token);
+	bool IsSceneActive(u32 token) const;
+	bool IsSceneLive() const { return m_sceneToken && m_sceneUpdateLevel; }
+	void ResetScene();
 
 	virtual bool IgnorePause() { return true; }
 
