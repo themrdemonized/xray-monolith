@@ -860,7 +860,8 @@ void CKinematics::CalculateWallmarks()
 	}
 }
 
-void CKinematics::RenderWallmark(intrusive_ptr<CSkeletonWallmark> wm, FVF::LIT* & V)
+// skins faces [first_face, first_face + faces) of the mark, three vertices each
+void CKinematics::RenderWallmark(intrusive_ptr<CSkeletonWallmark> wm, FVF::LIT* & V, u32 first_face, u32 faces)
 {
 	PROF_EVENT("CKinematics::RenderWallmark");
 	VERIFY(wm);
@@ -871,7 +872,8 @@ void CKinematics::RenderWallmark(intrusive_ptr<CSkeletonWallmark> wm, FVF::LIT* 
 	if ((wm == 0) || (0 == bones) || (0 == bone_instances)) return;
 
 	// skin vertices
-	for (u32 f_idx = 0; f_idx < wm->m_Faces.size(); f_idx++)
+	const u32 last_face = _min(first_face + faces, u32(wm->m_Faces.size()));
+	for (u32 f_idx = first_face; f_idx < last_face; f_idx++)
 	{
 		CSkeletonWallmark::WMFace F = wm->m_Faces[f_idx];
 		float w = wm->TimeEnd() == -1.f ? 0.f : (RDEVICE.fTimeGlobal - wm->TimeStart()) / wm->TimeEnd();

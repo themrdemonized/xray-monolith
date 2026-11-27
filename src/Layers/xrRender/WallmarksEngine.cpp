@@ -116,14 +116,15 @@ void CWallmarksEngine::static_wm_destroy(CWallmarksEngine::static_wallmark* W)
 }
 
 // render
-void CWallmarksEngine::static_wm_render(CWallmarksEngine::static_wallmark* W, FVF::LIT* & V)
+// writes vertices [first, first + count) of the mark
+void CWallmarksEngine::static_wm_render(CWallmarksEngine::static_wallmark* W, FVF::LIT* & V, u32 first, u32 count)
 {
 	float a = W->TimeEnd() == -1.f ? 0.f : (RDEVICE.fTimeGlobal - W->TimeStart()) / W->TimeEnd();
 	int aC = iFloor(a * 255.f);
 	clamp(aC, 0, 255);
 	u32 C = color_rgba(128, 128, 128, aC);
-	FVF::LIT* S = &*W->verts.begin();
-	FVF::LIT* E = &*W->verts.end();
+	FVF::LIT* S = W->verts.data() + first;
+	FVF::LIT* E = S + count;
 	for (; S != E; S++, V++)
 	{
 		V->p.set(S->p);
@@ -498,6 +499,25 @@ void CWallmarksEngine::Render()
             FVF::LIT* w_verts, * w_start;
             BeginStream(hGeom, w_offset, w_verts, w_start);
 
+            // A mark can have more vertices than one lock (static marks are uncapped and can reach 22k
+            // triangles on dense geometry), so write it in chunks that fit, flushing between them.
+            auto write_bounded = [&](u32 total, BOOL suppress_cull, auto&& write)
+            {
+                for (u32 first = 0; first < total;)
+                {
+                    const u32 count = _min(total - first, max_verts);
+                    if (u32(w_verts - w_start) + count > max_verts)
+                    {
+                        FlushStream(hGeom, slot->shader, w_offset, w_verts, w_start, suppress_cull);
+                        BeginStream(hGeom, w_offset, w_verts, w_start);
+                        continue;
+                    }
+                    if (!write(first, count))
+                        return;
+                    first += count;
+                }
+            };
+
             // static wallmarks
             if (!static_empty)
             {
@@ -518,13 +538,11 @@ void CWallmarksEngine::Render()
                         float ssa = W->bounds.R * W->bounds.R / dst;
                         if (ssa >= ssaCLIP)
                         {
-                            u32 w_count = u32(w_verts - w_start);
-                            if ((w_count + W->verts.size()) >= max_verts)
+                            write_bounded(u32(W->verts.size()), FALSE, [&](u32 first, u32 count)
                             {
-                                FlushStream(hGeom, slot->shader, w_offset, w_verts, w_start, FALSE);
-                                BeginStream(hGeom, w_offset, w_verts, w_start);
-                            }
-                            static_wm_render(W, w_verts);
+                                static_wm_render(W, w_verts, first, count);
+                                return true;
+                            });
                         }
                     }
                 }
@@ -564,23 +582,21 @@ void CWallmarksEngine::Render()
                     if (ssa < ssaCLIP)
                         continue;
 
-                    u32 w_count = u32(w_verts - w_start);
-                    if ((w_count + W->VCount()) >= max_verts)
+                    write_bounded(W->VCount(), TRUE, [&](u32 first, u32 count)
                     {
-                        FlushStream(hGeom, slot->shader, w_offset, w_verts, w_start, TRUE);
-                        BeginStream(hGeom, w_offset, w_verts, w_start);
-                    }
-
-                    FVF::LIT* w_save = w_verts;
-                    try
-                    {
-                        W->Parent()->RenderWallmark(W, w_verts);
-                    }
-                    catch (...)
-                    {
-                        Msg("! Failed to render dynamic wallmark");
-                        w_verts = w_save;
-                    }
+                        FVF::LIT* w_save = w_verts;
+                        try
+                        {
+                            W->Parent()->RenderWallmark(W, w_verts, first / 3, count / 3);
+                        }
+                        catch (...)
+                        {
+                            Msg("! Failed to render dynamic wallmark");
+                            w_verts = w_save;
+                            return false;
+                        }
+                        return true;
+                    });
 
 #ifdef	DEBUG
                     W->used_in_render = u32(-1);

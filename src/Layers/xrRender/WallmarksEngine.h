@@ -57,7 +57,7 @@ private:
 	void AddWallmark_internal(CDB::TRI* pTri, const Fvector* pVerts, const Fvector& contact_point, ref_shader hTexture, float sz, float ttl, float rotation);
 
 	static_wallmark* static_wm_allocate();
-	void static_wm_render(static_wallmark* W, FVF::LIT* & V);
+	void static_wm_render(static_wallmark* W, FVF::LIT* & V, u32 first, u32 count);
 	void static_wm_destroy(static_wallmark* W);
 
 	void skeleton_wm_render(intrusive_ptr<CSkeletonWallmark>, FVF::LIT* & V);
