@@ -252,6 +252,16 @@
         bool dltx_is_override(string sec, string line)
     }
 
+    // Returned read only by getFS():append_path(alias, root, add, recursive) and getFS():get_path(alias)
+    // Call append_path once per alias, at load. A rescan of an appended alias covers its top level only
+    class FS_Path {
+        string m_Path // root plus add, lowercased, with a trailing backslash
+        string m_Root
+        string m_Add
+        string m_DefExt // nil for an appended alias
+        string m_FilterCaption // nil for an appended alias
+    }
+
     // Player hud
     // get_player_hud():set_hands("actor_hud_cs_exo")
     get_player_hud() {
