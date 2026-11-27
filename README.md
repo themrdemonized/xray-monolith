@@ -239,6 +239,34 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.11.27**
+* Main and MT:
+  * Moved solution to Visual Studio 2026, code changes to support new MSBuild
+  * Fix https://github.com/themrdemonized/xray-monolith/issues/883
+  * Guaranteed order of spawn: Actor, Parent objects, child objects. Destruction order is the opposite
+  * asuparabekon: Fix A-Life switch scan time budget units (https://github.com/themrdemonized/xray-monolith/pull/895)
+  * antglobes: Text wnd dimensions (https://github.com/themrdemonized/xray-monolith/pull/891)
+  * damiansirbu: feat(monsters): monster read and trace surface (https://github.com/themrdemonized/xray-monolith/pull/798)
+  * erepb: NPC use last known enemy position instead of live (https://github.com/themrdemonized/xray-monolith/pull/783)
+  * GhenTuong: Export launcher get\_launch\_speed(). Add script attachment helpers. (https://github.com/themrdemonized/xray-monolith/pull/894)
+  * TheLostInPlace:
+    * weapon: let scripts set the silencer section (https://github.com/themrdemonized/xray-monolith/pull/723)
+    * profiling: optick fixes and in-game profiler (pr/non-mt) (https://github.com/themrdemonized/xray-monolith/pull/778)
+  * vacwave:
+    * Fix HDR10: make fonts, inventory grid and device screens follow UI brightness (https://github.com/themrdemonized/xray-monolith/pull/882)
+    * Faster XML loading (https://github.com/themrdemonized/xray-monolith/pull/889)
+    * Fix crashes from NPC team changes, anomalies during loading, script glows, sounds and physics contacts (https://github.com/themrdemonized/xray-monolith/pull/890)
+    * Faster LuaJIT GC userdata walk (https://github.com/themrdemonized/xray-monolith/pull/892)
+    * Fix 3DSS stutter: don't fire CActor\_OnChangedSlot for NPCs (https://github.com/themrdemonized/xray-monolith/pull/893)
+
+* MT:
+  * asuparabekon: Fix wallmarks writing past the vertex buffer lock (https://github.com/themrdemonized/xray-monolith/pull/896)
+  * jgorset: Fix three races around the spawn prefetch thread (https://github.com/themrdemonized/xray-monolith/pull/879)
+  * TheLostInPlace: profiling: optick fixes and in-game profiler (mt) (https://github.com/themrdemonized/xray-monolith/pull/779)
+  * vacwave:
+    * Fix duplicate rain/lightning in MT (https://github.com/themrdemonized/xray-monolith/pull/887)
+    * Remove bump map name wait on texture loads (MT) (https://github.com/themrdemonized/xray-monolith/pull/888)
+
 **2026.11.22**
 * Main and MT:
   * erepb: fix(spawn_overlays): keep a rebuilt level's base objects and paths when its pack brings none of them (https://github.com/themrdemonized/xray-monolith/pull/873)
