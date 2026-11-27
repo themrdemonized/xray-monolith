@@ -103,6 +103,9 @@ enum
 
 extern ECORE_API Flags32 ps_r__common_flags;
 
+// r__pageable_textures: 0 auto, 1 on, 2 off. See docs/pageable-textures.txt.
+extern ECORE_API u32 ps_r__pageable_textures;
+
 // R1
 extern ECORE_API float ps_r1_ssaLOD_A;
 extern ECORE_API float ps_r1_ssaLOD_B;

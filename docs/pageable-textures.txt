@@ -1,0 +1,124 @@
+Pageable textures (DX10/DX11 host-memory fix)
+==============================================
+
+What it changes
+---------------
+DDS textures that used to be created as D3D11/D3D10 STAGING resources and
+kept until first use are instead stored as ordinary CPU allocations (pageable,
+swappable RAM). The first time a texture is sampled, the renderer creates one
+D3D USAGE_DEFAULT texture from those bytes and frees the CPU copy. Pixels,
+dimensions, mip counts, and texture_lod skipping match the previous loader
+for every DDS format this path accepts. Formats it does not accept (volumes,
+24-bit RGB, unknown FourCC, typeless DXGI formats) still go through D3DX.
+
+r__pageable_textures
+--------------------
+auto (default)
+    Replace the STAGING wait with the CPU copy. This is the path used when
+    r__no_ram_textures is off, which is the GAMMA user.ltx setting that fills
+    host memory while VRAM stays mostly empty.
+    When r__no_ram_textures is on, behavior is unchanged: textures are created
+    as immutable GPU resources during load.
+on
+    Always keep the CPU copy until first use, including when r__no_ram_textures
+    is on. Textures that are never sampled never occupy VRAM or a STAGING
+    resource. This is the setting to try when the immutable path fills an 8 GB
+    GPU and the overflow spills into host memory.
+off
+    Previous behavior. Also forced by the launch argument -nopageable_textures.
+
+Launch arguments override the console value:
+    -pageable_textures
+    -nopageable_textures
+
+user.ltx example, next to r__no_ram_textures:
+    r__pageable_textures on
+
+The choice is read when each texture is loaded (prefetch and level load), not
+when the device is created. Textures already loaded keep the residency they
+were created with.
+
+What this does not do
+---------------------
+It does not shrink the texture set. If the packed DDS bytes for everything
+the level loads exceed RAM plus swap, the process can still run out of
+ordinary memory. That memory is anonymous and swappable. The failure this
+targets is the previous one: D3D11 STAGING images, which DXVK on NVIDIA backs
+with unswappable host-visible allocations, so the kernel OOM-kills the game
+while swap is still free and VRAM is barely used.
+
+Build
+-----
+Windows, Visual Studio 2022.
+
+The solution configuration that produces the DX11 AVX exe is DX11-AVX|x64:
+
+    msbuild /p:Configuration=DX11-AVX src/engine-vs2022.sln
+
+Output:
+
+    _build\_game\bin_dbg\AnomalyDX11AVX.exe
+
+xrEngine's project configuration for that solution config is ReleaseR4-AVX|x64.
+Solution configuration Release-AVX|x64 builds AnomalyDX9AVX, not the DX11 exe.
+The texture loader is compiled into xrRender_R4, which this solution builds
+as a static library and links into the exe. Copy AnomalyDX11AVX.exe from
+that build over the modded-exes build from tag 2026.11.9 (commit
+a6a070adaf4d0bcd44bd7c7725b0a84cf11e0dec). Do not mix that exe with
+binaries from a different build.
+
+Decoder check, no Visual Studio required:
+    g++ -std=c++17 -Wall -Wextra -Werror -o dds_pageable_decode_test \
+        src/Layers/xrRenderDX10/dds_pageable_decode_test.cpp
+    ./dds_pageable_decode_test gamedata/textures/ui/cursor_cross.dds
+
+That test is not part of the Visual Studio projects.
+
+After a level load the engine log should contain a line like:
+    * texture residency: pageable N (... KB RAM, GPU upload on first use), legacy staging M, total T
+The KB figure is the full pageable total, including totals past 4 GiB.
+On the GAMMA configuration (r__no_ram_textures off, r__pageable_textures auto)
+N should be almost all of T. M is the number of DDS files that fell back to
+D3DX; the first 24 fallback names are logged as "pageable texture fallback".
+
+Draft note for DXVK issue 5816 (for the reporter to post; not filed from here)
+-------------------------------------------------------------------------------
+Unpatched X-Ray Monolith (Anomaly modded exes, through tag 2026.11.9) does
+this itself.
+
+CTexture::Load always calls CRender::texture_load(..., bStaging=true) for a
+normal DDS. Unless r__no_ram_textures is on, that creates the texture with
+D3D11_USAGE_STAGING, BindFlags 0, CPU_ACCESS_WRITE
+(src/Layers/xrRenderDX10/dx10Texture.cpp, the bStaging branch in _DDS_2D and
+_DDS_CUBE). The STAGING resource is kept. CResourceManager::DeferredUpload
+loads every texture this way, including the prefetch set, and does not promote
+them. Promotion is CTexture::ProcessStaging, and it runs only from the first
+Apply(), surface_get(), or an equivalent bind: it creates one USAGE_DEFAULT
+texture, CopyResource, then Release()s the STAGING texture.
+
+Tag 2026.11.9 logs GetDeviceRemovedReason when D3DX11CreateTextureFromMemory
+fails, then still calls R_CHK2. r__pageable_textures returns before that call
+on a successful decode, and leaves the D3DX failure path as it is.
+
+So during a save load the whole loaded set is simultaneously D3D11 STAGING and
+almost nothing has been copied to DEFAULT yet. That matches VRAM staying near
+1.7 GiB while the host-visible heap fills. On native D3D11 those STAGING
+textures are ordinary system memory. DXVK backs them with host-visible memory,
+which on NVIDIA shows up as unswappable mapped memory (process file/shmem RSS,
+anon RSS tiny, swap still free).
+
+r__no_ram_textures skips STAGING and creates USAGE_IMMUTABLE textures with the
+DDS bytes as initial data, immediately, for every texture DeferredUpload
+touches. That moves the set into VRAM. On an 8 GiB GPU the level's texture
+set fills the device and the overflow comes back as host memory, which is why
+turning the cvar on did not make a 16 GiB machine load GAMMA.
+
+There is no second persistent STAGING copy after ProcessStaging; the engine
+releases that resource. The large host allocation is the STAGING resources
+themselves, held from load until first use. Buffers are not part of this:
+geometry buffers are USAGE_DEFAULT or USAGE_DYNAMIC, not a per-texture STAGING
+shadow. The "additional STAGING resource" description matches this deferred
+D3D9-MANAGED-style upload, not a copy kept alongside a live GPU texture.
+
+-no_staging is not a launch flag in this tree. r__no_ram_textures is the
+switch, and it does not drop the resources, it changes them to IMMUTABLE.
