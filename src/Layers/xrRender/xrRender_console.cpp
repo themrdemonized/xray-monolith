@@ -517,6 +517,7 @@ float dm_current_fade = 47.5; //float(2*dm_current_size)-.5f;
 #endif
 float ps_current_detail_density = 0.6f;
 float ps_current_detail_height = 1.0f;
+bool details_reload_pending = false;
 xr_token ext_quality_token[] = {
 	{"qt_off", 0},
 	{"qt_low", 1},
@@ -605,6 +606,23 @@ public:
 
 //-AVO
 #endif
+
+// Rebuild details on next frame
+class CCC_DetailsReload : public IConsole_Command
+{
+public:
+	CCC_DetailsReload(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!RImplementation.b_loaded)
+		{
+			Log("! details_reload: no level loaded");
+			return;
+		}
+		details_reload_pending = true;
+	}
+};
 
 class CCC_tf_Aniso : public CCC_Integer
 {
@@ -1374,6 +1392,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__detail_density", &ps_current_detail_density/*&ps_r__Detail_density*/, 0.04f/*.2f*/, 1.f);
 	//AVO: extended from 0.2 to 0.04 and replaced variable
 	CMD4(CCC_Float, "r__detail_height", &ps_current_detail_height, 0.5f, 2.0f);
+	CMD1(CCC_DetailsReload, "details_reload");
 
 #ifdef DEBUG
 	CMD4(CCC_Float,		"r__detail_l_ambient",	&ps_r__Detail_l_ambient,	.5f,	.95f	);

@@ -585,6 +585,14 @@ void CRender::OnFrame()
 void CRender::OnFrame()
 {
 	Models->DeleteQueue();
+
+	if (details_reload_pending)
+	{
+		details_reload_pending = false;
+		if (b_loaded)
+			details_reload(Details);
+	}
+
 	if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
 	{
 		// MT-details (@front)
