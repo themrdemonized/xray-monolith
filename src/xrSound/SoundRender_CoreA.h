@@ -99,6 +99,7 @@ public:
 	virtual void set_master_volume(float f);
 
 	virtual const Fvector& listener_position() { return Listener.position; }
+	bool get_output_loudness(float& momentary, float& short_term, float& peak) override;
 
 	// EFX listener
 	void set_listener(const CSoundRender_Environment& env);

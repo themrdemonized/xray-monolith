@@ -9,6 +9,7 @@
 #include "../xrEngine/XR_IOConsole.h"
 
 #include <AL/efx.h>
+#include <AL/alext.h>
 
 BOOL reverb_overwrite = FALSE;
 
@@ -514,6 +515,22 @@ void CSoundRender_CoreA::set_master_volume(float f)
 	{
 		A_CHK(alListenerf (AL_GAIN,f));
 	}
+}
+
+bool CSoundRender_CoreA::get_output_loudness(float& momentary, float& short_term, float& peak)
+{
+	if (!bPresent || !pDevice)
+		return false;
+	// Device independent: alcGetProcAddress reads the static ALC function table.
+	static const auto get_loudness = FUNCTION_CAST(LPALCGETOUTPUTLOUDNESSDMN,
+		alcGetProcAddress(nullptr, "alcGetOutputLoudnessDMN"));
+	ALCfloat values[3];
+	if (!get_loudness || get_loudness(pDevice, values) != ALC_TRUE)
+		return false;
+	momentary = values[0];
+	short_term = values[1];
+	peak = values[2];
+	return true;
 }
 
 void CSoundRender_CoreA::_clear()
