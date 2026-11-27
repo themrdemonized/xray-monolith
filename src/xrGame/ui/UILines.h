@@ -38,8 +38,12 @@ public:
 
 	void Draw(float x, float y);
 
+    // antglobes
+    float GetTextWidth(bool per_line = false);
+    float GetTextHeight(bool per_line = false);
+    Fvector2 GetTextSize(bool per_line_width = false, bool per_line_height = false);
 
-	// CDeviceResetNotifier methods
+    // CDeviceResetNotifier methods
 	virtual void OnDeviceReset();
 
 	// own methods
