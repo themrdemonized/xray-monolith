@@ -47,6 +47,9 @@ public:
 	void OverrideScissoring(bool bOverride = true, BOOL bValue = TRUE);
 
 private:
+	//	Swaps m_pRState for a variant whose DepthClipEnable matches r3_depth_clip.
+	void ApplyDepthClipOverride();
+
 	void ValidateRDesc();
 	void ValidateDSDesc();
 	void ValidateBDesc();

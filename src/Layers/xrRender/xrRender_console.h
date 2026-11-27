@@ -68,6 +68,14 @@ extern ECORE_API xr_token qmsaa__atest_token[];
 extern ECORE_API u32 ps_r3_minmax_sm; //	=	0;
 extern ECORE_API xr_token qminmax_sm_token[];
 
+#if defined(USE_DX10) || defined(USE_DX11)
+// r3_depth_clip: 1 = clip geometry at the near/far planes (default, D3D behaviour),
+// 0 = depth clamp (DepthClipEnable = FALSE): geometry closer than the near plane is drawn
+// with clamped depth instead of being cut away. Note: far-plane clipping is disabled too.
+// Applied at runtime in dx10StateManager::Apply(), no restart or shader recompilation needed.
+extern ECORE_API int ps_r3_depth_clip;
+#endif
+
 extern ENGINE_API int ps_r__Supersample;
 extern ECORE_API int ps_r__LightSleepFrames;
 
