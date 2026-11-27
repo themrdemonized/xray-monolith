@@ -331,6 +331,39 @@ IC bool ImGui_IsPopupOpen(LPCSTR name)
 	return ImGui::IsPopupOpen(name);
 }
 
+// Child window: an independently scrolling, optionally bordered sub-region.
+IC bool ImGui_BeginChild(LPCSTR str_id, Fvector2 size = Fvector2{ 0,0 }, ImGuiChildFlags child_flags = 0, ImGuiWindowFlags window_flags = 0)
+{
+	return ImGui::BeginChild(str_id, *(ImVec2*)&size, child_flags, window_flags);
+}
+
+// Draw-list: freeform primitives on the current window's draw list, at absolute screen coordinates.
+// col is a packed u32 (ImGui IM_COL32 order), the same format PushStyleColor takes.
+IC void ImGui_DrawLine(Fvector2 p1, Fvector2 p2, u32 col, float thickness = 1.0f)
+{
+	ImGui::GetWindowDrawList()->AddLine(*(ImVec2*)&p1, *(ImVec2*)&p2, col, thickness);
+}
+
+IC void ImGui_DrawRectFilled(Fvector2 p_min, Fvector2 p_max, u32 col, float rounding = 0.0f)
+{
+	ImGui::GetWindowDrawList()->AddRectFilled(*(ImVec2*)&p_min, *(ImVec2*)&p_max, col, rounding, 0);
+}
+
+IC void ImGui_DrawRect(Fvector2 p_min, Fvector2 p_max, u32 col, float rounding = 0.0f, float thickness = 1.0f)
+{
+	ImGui::GetWindowDrawList()->AddRect(*(ImVec2*)&p_min, *(ImVec2*)&p_max, col, rounding, 0, thickness);
+}
+
+IC void ImGui_DrawText(Fvector2 pos, u32 col, LPCSTR text)
+{
+	ImGui::GetWindowDrawList()->AddText(*(ImVec2*)&pos, col, text);
+}
+
+IC void ImGui_DrawTriangleFilled(Fvector2 p1, Fvector2 p2, Fvector2 p3, u32 col)
+{
+	ImGui::GetWindowDrawList()->AddTriangleFilled(*(ImVec2*)&p1, *(ImVec2*)&p2, *(ImVec2*)&p3, col);
+}
+
 IC bool ImGui_BeginTable(LPCSTR name, int colums, ImGuiTableFlags flags = 0, Fvector2 size = Fvector2{ 0,0 }, float width = 0)
 {
 	return ImGui::BeginTable(name, colums, flags, *(ImVec2*)&size, width);
