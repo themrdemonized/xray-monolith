@@ -44,10 +44,12 @@ public:
 	IC void w(const void* p, u32 count)
 	{
 		VERIFY(p && count);
-		VERIFY(B.count + count < NET_PacketSizeLimit);
+		// Active in release. VERIFY is compiled out of shipping xrGame, so an oversized
+		// write used to run past B.data into B.count and the rest of the packet, which
+		// for ALife saves lives on the stack. Fail with a stack trace instead.
+		R_ASSERT2(B.count + count <= NET_PacketSizeLimit, "NET_Packet overflow: write exceeds 16 KB packet limit");
 		CopyMemory(&B.data[B.count], p, count);
 		B.count += count;
-		VERIFY(B.count < NET_PacketSizeLimit);
 	}
 
 	void w_seek(u32 pos, const void* p, u32 count);
