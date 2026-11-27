@@ -143,7 +143,8 @@ void CALifeUpdateManager::shedule_Update(u32 dt)
 
 void CALifeUpdateManager::set_process_time(int microseconds)
 {
-	graph().set_process_time(float(microseconds) - float(microseconds) * update_monster_factor() / 1000000.f);
+	// process_time is in microseconds; the switch scan compares seconds
+	graph().set_process_time(float(microseconds) * (1.f - update_monster_factor()) / 1000000.f);
 }
 
 void CALifeUpdateManager::objects_per_update(const u32& objects_per_update)
