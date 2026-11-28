@@ -51,6 +51,7 @@ IC void CProblemSolverAbstract::clear()
 
 	while (!m_evaluators.empty())
 		remove_evaluator((*(m_evaluators.end() - 1)).first);
+	m_missing_evaluators.clear();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -83,10 +84,13 @@ IC bool CProblemSolverAbstract::actual() const
 	EVALUATORS::const_iterator e = evaluators().end();
 	for (; I != E; ++I)
 	{
-		if ((*i).first < (*I).condition())
+		if ((i != e) && ((*i).first < (*I).condition()))
 			i = std::lower_bound(i, e, (*I).condition(), evaluators().value_comp());
-		VERIFY(i != e);
-		VERIFY((*i).first == (*I).condition());
+		if ((i == e) || ((*i).first != (*I).condition()) || !(*i).second)
+		{
+			evaluator((*I).condition()); // Log the unavailable property, including in Release.
+			return (false);
+		}
 		if ((*i).second->evaluate() != (*I).value())
 			return (false);
 	}
@@ -169,6 +173,10 @@ IC void CProblemSolverAbstract::add_evaluator(const _condition_type& condition_i
 {
 	THROW(evaluators().end() == evaluators().find(condition_id));
 	m_evaluators.insert(std::make_pair(condition_id, evaluator));
+	auto missing = std::find(m_missing_evaluators.begin(), m_missing_evaluators.end(), condition_id);
+	if (missing != m_missing_evaluators.end())
+		m_missing_evaluators.erase(missing);
+	m_actuality = false;
 }
 
 TEMPLATE_SPECIALIZATION
@@ -193,7 +201,15 @@ IC typename CProblemSolverAbstract::_condition_evaluator_ptr CProblemSolverAbstr
 	const _condition_type& condition_id) const
 {
 	EVALUATORS::const_iterator I = evaluators().find(condition_id);
-	THROW(evaluators().end() != I);
+	if ((I == evaluators().end()) || !(*I).second)
+	{
+		if (std::find(m_missing_evaluators.begin(), m_missing_evaluators.end(), condition_id) == m_missing_evaluators.end())
+		{
+			m_missing_evaluators.push_back(condition_id);
+			Msg("! CProblemSolver [%p]: missing or null evaluator for property id %u", static_cast<const void*>(this), u32(condition_id));
+		}
+		return (nullptr);
+	}
 	return ((*I).second);
 }
 
@@ -204,14 +220,19 @@ IC const typename CProblemSolverAbstract::EVALUATORS&CProblemSolverAbstract::eva
 }
 
 TEMPLATE_SPECIALIZATION
-IC void CProblemSolverAbstract::evaluate_condition(typename xr_vector<COperatorCondition>::const_iterator& I,
+IC bool CProblemSolverAbstract::evaluate_condition(typename xr_vector<COperatorCondition>::const_iterator& I,
                                                    typename xr_vector<COperatorCondition>::const_iterator& E,
                                                    const _condition_type& condition_id) const
 {
+	_condition_evaluator_ptr condition_evaluator = evaluator(condition_id);
+	if (!condition_evaluator)
+		return (false);
+
 	size_t index = I - m_current_state.conditions().begin();
-	m_current_state.add_condition(I, COperatorCondition(condition_id, evaluator(condition_id)->evaluate()));
+	m_current_state.add_condition(I, COperatorCondition(condition_id, condition_evaluator->evaluate()));
 	I = m_current_state.conditions().begin() + index;
 	E = m_current_state.conditions().end();
+	return (true);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -248,8 +269,7 @@ IC const typename CProblemSolverAbstract::_index_type&CProblemSolverAbstract::va
 	{
 		if ((*i).m_operator->applicable(vertex_index, current_state(), (*i).m_operator->conditions(), *this))
 		{
-			(*i).m_operator->apply(vertex_index, (*i).m_operator->effects(), m_temp, m_current_state, *this);
-			m_applied = true;
+			m_applied = (*i).m_operator->apply(vertex_index, (*i).m_operator->effects(), m_temp, m_current_state, *this);
 		}
 		else
 			m_applied = false;
@@ -291,7 +311,8 @@ IC bool CProblemSolverAbstract::is_goal_reached_impl(const _index_type& vertex_i
 			for (; (II != EE) && ((*II).condition() < (*i).condition());)
 				++II;
 			if ((II == EE) || ((*II).condition() > (*i).condition()))
-				evaluate_condition(II, EE, (*i).condition());
+				if (!evaluate_condition(II, EE, (*i).condition()))
+					return (false);
 			if ((*II).value() != (*i).value())
 				return (false);
 			++II;
@@ -317,7 +338,8 @@ IC bool CProblemSolverAbstract::is_goal_reached_impl(const _index_type& vertex_i
 	for (; i != e;)
 	{
 		if ((I == E) || ((*I).condition() > (*i).condition()))
-			evaluate_condition(I, E, (*i).condition());
+			if (!evaluate_condition(I, E, (*i).condition()))
+				return (false);
 
 		if ((*I).condition() < (*i).condition())
 			++I;
@@ -344,7 +366,8 @@ IC bool CProblemSolverAbstract::is_goal_reached_impl(const _index_type& vertex_i
 	for (; i != e;)
 	{
 		if ((I == E) || ((*I).condition() > (*i).condition()))
-			evaluate_condition(I, E, (*i).condition());
+			if (!evaluate_condition(I, E, (*i).condition()))
+				return (false);
 
 		if ((*I).condition() < (*i).condition())
 			++I;
@@ -386,6 +409,8 @@ IC void CProblemSolverAbstract::solve()
 	m_actuality = true;
 	m_solution_changed = true;
 	m_current_state.clear();
+	// A failed replan must not leave the previous action sequence executable.
+	m_solution.clear();
 
 	m_failed = !
 		ai().graph_engine().search(
@@ -450,7 +475,8 @@ IC typename CProblemSolverAbstract::_edge_value_type CProblemSolverAbstract::est
 	for (; (i != e);)
 	{
 		if ((I == E) || ((*I).condition() > (*i).condition()))
-			evaluate_condition(I, E, (*i).condition());
+			if (!evaluate_condition(I, E, (*i).condition()))
+				return (0); // An unknown value cannot contribute to the heuristic.
 
 		if ((*I).condition() < (*i).condition())
 			++I;

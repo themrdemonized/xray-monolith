@@ -90,14 +90,15 @@ void CPlanner::update()
 	{
 		// printing current world state
 		show						();
-		Msg("!ERROR: there is no action sequence, which can transfer current world state to the target one action[%s] object[%s]", current_action().m_action_name);
+		Msg("!ERROR: there is no action sequence, which can transfer current world state to the target one action[%s] object[%s]",
+		    initialized() ? current_action().m_action_name : "<none>", object_name());
 		show_current_world_state	();
 		show_target_world_state		();
 	}
 #else
-	if (bDbgAct && m_failed && current_action().m_action_name)
+	if (bDbgAct && m_failed)
 		Msg("!ERROR: there is no action sequence, which can transfer current world state to the target one. action[%s]",
-		    current_action().m_action_name);
+		    initialized() ? current_action().m_action_name : "<none>");
 #endif
 
 	THROW(!solution().empty());
@@ -153,7 +154,9 @@ IC typename CPlanner::COperator&CPlanner::action(const _action_id_type& action_i
 TEMPLATE_SPECIALIZATION
 IC typename CPlanner::CConditionEvaluator&CPlanner::evaluator(const _condition_type& evaluator_id)
 {
-	return (*inherited::evaluator(evaluator_id));
+	auto* result = inherited::evaluator(evaluator_id);
+	R_ASSERT2(result, make_string("Cannot access planner evaluator for property id %u", u32(evaluator_id)));
+	return (*result);
 }
 
 TEMPLATE_SPECIALIZATION
