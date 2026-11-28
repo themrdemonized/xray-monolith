@@ -194,6 +194,7 @@ void CRender::level_Unload()
 
 	//*** Shaders
 	Shaders.clear_and_free();
+	dxRenderDeviceRender::Instance().Resources->ReleasePinnedShaders();
 
 	if (psDeviceFlags2.test(rsClearModels))
 	{
