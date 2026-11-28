@@ -29,6 +29,8 @@ private:
     bool                    m_has_prev = false;
     float                   m_blend_speed = 8.f;
     bool                    m_logged = false;
+    bool                    m_clip_hidden = false;   // waist up hidden for a parkour clip
+    u64                     m_clip_visible = 0;      // bone visibility to restore after it
     bool is_costume_affected_bone(LPCSTR bone_name) const;
     bool should_hide_bone(LPCSTR bone_name) const;
     bool is_spine_bone(LPCSTR bone_name) const;

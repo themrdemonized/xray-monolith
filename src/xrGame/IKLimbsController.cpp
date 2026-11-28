@@ -347,6 +347,9 @@ void _stdcall CIKLimbsController::IKVisualCallback(IKinematics* K)
 #endif
 
 	CGameObject* O = ((CGameObject*)K->GetUpdateCallbackParam());
+	// Ledge Grabbing Ext: while a climb poses the body, the feet are on the wall or
+	// the edge, not the ground; ground IK would shift the whole model off its path.
+	if (g_actor && O == static_cast<CGameObject*>(g_actor) && g_actor->Parkour().PosesBody()) return;
 	CPhysicsShellHolder* Sh = smart_cast<CPhysicsShellHolder*>(O);
 	VERIFY(Sh);
 	CIKLimbsController* ik = Sh->character_ik_controller();
