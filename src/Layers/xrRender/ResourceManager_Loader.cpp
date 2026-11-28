@@ -8,6 +8,7 @@
 void CResourceManager::OnDeviceDestroy(BOOL)
 {
 	if (RDEVICE.b_is_Ready) return;
+	ReleasePinnedShaders();
 	m_textures_description.UnLoad();
 
 	// Matrices
@@ -183,4 +184,20 @@ void CResourceManager::StoreNecessaryTextures()
 void CResourceManager::DestroyNecessaryTextures()
 {
 	m_necessary.clear();
+}
+
+void CResourceManager::PinShader(const ref_shader& S)
+{
+	xrCriticalSectionGuard guard(creationGuard);
+	if (std::find(m_pinned_shaders.begin(), m_pinned_shaders.end(), S) == m_pinned_shaders.end())
+		m_pinned_shaders.push_back(S);
+}
+
+void CResourceManager::ReleasePinnedShaders()
+{
+	xr_vector<ref_shader> pinned;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		pinned.swap(m_pinned_shaders);
+	}
 }

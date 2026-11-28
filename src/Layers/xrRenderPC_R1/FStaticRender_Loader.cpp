@@ -166,6 +166,7 @@ void CRender::level_Unload()
 
 	//*** Shaders
 	Shaders.clear_and_free();
+	dxRenderDeviceRender::Instance().Resources->ReleasePinnedShaders();
 
 	//. dbg
 #ifdef DEBUG
