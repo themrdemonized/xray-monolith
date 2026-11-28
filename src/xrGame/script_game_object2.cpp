@@ -361,6 +361,56 @@ void CScriptGameObject::restore_sound_threshold()
 	monster->memory().sound().restore_threshold();
 }
 
+void CScriptGameObject::set_sound_threshold_floor(float value)
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSoundMemoryManager : cannot access class member set_sound_threshold_floor!");
+		return;
+	}
+	monster->memory().sound().set_min_threshold(value);
+}
+
+void CScriptGameObject::set_sound_factor(int sound_type, float value)
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSoundMemoryManager : cannot access class member set_sound_factor!");
+		return;
+	}
+	monster->memory().sound().set_factor(sound_type, value);
+}
+
+// re-reads the floor and the five factors from the object's own section, the same read net_Spawn does
+void CScriptGameObject::restore_hearing()
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSoundMemoryManager : cannot access class member restore_hearing!");
+		return;
+	}
+	monster->memory().sound().reload(*monster->cNameSect());
+	monster->memory().sound().restore_threshold();
+}
+
+float CScriptGameObject::get_sound_threshold() const
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSoundMemoryManager : cannot access class member get_sound_threshold!");
+		return -1.f;
+	}
+	return monster->memory().sound().threshold();
+}
+
 void CScriptGameObject::SetStartDialog(LPCSTR dialog_id)
 {
 	CAI_PhraseDialogManager* pDialogManager = smart_cast<CAI_PhraseDialogManager*>(&object());

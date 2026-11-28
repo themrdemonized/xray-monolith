@@ -425,6 +425,10 @@ public:
 	virtual void set_geometry_occ(CDB::MODEL* M) = 0;
 	virtual void set_handler(sound_event* E) = 0;
 
+	// per-game-type clamp of the AI reach a sound takes at emitter start; a side <= 0 leaves that side unclamped
+	virtual void set_ai_range(int game_type, float min_m, float max_m) = 0;
+	virtual void clear_ai_ranges() = 0;
+
 	virtual void update(const Fvector& P, const Fvector& D, const Fvector& N) = 0;
 	virtual void statistic(CSound_stats* s0, CSound_stats_ext* s1) = 0;
 
