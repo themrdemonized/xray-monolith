@@ -252,7 +252,8 @@ IC bool CAbstractOperator::applicable(const CSConditionState& current, const CSC
 			for (; (II != EE) && ((*II).condition() < (*i).condition());)
 				++II;
 			if ((II == EE) || ((*II).condition() > (*i).condition()))
-				problem_solver.evaluate_condition(II, EE, (*i).condition());
+				if (!problem_solver.evaluate_condition(II, EE, (*i).condition()))
+					return (false);
 			if ((*II).value() != (*i).value())
 				return (false);
 			++II;
@@ -278,7 +279,8 @@ IC bool CAbstractOperator::applicable(const CSConditionState& current, const CSC
 	for (; i != e;)
 	{
 		if ((I == E) || ((*I).condition() > (*i).condition()))
-			problem_solver.evaluate_condition(I, E, (*i).condition());
+			if (!problem_solver.evaluate_condition(I, E, (*i).condition()))
+				return (false);
 
 		if ((*I).condition() < (*i).condition())
 			++I;
@@ -297,7 +299,7 @@ IC bool CAbstractOperator::applicable(const CSConditionState& current, const CSC
 
 TEMPLATE_SPECIALIZATION
 template <typename T>
-IC const typename CAbstractOperator::CSConditionState&CAbstractOperator::apply(
+IC bool CAbstractOperator::apply(
 	const CSConditionState& current, const CSConditionState& effects, CSConditionState& result, CSConditionState& start,
 	T& problem_solver) const
 {
@@ -320,7 +322,8 @@ IC const typename CAbstractOperator::CSConditionState&CAbstractOperator::apply(
 			for (; (II != EE) && ((*II).condition() < (*i).condition());)
 				++II;
 			if ((II == EE) || ((*II).condition() > (*i).condition()))
-				problem_solver.evaluate_condition(II, EE, (*i).condition());
+				if (!problem_solver.evaluate_condition(II, EE, (*i).condition()))
+					return (false);
 			if ((*II).value() != (*i).value())
 				result.add_condition_back(*i);
 			++II;
@@ -343,13 +346,14 @@ IC const typename CAbstractOperator::CSConditionState&CAbstractOperator::apply(
 	{
 		for (; I != E; ++I)
 			result.add_condition_back(*I);
-		return (result);
+		return (true);
 	}
 
 	for (; i != e;)
 	{
 		if ((I == E) || ((*I).condition() > (*i).condition()))
-			problem_solver.evaluate_condition(I, E, (*i).condition());
+			if (!problem_solver.evaluate_condition(I, E, (*i).condition()))
+				return (false);
 
 		if ((*I).condition() < (*i).condition())
 			++I;
@@ -363,7 +367,7 @@ IC const typename CAbstractOperator::CSConditionState&CAbstractOperator::apply(
 		}
 	}
 
-	return (result);
+	return (true);
 }
 
 TEMPLATE_SPECIALIZATION

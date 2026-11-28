@@ -81,6 +81,7 @@ public:
 protected:
 	OPERATOR_VECTOR m_operators;
 	EVALUATORS m_evaluators;
+	mutable xr_vector<_condition_type> m_missing_evaluators;
 	xr_vector<_edge_type> m_solution;
 	CState m_target_state;
 	mutable CState m_current_state;
@@ -164,7 +165,8 @@ public:
 	IC virtual void remove_evaluator(const _condition_type& condition_id);
 	IC _condition_evaluator_ptr evaluator(const _condition_type& condition_id) const;
 	IC const EVALUATORS& evaluators() const;
-	IC void evaluate_condition(typename xr_vector<COperatorCondition>::const_iterator& I,
+	// Returns false without modifying the state or iterators if the evaluator is unavailable.
+	IC bool evaluate_condition(typename xr_vector<COperatorCondition>::const_iterator& I,
 	                           typename xr_vector<COperatorCondition>::const_iterator& E,
 	                           const _condition_type& condition_id) const;
 
