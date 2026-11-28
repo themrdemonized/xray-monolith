@@ -244,6 +244,7 @@ local intercepts = {
 local next_index = {}
 local callback_order = {}
 local callback_constraints = {}
+local callback_sorted = {} -- name -> array of callbacks in call order, nil = rebuild
 
 for name,v in pairs(intercepts) do
 	next_index[name] = 1
@@ -325,6 +326,7 @@ local function callback_reorder(name)
 	local order = callback_order[name]
 	local constraints = callback_constraints[name]
 	local edges = {}
+	local tier_has_edges = {}
 	local indegree = {}
 	local tier_members = {
 		[CALLBACKS_PRE] = {},
@@ -363,7 +365,6 @@ local function callback_reorder(name)
 			next_index[name] = next_index[name] + 1
 		end
 
-		edges[func_or_userdata] = {}
 		indegree[func_or_userdata] = 0
 		tier_members[rule.priority][func_or_userdata] = true
 	end
@@ -372,8 +373,14 @@ local function callback_reorder(name)
 		if from_func == to_func then
 			return false, string.format("callback depends on itself")
 		end
-		if not edges[from_func][to_func] then
-			edges[from_func][to_func] = true
+		local e = edges[from_func]
+		if not e then
+			e = {}
+			edges[from_func] = e
+		end
+		tier_has_edges[constraints[from_func].priority] = true
+		if not e[to_func] then
+			e[to_func] = true
 			indegree[to_func] = indegree[to_func] + 1
 		end
 		return true
@@ -446,6 +453,33 @@ local function callback_reorder(name)
 			remaining_count = remaining_count + 1
 		end
 
+		-- Fast path: no edges in this tier, so order is just registration order.
+		local fast_done = false
+		if not tier_has_edges[tier] then
+			local nums = {}
+			local by_order = {}
+			local ok_fast = true
+			for func_or_userdata in pairs(tier_members[tier]) do
+				local num = order[func_or_userdata]
+				if not num or by_order[num] ~= nil then
+					ok_fast = false
+					break
+				end
+				by_order[num] = func_or_userdata
+				nums[#nums + 1] = num
+			end
+			if ok_fast then
+				table.sort(nums)
+				for j = 1, #nums do
+					proposed_order[#proposed_order + 1] = by_order[nums[j]]
+				end
+				fast_done = true
+			end
+		end
+		if fast_done then
+			remaining_count = 0
+		end
+
 		while remaining_count > 0 do
 			local selected = nil
 			local selected_order = nil
@@ -471,7 +505,7 @@ local function callback_reorder(name)
 			remaining[selected] = nil
 			remaining_count = remaining_count - 1
 
-			for target in pairs(edges[selected]) do
+			for target in pairs(edges[selected] or {}) do
 				if remaining[target] then
 					indegree[target] = indegree[target] - 1
 				end
@@ -483,6 +517,7 @@ local function callback_reorder(name)
 	for priority = 1, #proposed_order do
 		callbacks[proposed_order[priority]] = priority
 	end
+	callback_sorted[name] = nil
 	return true
 end
 
@@ -497,6 +532,7 @@ end
 function callback_add(name)
 	if (not intercepts[name]) then
 		intercepts[name] = {}
+		callback_sorted[name] = nil
 		next_index[name] = 1
 		callback_order[name] = {}
 		callback_constraints[name] = {}
@@ -518,6 +554,8 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 		callstack()
 		return
 	end
+
+	callback_sorted[name] = nil
 
 	local normalized_before, before_error = callback_normalize_constraint_list(before_funcs, "before_funcs")
 	if not normalized_before then
@@ -572,6 +610,7 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 		callback_order[name][func_or_userdata] = old_order
 		callback_constraints[name][func_or_userdata] = old_constraint
 		intercepts[name][func_or_userdata] = old_priority
+		callback_sorted[name] = nil
 
 		printf("![axr_main callback_set] rejected callback for %s: %s", tostring(func_or_userdata), name, reorder_error)
 		callstack()
@@ -581,6 +620,7 @@ end
 function callback_unset(name,func_or_userdata)
 	if (intercepts[name]) then
 		intercepts[name][func_or_userdata] = nil
+		callback_sorted[name] = nil
 		callback_order[name][func_or_userdata] = nil
 		callback_constraints[name][func_or_userdata] = nil
 
@@ -608,11 +648,24 @@ end
 
 function make_callback(name,...)
 	if (intercepts[name]) then
-		for func_or_userdata, v in spairs(intercepts[name], sort_func_values_ascend) do 
-			if (type(func_or_userdata) == "function") then 
-				func_or_userdata(...)
-			elseif (func_or_userdata[name]) then
-				func_or_userdata[name](func_or_userdata,...)
+		local callbacks = intercepts[name]
+		local list = callback_sorted[name]
+		if not list then
+			list = {}
+			for func_or_userdata in pairs(callbacks) do
+				list[#list + 1] = func_or_userdata
+			end
+			table.sort(list, function(a, b) return callbacks[a] < callbacks[b] end)
+			callback_sorted[name] = list
+		end
+		for i = 1, #list do
+			local func_or_userdata = list[i]
+			if callbacks[func_or_userdata] ~= nil then
+				if (type(func_or_userdata) == "function") then
+					func_or_userdata(...)
+				elseif (func_or_userdata[name]) then
+					func_or_userdata[name](func_or_userdata,...)
+				end
 			end
 		end
 	else
