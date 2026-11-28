@@ -24,9 +24,28 @@ public:
 	Fmatrix* val_pTransform;
 	BOOL val_bHUD;
 	BOOL val_bUI3D;
+	u32 val_busTag;
+	// shader bus object mask bits live this frame, read once at the render start
+	u32 bus_live_bits = 0;
+	// mask layer bits this frame, 0 in a second viewport frame or while no layer target exists
+	u32 bus_layer_bits = 0;
+	// mask bits that also reach objects the game does not draw, 0 in a second viewport frame or while no mask target exists
+	u32 bus_hidden_bits = 0;
+	// mask bits that also reach forward and sorted meshes, 0 in a second viewport frame or while no mask target exists
+	u32 bus_forward_bits = 0;
+	// tagged forward leaves and hidden objects of this frame, drawn into the object mask after the forward pass
+	xr_vector<R_dsgraph::_MatrixItemS> bus_forward;
+	// mesh leaves of hidden tagged objects this frame, drawn into the object mask with their own depth first
+	xr_vector<R_dsgraph::_MatrixItemS> bus_hidden;
+	// the screen rectangles of the hidden objects listed this frame, where the scene depth is resolved
+	xr_vector<Fvector4> bus_hidden_rects;
+	// hidden tagged objects the deferred gather kept while occlusion was live, inserted by the forward gather
+	xr_vector<CObject*> bus_hidden_found;
 	BOOL val_bCamAttached;
 	float val_fCustomFOV;
 	BOOL val_bInvisible;
+	// inserts go to the object mask list alone, for an object the game does not draw
+	BOOL val_bMaskOnly = FALSE;
 	BOOL val_bRecordMP; // record nearest for multi-pass
 	R_feedback* val_feedback; // feedback for geometry being rendered
 	u32 val_feedback_breakp; // breakpoint
@@ -113,10 +132,13 @@ public:
 		val_pTransform = M;
 	}
 
-	virtual void set_HUD(BOOL V) { val_bHUD = V; }
+	virtual void set_HUD(BOOL V) { val_bHUD = V; val_busTag = 0; }
 	virtual BOOL get_HUD() { return val_bHUD; }
 	virtual void set_UI3D(BOOL V) { val_bUI3D = V; }
 	virtual BOOL get_UI3D() { return val_bUI3D; }
+	virtual void set_BusTag(u32 tag) { val_busTag = tag; }
+	virtual u32 get_BusTag() { return val_busTag; }
+	virtual IRenderable* get_Object() { return val_pObject; }
 	virtual void set_CamAttached(BOOL V) { val_bCamAttached = V; }
 	virtual BOOL get_CamAttached() { return val_bCamAttached; }
 	virtual void set_CustomFOV(float V) { val_fCustomFOV = V; }
@@ -149,6 +171,7 @@ public:
 		val_pTransform = NULL;
 		val_bHUD = FALSE;
 		val_bUI3D = FALSE;
+		val_busTag = 0;
 		val_bCamAttached = FALSE;
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
@@ -234,7 +257,18 @@ public:
 	void r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center);
 	void r_dsgraph_insert_static(dxRender_Visual* pVisual);
 
+	template<bool BusMask = false>
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
+#if defined(USE_DX10) || defined(USE_DX11)
+	// redraws the tagged priority 0 matrix items into the shader bus mask and clears them
+	void r_dsgraph_render_bus_mask();
+	// redraws the tagged forward leaves and hidden objects into the shader bus mask and clears them
+	void r_dsgraph_render_bus_forward();
+	// keeps the tagged objects of the hidden bits the frame drew nowhere, culled while occlusion is live
+	void r_dsgraph_collect_bus_hidden();
+	// inserts the kept hidden objects for the forward mask draw
+	void r_dsgraph_add_bus_hidden();
+#endif
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_ui_3d();

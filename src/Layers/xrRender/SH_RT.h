@@ -9,7 +9,9 @@ public:
 	CRT();
 	~CRT();
 #ifdef USE_DX11
-	void	create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1, bool useUAV = false );
+	void	create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1, bool useUAV = false, bool mips = false );
+#elif defined(USE_DX10)
+	void create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1, bool mips = false);
 #else
 	void create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1);
 #endif
@@ -41,7 +43,9 @@ public:
 struct resptrcode_crt : public resptr_base<CRT>
 {
 #ifdef USE_DX11
-	void				create			(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1, bool useUAV = false );
+	void				create			(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1, bool useUAV = false, bool mips = false );
+#elif defined(USE_DX10)
+	void create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1, bool mips = false);
 #else
 	void create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount = 1);
 #endif
