@@ -87,6 +87,7 @@ private:
 	xr_vector<Shader*> v_shaders;
 
 	xr_vector<ref_texture> m_necessary;
+	xr_vector<ref_shader> m_pinned_shaders;
 	// misc
 	xrCriticalSection creationGuard;
 
@@ -237,6 +238,8 @@ public:
     void EvictStalledTextures();
 	void StoreNecessaryTextures();
 	void DestroyNecessaryTextures();
+	void PinShader(const ref_shader& S);
+	void ReleasePinnedShaders();
 	void Dump(bool bBrief);
 
 private:

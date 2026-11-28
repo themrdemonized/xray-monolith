@@ -148,6 +148,7 @@ void dxRender_Visual::SetShaderTexture(LPCSTR s_shader, LPCSTR s_texture)
 	Engine.External.SetSkinningMode(skinning);
     	bool prev_hud = ::Render->hud_loading;
     	::Render->hud_loading = hud;
+    	if (shader) DEV->PinShader(shader);
     	shader.create(*dbg_shader, *dbg_texture);
     	::Render->hud_loading = prev_hud;
 }
