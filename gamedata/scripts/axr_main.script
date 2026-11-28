@@ -245,11 +245,14 @@ local next_index = {}
 local callback_order = {}
 local callback_constraints = {}
 local callback_sorted = {} -- name -> array of callbacks in call order, nil = rebuild
+local callback_dirty = {} -- name -> true when priorities must be recomputed before the next call
+local callback_targeted = {} -- name -> callback -> number of before/after entries naming it
 
 for name,v in pairs(intercepts) do
 	next_index[name] = 1
 	callback_order[name] = {}
 	callback_constraints[name] = {}
+	callback_targeted[name] = {}
 end
 
 local function callback_priority_name(priority)
@@ -306,6 +309,20 @@ local function callback_remove_constraint_target(targets, target)
 	end
 	for i = 1, #remove_keys do
 		targets[remove_keys[i]] = nil
+	end
+end
+
+-- Add delta to callback_targeted for every before/after entry of a rule.
+local function callback_count_targets(name, rule, delta)
+	if not rule then
+		return
+	end
+	local targeted = callback_targeted[name]
+	for _, targets in pairs({rule.before or {}, rule.after or {}}) do
+		for k, target in pairs(targets) do
+			local count = (targeted[target] or 0) + delta
+			targeted[target] = count > 0 and count or nil
+		end
 	end
 end
 
@@ -518,6 +535,7 @@ local function callback_reorder(name)
 		callbacks[proposed_order[priority]] = priority
 	end
 	callback_sorted[name] = nil
+	callback_dirty[name] = nil
 	return true
 end
 
@@ -533,9 +551,11 @@ function callback_add(name)
 	if (not intercepts[name]) then
 		intercepts[name] = {}
 		callback_sorted[name] = nil
+		callback_dirty[name] = nil
 		next_index[name] = 1
 		callback_order[name] = {}
 		callback_constraints[name] = {}
+		callback_targeted[name] = {}
 	else
 		printf("![axr_main callback_add] callback %s already exists!",name)
 		callstack()
@@ -590,16 +610,25 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 		next_index[name] = next_index[name] + 1
 	end
 
+	callback_count_targets(name, old_constraint, -1)
 	callback_constraints[name][func_or_userdata] = {
 		priority = priority,
 		before = normalized_before,
 		after = normalized_after
 	}
+	callback_count_targets(name, callback_constraints[name][func_or_userdata], 1)
 
 	-- New callbacks need to be visible to callback_reorder(). Existing callbacks
 	-- keep their old numeric priority until the proposed graph is validated.
 	if not was_registered then
 		intercepts[name][func_or_userdata] = callback_order[name][func_or_userdata]
+	end
+
+	-- No before/after entries and not named by any rule: no ordering edges, so the
+	-- registration cannot be rejected. Defer the reorder to the next make_callback().
+	if next(normalized_before) == nil and next(normalized_after) == nil and not callback_targeted[name][func_or_userdata] then
+		callback_dirty[name] = true
+		return
 	end
 
 	local ok, reorder_error = callback_reorder(name)
@@ -608,7 +637,9 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 		-- not commit partial priorities, so the previous valid order is preserved.
 		next_index[name] = old_next_index
 		callback_order[name][func_or_userdata] = old_order
+		callback_count_targets(name, callback_constraints[name][func_or_userdata], -1)
 		callback_constraints[name][func_or_userdata] = old_constraint
+		callback_count_targets(name, old_constraint, 1)
 		intercepts[name][func_or_userdata] = old_priority
 		callback_sorted[name] = nil
 
@@ -619,26 +650,31 @@ end
 
 function callback_unset(name,func_or_userdata)
 	if (intercepts[name]) then
+		local rule = callback_constraints[name][func_or_userdata]
+		local targeted = callback_targeted[name]
+
+		-- Removing a callback without ordering edges keeps the relative order of
+		-- the others, so only edged callbacks need a reorder.
+		if (rule and (next(rule.before or {}) ~= nil or next(rule.after or {}) ~= nil)) or targeted[func_or_userdata] then
+			callback_dirty[name] = true
+		end
+
 		intercepts[name][func_or_userdata] = nil
 		callback_sorted[name] = nil
 		callback_order[name][func_or_userdata] = nil
+		callback_count_targets(name, rule, -1)
 		callback_constraints[name][func_or_userdata] = nil
 
 		-- Functions may be intentionally referenced while unregistered so they can
 		-- be registered again later and reactivate forward constraints. LuaBind
 		-- userdata is different: remove references to it so stale binder instances
 		-- are not kept alive solely by another callback's constraint table.
-		if type(func_or_userdata) == "userdata" then
+		if type(func_or_userdata) == "userdata" and targeted[func_or_userdata] then
 			for other_callback, rule in pairs(callback_constraints[name]) do
 				callback_remove_constraint_target(rule.before, func_or_userdata)
 				callback_remove_constraint_target(rule.after, func_or_userdata)
 			end
-		end
-
-		local ok, reorder_error = callback_reorder(name)
-		if not ok then
-			printf("![axr_main callback_unset] failed to reorder callback %s after unregistering %s: %s", name, tostring(func_or_userdata), reorder_error)
-			callstack()
+			targeted[func_or_userdata] = nil
 		end
 	else
 		printf("![axr_main callback_unset] callback %s doesn't exist!",name)
@@ -649,6 +685,14 @@ end
 function make_callback(name,...)
 	if (intercepts[name]) then
 		local callbacks = intercepts[name]
+		if callback_dirty[name] then
+			local ok, reorder_error = callback_reorder(name)
+			if not ok then
+				callback_dirty[name] = nil
+				printf("![axr_main make_callback] failed to reorder callback %s: %s", name, reorder_error)
+				callstack()
+			end
+		end
 		local list = callback_sorted[name]
 		if not list then
 			list = {}
