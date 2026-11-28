@@ -44,7 +44,8 @@ namespace spawn_overlays
 		// object), then applies [spawn_patch@<name>] to base and added templates alike, removes the templates on
 		// [level_cut] levels and the level changers leading to them, and logs level changers that overlap. graph
 		// must already be the assembled one.
-		void apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph);
+		// Returns the first spawn id of the added templates, every later id is an added one too
+		ALife::_SPAWN_ID apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph);
 		// Adds the paths of $game_spawn$\<level_name>\*.game fragments (SDK level.game format) and of packs whose
 		// names storage lacks, remapped to graph, applies [path_remove], then erases the paths on [level_cut] levels.
 		void add_paths(CPatrolPathStorage& storage, const CGameGraph& graph);

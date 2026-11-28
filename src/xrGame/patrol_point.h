@@ -20,10 +20,11 @@ class CPatrolPoint : public IPureSerializeObject<IReader, IWriter>
 {
 protected:
 	shared_str m_name;
-	Fvector m_position;
-	u32 m_flags;
-	u32 m_level_vertex_id;
-	GameGraph::_GRAPH_ID m_game_vertex_id;
+	// a point with no flags key and no vertex yet reads 0 and invalid ids
+	Fvector m_position{};
+	u32 m_flags = 0;
+	u32 m_level_vertex_id = u32(-1);
+	GameGraph::_GRAPH_ID m_game_vertex_id = GameGraph::_GRAPH_ID(-1);
 	// ids came from the nearest game vertex of the level, not from the AI map; fixed by resolve()
 	bool m_approximate;
 

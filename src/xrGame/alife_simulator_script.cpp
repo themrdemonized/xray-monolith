@@ -159,13 +159,20 @@ u32 get_level_id(CALifeSimulator* self)
 CSE_ALifeDynamicObject* CALifeSimulator__create(CALifeSimulator* self, ALife::_SPAWN_ID spawn_id)
 {
 	const CALifeSpawnRegistry::SPAWN_GRAPH::CVertex* vertex = ai().alife().spawns().spawns().vertex(spawn_id);
-	THROW2(vertex, "Invalid spawn id!");
+	if (!vertex)
+	{
+		Msg("! alife():create: spawn id %d not found", spawn_id);
+		return (nullptr);
+	}
 
 	CSE_ALifeDynamicObject* spawn = smart_cast<CSE_ALifeDynamicObject*>(&vertex->data()->object());
 	THROW(spawn);
 
 	CSE_ALifeDynamicObject* object;
 	self->create(object, spawn, spawn_id);
+	if (!object)
+		Msg("! alife():create: added spawn %d not created, %d object ids are kept free (%d free)", spawn_id,
+		    CALifeSimulatorBase::ADDED_SPAWN_ID_RESERVE, self->server().free_id_count());
 
 	return (object);
 }
@@ -330,7 +337,10 @@ CSE_Abstract* CALifeSimulator__spawn_ammo(CALifeSimulator* self, LPCSTR section,
 
 ALife::_SPAWN_ID CALifeSimulator__spawn_id(CALifeSimulator* self, ALife::_SPAWN_STORY_ID spawn_story_id)
 {
-	return (((const CALifeSimulator *)self)->spawns().spawn_id(spawn_story_id));
+	const ALife::_SPAWN_ID spawn_id = ((const CALifeSimulator *)self)->spawns().spawn_id(spawn_story_id);
+	if (spawn_id == ALife::_SPAWN_ID(-1))
+		Msg("! alife():spawn_id: spawn story id %u not found", spawn_story_id);
+	return (spawn_id);
 }
 
 void CALifeSimulator__release(CALifeSimulator* self, CSE_Abstract* object, bool)

@@ -29,6 +29,7 @@ CALifeSpawnRegistry::CALifeSpawnRegistry(LPCSTR section)
 	m_graph_buffer = nullptr;
 	m_chunk = 0;
 	m_file = 0;
+	m_first_added_spawn_id = ALife::_SPAWN_ID(-1);
 }
 
 CALifeSpawnRegistry::~CALifeSpawnRegistry()
@@ -198,7 +199,7 @@ void CALifeSpawnRegistry::load(IReader& file_stream, xrGUID* save_guid)
 	R_ASSERT2((header().graph_guid() == ai().game_graph().header().guid()) || ignore_save_incompatibility(),
 	          "Spawn doesn't correspond to the graph : REBUILD SPAWN!");
 
-	overlays.apply_objects(m_spawns, *m_game_graph);
+	m_first_added_spawn_id = overlays.apply_objects(m_spawns, *m_game_graph);
 
 	// after the graph: patrol_paths.ltx 'level =' sections resolve their points on it
 	chunk = file_stream.open_chunk(3);

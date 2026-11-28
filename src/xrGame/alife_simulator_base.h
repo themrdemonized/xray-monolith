@@ -112,6 +112,9 @@ public:
 	void register_object(CSE_ALifeDynamicObject* object, bool add_object = false);
 	void unregister_object(CSE_ALifeDynamicObject* object, bool alife_query = true);
 	void release(CSE_Abstract* object, bool alife_query = true);
+	// an added spawn template makes no object once fewer object ids than this are free
+	static const u32 ADDED_SPAWN_ID_RESERVE = 16384;
+	// object is null when spawn_id is an added template refused by ADDED_SPAWN_ID_RESERVE
 	void create(CSE_ALifeDynamicObject*& object, CSE_ALifeDynamicObject* spawn_object,
 	            const ALife::_SPAWN_ID& spawn_id);
 	void create(CSE_ALifeObject* object);

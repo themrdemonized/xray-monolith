@@ -47,7 +47,8 @@ LPCSTR _CopyVal(LPCSTR src, LPSTR dst, u32 const dst_size, char separator)
 	size_t n;
 	p = strchr(src, separator);
 	n = (p > 0) ? (p - src) : xr_strlen(src);
-	strncpy(dst, src, _min(dst_size, (u32)n));
+	n = _min(n, (size_t)dst_size - 1);
+	strncpy(dst, src, n);
 	dst[n] = 0;
 	return dst;
 }

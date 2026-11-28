@@ -13,8 +13,13 @@ class NET_Packet;
 namespace spawn_overlays
 {
 	typedef CALifeSpawnRegistry::SPAWN_GRAPH SPAWN_GRAPH;
+	// names match without regard to case because the ini reader lower cases section names
+	struct name_less
+	{
+		bool operator()(const shared_str& a, const shared_str& b) const { return stricmp(*a, *b) < 0; }
+	};
 	// names are not unique; one vector per name.
-	typedef xr_map<shared_str, xr_vector<ALife::_SPAWN_ID> > NAME_INDEX;
+	typedef xr_map<shared_str, xr_vector<ALife::_SPAWN_ID>, name_less> NAME_INDEX;
 	// same name on the same level within this distance = the same object
 	const float SAME_OBJECT_TOLERANCE = 1.f;
 
@@ -38,7 +43,7 @@ namespace spawn_overlays
 		explicit STemplates(SPAWN_GRAPH& spawns);
 	};
 
-	bool find_template(const SPAWN_GRAPH& spawns, const NAME_INDEX& index, LPCSTR name, LPCSTR match_position, ALife::_SPAWN_ID& spawn_id, string256& reason);
+	bool find_template(const SPAWN_GRAPH& spawns, const NAME_INDEX& index, LPCSTR name, const Fvector* match_position, ALife::_SPAWN_ID& spawn_id, string256& reason);
 	bool same_object_present(const SPAWN_GRAPH& spawns, const NAME_INDEX& index, const CGameGraph& graph, LPCSTR name, GameGraph::_LEVEL_ID level_id, const Fvector& position, ALife::_SPAWN_ID* match = nullptr);
 	void remove_template(STemplates& templates, LPCSTR name, ALife::_SPAWN_ID spawn_id);
 	bool claim_id(xr_set<u32>& taken, u32 id);

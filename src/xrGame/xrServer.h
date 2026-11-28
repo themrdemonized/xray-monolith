@@ -185,6 +185,11 @@ public:
 		return (m_tID_Generator.vfFreeID(ID, time));
 	}
 
+	IC u32 free_id_count() const
+	{
+		return (m_tID_Generator.free_count());
+	}
+
 	void Perform_connect_spawn(CSE_Abstract* E, xrClientData* to, NET_Packet& P);
 	void Perform_transfer(NET_Packet& PR, NET_Packet& PT, CSE_Abstract* what, CSE_Abstract* from, CSE_Abstract* to);
 	void Perform_reject(CSE_Abstract* what, CSE_Abstract* from, int delta);

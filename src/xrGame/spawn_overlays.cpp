@@ -10,6 +10,11 @@
 #include "game_graph_builder.h"
 #include "patrol_path_storage.h"
 #include "restriction_space.h"
+#include "ai_space.h"
+#include "../xrServerEntities/script_engine.h"
+#include "../xrServerEntities/xrServer_Objects_ALife_Smartcovers.h"
+
+extern u16 script_server_object_version();
 
 using namespace spawn_overlays;
 
@@ -41,6 +46,38 @@ namespace
 		return false;
 	}
 
+	// Physics counts a point 100 km outside the level box as invalid (MathUtils.h valid_pos)
+	// Angles, shape sizes and cover numbers have no runtime limit and take it as a loose magnitude bound
+	const float POSITION_LIMIT = 100000.f;
+	// CInifile::r_section and the string256 copies of names hold 255 characters
+	const u32 NAME_LIMIT = 256;
+
+	// count comma separated finite numbers, each within limit, and nothing else
+	bool parse_floats(LPCSTR text, float* result, const int count, const float limit)
+	{
+		for (int i = 0; i < count; ++i)
+		{
+			char* end;
+			result[i] = strtof(text, &end);
+			if (end == text || !_valid(result[i]) || _abs(result[i]) > limit)
+				return false;
+			for (text = end; isspace(u8(*text)); ++text)
+				;
+			if (*text != (i + 1 < count ? ',' : 0))
+				return false;
+			++text;
+		}
+		return true;
+	}
+
+	// Whole decimal or base-prefixed integer in [min, max], with no minus sign when min is 0 or more
+	bool parse_integer(const LPCSTR text, const int base, const s64 min, const s64 max, s64& result)
+	{
+		char* end;
+		result = strtoll(text, &end, base);
+		return end != text && !*end && result >= min && result <= max && (min < 0 || !strchr(text, '-'));
+	}
+
 	// "level_name" or "level_name:x,y,z" (level point)
 	struct SEndpoint
 	{
@@ -52,7 +89,7 @@ namespace
 	bool parse_endpoint(LPCSTR text, SEndpoint& result)
 	{
 		result.has_point = false;
-		if (!text)
+		if (!text || xr_strlen(text) >= NAME_LIMIT)
 			return false;
 
 		string256 temp;
@@ -62,7 +99,7 @@ namespace
 		if (colon)
 		{
 			*colon = 0;
-			if (3 != sscanf(colon + 1, "%f,%f,%f", &result.point.x, &result.point.y, &result.point.z))
+			if (!parse_floats(colon + 1, &result.point.x, 3, POSITION_LIMIT))
 				return false;
 			result.has_point = true;
 			_Trim(temp);
@@ -162,13 +199,23 @@ namespace
 		return ini.section_exist(section) && !ini.r_section(section).Data.empty();
 	}
 
+	// True for section names CInifile::r_section cannot copy, logged with the file read straight from the section
+	bool long_section(const CInifile::Sect& sect)
+	{
+		if (sect.Name.size() < NAME_LIMIT)
+			return false;
+		const LPCSTR source = sect.Data.empty() || !sect.Data.front().filename.size() ? OVERLAY_FILE : sect.Data.front().filename.c_str();
+		Msg("! [spawn_overlays] %s [%.64s...]: the section name has 256 characters or more, skipped", source, sect.Name.c_str());
+		return true;
+	}
+
 	void matching_sections(CInifile& ini, const LPCSTR name, xr_vector<LPCSTR>& result)
 	{
 		const size_t length = xr_strlen(name);
 		for (const CInifile::Sect& sect : ini.sections())
 		{
 			const LPCSTR section = sect.Name.c_str();
-			if (0 == strncmp(section, name, length) && (section[length] == 0 || section[length] == '@') && !sect.Data.empty())
+			if (0 == strncmp(section, name, length) && (section[length] == 0 || section[length] == '@') && !sect.Data.empty() && !long_section(sect))
 				result.push_back(section);
 		}
 	}
@@ -374,13 +421,40 @@ namespace
 		xr_delete(object.m_ini_file);
 	}
 
-	// x, y, z; result is untouched unless all three parse.
-	bool read_vector(CInifile& ini, const LPCSTR section, const LPCSTR key, Fvector& result)
+	// x, y, z, each within limit, result is untouched unless all three parse
+	bool read_vector(CInifile& ini, const LPCSTR section, const LPCSTR key, Fvector& result, const float limit)
 	{
 		Fvector parsed;
-		if (3 != sscanf(ini.r_string(section, key), "%f,%f,%f", &parsed.x, &parsed.y, &parsed.z))
+		if (!parse_floats(ini.r_string(section, key), &parsed.x, 3, limit))
 			return false;
 		result = parsed;
+		return true;
+	}
+
+	// true, false, yes, no, on, off, 1 or 0 in any case, any other value is logged and leaves field as it is
+	bool read_bool(CInifile& ini, const LPCSTR section, const LPCSTR key, BOOL& field)
+	{
+		static const LPCSTR values[] = {"true", "false", "yes", "no", "on", "off", "1", "0"};
+		const LPCSTR value = ini.r_string(section, key);
+		if (std::none_of(std::begin(values), std::end(values), [&](const LPCSTR known) { return !_stricmp(value, known); }))
+		{
+			log_skip(line_source(ini, section, key), section, key, "must be true, false, yes, no, on, off, 1 or 0; ignored");
+			return false;
+		}
+		field = ini.r_bool(section, key);
+		return true;
+	}
+
+	// story_id and spawn_story_id, -1 is none
+	bool read_story_id(CInifile& ini, const LPCSTR section, const LPCSTR key, u32& result)
+	{
+		s64 id;
+		if (!parse_integer(ini.r_string(section, key), 10, -1, s64(u32(-1)), id))
+		{
+			log_skip(line_source(ini, section, key), section, key, "must be an integer from -1 to 4294967295; ignored");
+			return false;
+		}
+		result = u32(id);
 		return true;
 	}
 
@@ -392,9 +466,9 @@ namespace
 		auto* alife_object = smart_cast<CSE_ALifeObject*>(&object);
 		if (!xr_strcmp(key, "direction"))
 		{
-			if (!read_vector(ini, section, key, object.o_Angle))
+			if (!read_vector(ini, section, key, object.o_Angle, POSITION_LIMIT))
 			{
-				log_skip(line_source(ini, section, key), section, key, "must be x, y, z; ignored");
+				log_skip(line_source(ini, section, key), section, key, "must be x, y, z in radians, each within 100000; ignored");
 				return 0;
 			}
 		}
@@ -406,13 +480,26 @@ namespace
 		}
 		else if (!xr_strcmp(key, "custom_data_cfg"))
 		{
+			// The shorthand writes [logic], which a smart terrain never reads
+			if (smart_cast<CSE_ALifeSmartZone*>(&object))
+			{
+				log_skip(line_source(ini, section, key), section, key, "smart terrains read [smart_terrain] cfg, not [logic], use custom_data; ignored");
+				return 0;
+			}
 			string_path text;
+			if (xr_strlen(value) > sizeof(text) - sizeof("[logic]\ncfg = "))
+			{
+				log_skip(line_source(ini, section, key), section, key, "has more than 505 characters; ignored");
+				return 0;
+			}
 			xr_sprintf(text, "[logic]\ncfg = %s", value);
 			set_custom_data(object, text);
 		}
 		else if (!xr_strcmp(key, "story_id") && alife_object)
 		{
-			const auto id = ALife::_STORY_ID(ini.r_s32(section, key));
+			ALife::_STORY_ID id;
+			if (!read_story_id(ini, section, key, id))
+				return 0;
 			if (!ids)
 				alife_object->m_story_id = id;
 			else if (!reassign_id(ids->story_ids, alife_object->m_story_id, id))
@@ -423,7 +510,9 @@ namespace
 		}
 		else if (!xr_strcmp(key, "spawn_story_id") && alife_object)
 		{
-			const auto id = ALife::_SPAWN_STORY_ID(ini.r_s32(section, key));
+			ALife::_SPAWN_STORY_ID id;
+			if (!read_story_id(ini, section, key, id))
+				return 0;
 			if (!ids)
 				alife_object->m_spawn_story_id = id;
 			else if (!reassign_id(ids->spawn_story_ids, alife_object->m_spawn_story_id, id))
@@ -433,7 +522,15 @@ namespace
 			}
 		}
 		else if (!xr_strcmp(key, "object_flags") && alife_object)
-			alife_object->m_flags.flags = u32(strtoul(value, nullptr, 0));
+		{
+			s64 flags;
+			if (!parse_integer(value, 0, 0, s64(u32(-1)), flags))
+			{
+				log_skip(line_source(ini, section, key), section, key, "must be an unsigned integer up to 0xFFFFFFFF; ignored");
+				return 0;
+			}
+			alife_object->m_flags.flags = u32(flags);
+		}
 		else
 			return -1;
 		return 1;
@@ -450,9 +547,15 @@ namespace
 		for (int i = 0; ini.r_line(section, i, &key, &value); ++i)
 		{
 			const LPCSTR source = line_source(ini, section, key);
+			Fvector match;
+			if (value && !parse_floats(value, &match.x, 3, POSITION_LIMIT))
+			{
+				log_skip(source, section, key, "match_position must be x, y, z, each within 100000");
+				continue;
+			}
 			ALife::_SPAWN_ID spawn_id;
 			string256 reason;
-			if (!find_template(templates.spawns, templates.index, key, value, spawn_id, reason))
+			if (!find_template(templates.spawns, templates.index, key, value ? &match : nullptr, spawn_id, reason))
 			{
 				log_skip(source, section, key, reason);
 				continue;
@@ -494,6 +597,12 @@ namespace
 		return !xr_strcmp(key, "dest_level") || !xr_strcmp(key, "dest_position") || !xr_strcmp(key, "dest_direction");
 	}
 
+	// Keys apply_shape and apply_restrictor_type take after the patch key loop
+	bool shape_key(const LPCSTR key)
+	{
+		return !xr_strcmp(key, "box") || !xr_strcmp(key, "sphere") || !xr_strcmp(key, "restrictor_type");
+	}
+
 	bool has_value(CInifile& ini, const LPCSTR section, const LPCSTR key)
 	{
 		if (!ini.line_exist(section, key))
@@ -503,16 +612,20 @@ namespace
 	}
 
 	// dest_level / dest_position / dest_direction of a level changer; returns the keys applied. A dest_level that is
-	// not installed or comes without dest_position skips all three.
+	// empty, not installed or comes without dest_position skips all three
 	u32 apply_destination(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const CGameGraph& graph, const LPCSTR name)
 	{
 		const bool has_level = has_value(ini, section, "dest_level");
 		const bool has_position = has_value(ini, section, "dest_position");
 		const bool has_direction = has_value(ini, section, "dest_direction");
-		if (!has_level && !has_position && !has_direction)
+		if (ini.line_exist(section, "dest_level") && !has_level)
+		{
+			const LPCSTR reason = has_position && has_direction ? "missing value, dest_position and dest_direction skipped"
+				: has_position ? "missing value, dest_position skipped" : has_direction ? "missing value, dest_direction skipped" : "missing value";
+			log_skip(line_source(ini, section, "dest_level"), section, "dest_level", reason);
 			return 0;
-		const bool empty_level = ini.line_exist(section, "dest_level") && !has_level;
-		if (empty_level)
+		}
+		if (!has_level && !has_position && !has_direction)
 			return 0;
 		auto* changer = smart_cast<CSE_ALifeLevelChanger*>(&object);
 		if (!changer)
@@ -540,35 +653,184 @@ namespace
 			level_name = value;
 		}
 
-		u32 applied = 0;
-		if (has_direction)
-		{
-			changer->m_tAngles = ini.r_fvector3(section, "dest_direction");
-			++applied;
-		}
+		// dest_direction applies only when the entry's dest_position does or the entry has none
+		Fvector angles;
+		const bool direction_valid = has_direction && read_vector(ini, section, "dest_direction", angles, POSITION_LIMIT);
+		if (has_direction && !direction_valid)
+			log_skip(line_source(ini, section, "dest_direction"), section, "dest_direction", "must be x, y, z in radians, each within 100000; ignored");
 		if (!has_position)
-			return applied;
-
-		const shared_str previous_level = changer->m_caLevelToChange;
-		const Fvector previous_position = changer->m_tNextPosition;
-		changer->m_caLevelToChange = level_name;
-		changer->m_tNextPosition = ini.r_fvector3(section, "dest_position");
-		string256 reason;
-		const LPCSTR source = line_source(ini, section, "dest_position");
-		const int result = resolve_destination(*changer, graph, reason);
-		if (result != 1)
 		{
+			if (direction_valid)
+				changer->m_tAngles = angles;
+			return direction_valid ? 1 : 0;
+		}
+
+		const LPCSTR source = line_source(ini, section, "dest_position");
+		Fvector next_position;
+		if (read_vector(ini, section, "dest_position", next_position, POSITION_LIMIT))
+		{
+			const shared_str previous_level = changer->m_caLevelToChange;
+			const Fvector previous_position = changer->m_tNextPosition;
+			changer->m_caLevelToChange = level_name;
+			changer->m_tNextPosition = next_position;
+			string256 reason;
+			const int result = resolve_destination(*changer, graph, reason);
+			if (result == 1)
+			{
+				Msg("* [spawn_overlays] spawn_patch: %s leads to %s(%d) [%.1f,%.1f,%.1f]", name, *level_name, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
+				if (direction_valid)
+					changer->m_tAngles = angles;
+				return direction_valid ? 2 : 1;
+			}
 			changer->m_caLevelToChange = previous_level;
 			changer->m_tNextPosition = previous_position;
 			if (result < 0)
+			{
 				log_no_level(source, section, "dest_position", reason);
-			else
-				log_skip(source, section, "dest_position", reason);
-			return applied;
+				return 0;
+			}
+			log_skip(source, section, "dest_position", reason);
 		}
-		Msg("* [spawn_overlays] spawn_patch: %s leads to %s(%d) [%.1f,%.1f,%.1f]", name, *level_name, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
-		return applied + 1;
+		else
+			log_skip(source, section, "dest_position", "must be x, y, z, each within 100000; ignored");
+		if (direction_valid)
+			log_skip(line_source(ini, section, "dest_direction"), section, "dest_direction", "skipped with the refused dest_position");
+		return 0;
 	}
+
+	// Keys apply_smart_cover takes after the key loop, on any other object they stay unknown keys
+	bool smart_cover_key(const CSE_Abstract& object, const LPCSTR key)
+	{
+		static const LPCSTR keys[] = {"description", "loopholes", "hold_position_time", "enter_min_enemy_distance", "exit_min_enemy_distance", "is_combat_cover", "can_fire"};
+		if (!smart_cast<const CSE_SmartCover*>(&object))
+			return false;
+		for (const LPCSTR known : keys)
+			if (!xr_strcmp(key, known))
+				return true;
+		return false;
+	}
+
+	// Loophole ids of smart_covers.descriptions[id], false when the description is unknown
+	bool description_loopholes(const LPCSTR id, xr_vector<shared_str>& result)
+	{
+		::luabind::object descriptions;
+		if (!ai().script_engine().function_object("smart_covers.descriptions", descriptions, LUA_TTABLE))
+			return false;
+		const ::luabind::object description = descriptions[id];
+		if (description.type() != LUA_TTABLE)
+			return false;
+		const ::luabind::object loopholes = description["loopholes"];
+		if (loopholes.type() != LUA_TTABLE)
+			return false;
+		for (::luabind::object::iterator i = loopholes.begin(), e = loopholes.end(); i != e; ++i)
+		{
+			const ::luabind::object loophole = *i;
+			if (loophole.type() != LUA_TTABLE)
+				continue;
+			const ::luabind::object loophole_id = loophole["id"];
+			if (loophole_id.type() == LUA_TSTRING)
+				result.push_back(::luabind::object_cast<LPCSTR>(loophole_id));
+		}
+		return true;
+	}
+
+	// Smart cover keys of a section, -1 with the failing key and a reason, else the keys applied
+	// The script's own STATE_Read fills its loophole table, as when the cover loads from a save
+	int apply_smart_cover(CInifile& ini, const LPCSTR section, CSE_SmartCover& cover, LPCSTR& failed_key, string256& reason)
+	{
+		const bool has_description = has_value(ini, section, "description");
+		const bool has_loopholes = has_value(ini, section, "loopholes");
+		const shared_str description = has_description ? shared_str(ini.r_string(section, "description")) : cover.m_description;
+		// Cuts long descriptions and loophole ids so the reasons still fit
+		const LPCSTR description_cut = description.size() > 64 ? "..." : "";
+		xr_vector<shared_str> ids;
+		if ((has_description || has_loopholes) && !description_loopholes(*description, ids))
+		{
+			failed_key = has_description ? "description" : "loopholes";
+			xr_sprintf(reason, "'%.64s%s' is not in smart_covers.descriptions", *description, description_cut);
+			return -1;
+		}
+
+		xr_vector<u8> enabled(ids.size(), u8(!has_loopholes));
+		if (has_loopholes)
+		{
+			const LPCSTR list = ini.r_string(section, "loopholes");
+			// One item per comma, empty items skipped
+			for (int i = 0, n = int(std::count(list, list + xr_strlen(list), ',')) + 1; i < n; ++i)
+			{
+				xr_string id;
+				_GetItem(list, i, id);
+				if (id.empty())
+					continue;
+				const auto found = std::find(ids.begin(), ids.end(), shared_str(id.c_str()));
+				if (found != ids.end())
+					enabled[found - ids.begin()] = 1;
+				else
+				{
+					string256 skipped;
+					xr_sprintf(skipped, "'%.64s%s' is not a loophole of '%.64s%s', dropped", id.c_str(), id.size() > 64 ? "..." : "", *description, description_cut);
+					log_skip(line_source(ini, section, "loopholes"), section, "loopholes", skipped);
+				}
+			}
+			if (std::find(enabled.begin(), enabled.end(), u8(1)) == enabled.end())
+			{
+				failed_key = "loopholes";
+				xr_sprintf(reason, "no loophole of '%.64s%s' kept", *description, description_cut);
+				return -1;
+			}
+		}
+
+		u32 applied = 0;
+		const auto read_float = [&](const LPCSTR key, float& field) {
+			if (!has_value(ini, section, key))
+				return;
+			float value;
+			if (parse_floats(ini.r_string(section, key), &value, 1, POSITION_LIMIT) && value >= 0.f)
+			{
+				field = value;
+				++applied;
+			}
+			else
+				log_skip(line_source(ini, section, key), section, key, "must be a number from 0 to 100000; ignored");
+		};
+		const auto cover_bool = [&](const LPCSTR key, BOOL& field) {
+			if (!has_value(ini, section, key) || !read_bool(ini, section, key, field))
+				return false;
+			++applied;
+			return true;
+		};
+		read_float("hold_position_time", cover.m_hold_position_time);
+		read_float("enter_min_enemy_distance", cover.m_enter_min_enemy_distance);
+		read_float("exit_min_enemy_distance", cover.m_exit_min_enemy_distance);
+		// Without a valid can_fire a valid is_combat_cover sets it as the constructor does, false when the section has no can_fire
+		const bool has_can_fire = cover_bool("can_fire", cover.m_can_fire);
+		if (cover_bool("is_combat_cover", cover.m_is_combat_cover) && !has_can_fire)
+			cover.m_can_fire = cover.m_is_combat_cover || (pSettings->line_exist(cover.s_name, "can_fire") && pSettings->r_bool(cover.s_name, "can_fire"));
+		if (!has_description && !has_loopholes)
+			return applied;
+
+		// C++ state and the se_smart_cover tail (description, count, id and enabled flag per loophole)
+		cover.m_description = description;
+		NET_Packet packet;
+		packet.write_start();
+		cover.CSE_SmartCover::STATE_Write(packet);
+		packet.w_stringZ(description);
+		packet.w_u8(u8(ids.size()));
+		for (u32 i = 0; i < ids.size(); ++i)
+		{
+			packet.w_stringZ(ids[i]);
+			packet.w_u8(enabled[i]);
+		}
+		packet.read_start();
+		cover.m_wVersion = SPAWN_VERSION;
+		cover.m_script_version = script_server_object_version();
+		cover.STATE_Read(packet, u16(packet.B.count));
+		return applied + u32(has_description) + u32(has_loopholes);
+	}
+
+	int apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const bool required);
+	bool apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object);
+	bool required_vector(CInifile& ini, const LPCSTR section, const LPCSTR key, Fvector& result);
 
 	bool apply_patch(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const CGameGraph& graph, const LPCSTR name, STemplateIds& ids)
 	{
@@ -606,6 +868,8 @@ namespace
 				log_skip(source, section, "level", "needs a position key, coordinates do not carry over between levels");
 				return false;
 			}
+			if (!required_vector(ini, section, "position", position))
+				return false;
 			level_id = level->id();
 		}
 
@@ -615,16 +879,20 @@ namespace
 			const LPCSTR source = line_source(ini, section, key);
 			if (!value)
 			{
-				log_skip(source, section, key, "missing value");
+				// apply_destination logs an empty dest_level with the keys it skips
+				if (xr_strcmp(key, "dest_level"))
+					log_skip(source, section, key, "missing value");
 				continue;
 			}
 
-			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key))
+			if (!xr_strcmp(key, "match_position") || !xr_strcmp(key, "level") || destination_key(key) || shape_key(key) || smart_cover_key(object, key))
 				continue;
 			if (!xr_strcmp(key, "position"))
 			{
-				position = ini.r_fvector3(section, key);
-				relocated = true;
+				if (read_vector(ini, section, key, position, POSITION_LIMIT))
+					relocated = true;
+				else
+					log_skip(source, section, key, "must be x, y, z, each within 100000; ignored");
 				continue;
 			}
 			const int result = apply_object_key(ini, section, key, value, object, &ids);
@@ -650,6 +918,23 @@ namespace
 		}
 
 		applied += apply_destination(ini, section, object, graph, name);
+		if (apply_shape(ini, section, object, false) > 0)
+			++applied;
+		if (apply_restrictor_type(ini, section, object))
+			++applied;
+
+		if (auto* cover = smart_cast<CSE_SmartCover*>(&object))
+		{
+			string256 reason;
+			const int result = apply_smart_cover(ini, section, *cover, key, reason);
+			if (result < 0)
+			{
+				xr_strcat(reason, ", smart cover keys skipped");
+				log_skip(line_source(ini, section, key), section, key, reason);
+			}
+			else
+				applied += result;
+		}
 
 		if (applied)
 			Msg("* [spawn_overlays] spawn_patch: %s (%s) %d keys applied (%s)", name, *object.s_name, applied, summary_source);
@@ -660,17 +945,23 @@ namespace
 	{
 		const size_t prefix_length = xr_strlen(PATCH_PREFIX);
 		const CInifile::Root& sections = ini.sections();
-		for (const auto& [Name, Data] : sections)
+		for (const CInifile::Sect& sect : sections)
 		{
-			const LPCSTR section = Name.c_str();
-			if (0 != strncmp(section, PATCH_PREFIX, prefix_length))
+			const LPCSTR section = sect.Name.c_str();
+			if (0 != strncmp(section, PATCH_PREFIX, prefix_length) || long_section(sect))
 				continue;
 
 			const LPCSTR name = section + prefix_length;
 			const LPCSTR match_position = ini.line_exist(section, "match_position") ? ini.r_string(section, "match_position") : nullptr;
+			Fvector match;
+			if (match_position && !parse_floats(match_position, &match.x, 3, POSITION_LIMIT))
+			{
+				log_skip(line_source(ini, section, "match_position"), section, "match_position", "must be x, y, z, each within 100000; section skipped");
+				continue;
+			}
 			ALife::_SPAWN_ID spawn_id;
 			string256 reason;
-			if (!find_template(templates.spawns, templates.index, name, match_position, spawn_id, reason))
+			if (!find_template(templates.spawns, templates.index, name, match_position ? &match : nullptr, spawn_id, reason))
 			{
 				log_skip(section_source(ini, section), section, name, reason);
 				continue;
@@ -928,6 +1219,17 @@ namespace
 			Msg("* [spawn_overlays] rebuilt level '%s': %d base templates on it kept and placed by their position, %d level changers into it re-resolved", *graph.header().level(levels[i]).name(), on_level[i], changers[i]);
 	}
 
+	// Whether [spawn_remove] lists the template, without regard to case as find_template matches it
+	bool remove_listed(const CInifile& ini, const shared_str& name)
+	{
+		if (!ini.section_exist(SECTION_REMOVE))
+			return false;
+		for (const CInifile::Item& item : ini.r_section(SECTION_REMOVE).Data)
+			if (!stricmp(*item.first, *name))
+				return true;
+		return false;
+	}
+
 	// After the packs: a retired level changer without a copy by name, and a retired story object whose story ids
 	// no template holds now or whose story_object has no copy by name. Names listed in [spawn_remove] (ini may be
 	// null) are not reported.
@@ -942,7 +1244,7 @@ namespace
 				if (entry.level != level_id)
 					continue;
 				++count;
-				if (ini && ini->line_exist(SECTION_REMOVE, *entry.name))
+				if (ini && remove_listed(*ini, entry.name))
 					continue;
 				const auto copy = templates.index.find(entry.name);
 				const bool copied = copy != templates.index.end() && !copy->second.empty();
@@ -1025,26 +1327,28 @@ namespace
 		return nullptr;
 	}
 
-	// A required key holding x, y, z; false (logged) when it is missing or does not parse.
+	// Reads a required position key, false (logged) when it is missing or does not parse
 	bool required_vector(CInifile& ini, const LPCSTR section, const LPCSTR key, Fvector& result)
 	{
 		if (!required_value(ini, section, key))
 			return false;
-		if (read_vector(ini, section, key, result))
+		if (read_vector(ini, section, key, result, POSITION_LIMIT))
 			return true;
-		log_skip(line_source(ini, section, key), section, key, "must be x, y, z; section skipped");
+		log_skip(line_source(ini, section, key), section, key, "must be x, y, z, each within 100000; section skipped");
 		return false;
 	}
 
-	bool parse_shape(CInifile& ini, const LPCSTR section, const LPCSTR key, CShapeData::shape_def& shape)
+	bool parse_shape(CInifile& ini, const LPCSTR section, const LPCSTR key, CShapeData::shape_def& shape, const LPCSTR outcome)
 	{
 		const LPCSTR value = ini.r_string(section, key);
+		string256 reason;
 		if (!xr_strcmp(key, "box"))
 		{
 			Fvector size;
-			if (!read_vector(ini, section, key, size) || size.x <= 0.f || size.y <= 0.f || size.z <= 0.f)
+			if (!read_vector(ini, section, key, size, POSITION_LIMIT) || size.x <= 0.f || size.y <= 0.f || size.z <= 0.f)
 			{
-				log_skip(line_source(ini, section, key), section, key, "must be width, height, depth, all above 0; section skipped");
+				xr_sprintf(reason, "must be width, height, depth, all above 0 and at most 100000; %s", outcome);
+				log_skip(line_source(ini, section, key), section, key, reason);
 				return false;
 			}
 			shape.type = CShapeData::cfBox;
@@ -1055,9 +1359,10 @@ namespace
 			return true;
 		}
 		float radius;
-		if (1 != sscanf(value, "%f", &radius) || radius <= 0.f)
+		if (!parse_floats(value, &radius, 1, POSITION_LIMIT) || radius <= 0.f)
 		{
-			log_skip(line_source(ini, section, key), section, key, "must be a radius above 0; section skipped");
+			xr_sprintf(reason, "must be a radius above 0 and at most 100000; %s", outcome);
+			log_skip(line_source(ini, section, key), section, key, reason);
 			return false;
 		}
 		shape.type = CShapeData::cfSphere;
@@ -1086,41 +1391,48 @@ namespace
 		return *graph.header().level(graph.vertex(alife_object->m_tGraphID)->level_id()).name();
 	}
 
-	bool apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	// Box or sphere replaces a shaped object's shapes, -1 when refused, 0 when neither is given, 1 when applied
+	// Adds require one and a refusal skips the section, patches ignore a refused key
+	int apply_shape(CInifile& ini, const LPCSTR section, CSE_Abstract& object, const bool required)
 	{
+		const LPCSTR outcome = required ? "section skipped" : "ignored";
 		const bool has_box = has_value(ini, section, "box");
 		const bool has_sphere = has_value(ini, section, "sphere");
 		if (auto* shaped = smart_cast<CSE_Shape*>(&object))
 		{
+			if (!required && !has_box && !has_sphere)
+				return 0;
 			if (has_box == has_sphere)
 			{
-				log_skip(section_source(ini, section), section, "box", has_box ? "box and sphere are both given, section skipped" : "a shaped object needs box or sphere, section skipped");
-				return false;
+				string256 reason;
+				xr_sprintf(reason, "%s, %s", has_box ? "box and sphere are both given" : "a shaped object needs box or sphere", outcome);
+				log_skip(section_source(ini, section), section, "box", reason);
+				return -1;
 			}
 			CShapeData::shape_def shape;
-			if (!parse_shape(ini, section, has_box ? "box" : "sphere", shape))
-				return false;
+			if (!parse_shape(ini, section, has_box ? "box" : "sphere", shape, outcome))
+				return -1;
 			shaped->shapes.clear();
 			shaped->shapes.push_back(shape);
-			return true;
+			return 1;
 		}
 		if (has_box)
 			log_skip(line_source(ini, section, "box"), section, "box", "not a shaped object, ignored");
 		if (has_sphere)
 			log_skip(line_source(ini, section, "sphere"), section, "sphere", "not a shaped object, ignored");
-		return true;
+		return 0;
 	}
 
-	void apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
+	bool apply_restrictor_type(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
 	{
 		if (!has_value(ini, section, "restrictor_type"))
-			return;
+			return false;
 		const LPCSTR source = line_source(ini, section, "restrictor_type");
 		auto* restrictor = smart_cast<CSE_ALifeSpaceRestrictor*>(&object);
 		if (!restrictor)
 		{
 			log_skip(source, section, "restrictor_type", "not a space restrictor, ignored");
-			return;
+			return false;
 		}
 
 		static const std::pair<LPCSTR, u8> types[] = {
@@ -1137,10 +1449,11 @@ namespace
 			if (!xr_strcmp(value, name))
 			{
 				restrictor->m_space_restrictor_type = id;
-				return;
+				return true;
 			}
 		}
 		log_skip(source, section, "restrictor_type", "must be default_none, default_out, default_in, none, in or out; ignored");
+		return false;
 	}
 
 	bool apply_changer(CInifile& ini, const LPCSTR section, CSE_Abstract& object)
@@ -1158,19 +1471,25 @@ namespace
 		const LPCSTR dest_level = required_value(ini, section, "dest_level");
 		if (!dest_level || !required_vector(ini, section, "dest_position", dest_position))
 			return false;
+		// resolve_destination copies an unknown level name into a string256
+		if (xr_strlen(dest_level) >= NAME_LIMIT)
+		{
+			log_skip(line_source(ini, section, "dest_level"), section, "dest_level", "has 256 characters or more, section skipped");
+			return false;
+		}
 
 		changer->m_caLevelToChange = dest_level;
 		changer->m_tNextPosition = dest_position;
 		if (has_value(ini, section, "dest_direction"))
 		{
 			Fvector dest_direction;
-			if (read_vector(ini, section, "dest_direction", dest_direction))
+			if (read_vector(ini, section, "dest_direction", dest_direction, POSITION_LIMIT))
 				changer->m_tAngles = dest_direction;
 			else
-				log_skip(line_source(ini, section, "dest_direction"), section, "dest_direction", "must be x, y, z; ignored");
+				log_skip(line_source(ini, section, "dest_direction"), section, "dest_direction", "must be x, y, z in radians, each within 100000; ignored");
 		}
 		if (has_value(ini, section, "silent_mode"))
-			changer->m_bSilentMode = ini.r_bool(section, "silent_mode");
+			read_bool(ini, section, "silent_mode", changer->m_bSilentMode);
 		set_changer_hint(*changer, has_value(ini, section, "hint") ? ini.r_string(section, "hint") : DEFAULT_CHANGER_HINT);
 		return true;
 	}
@@ -1228,7 +1547,7 @@ namespace
 		object->set_name_replace(name);
 		object->o_Position = position;
 
-		if (!apply_shape(ini, section, *object) || !apply_changer(ini, section, *object))
+		if (apply_shape(ini, section, *object, true) < 0 || !apply_changer(ini, section, *object))
 			return refuse();
 
 		apply_restrictor_type(ini, section, *object);
@@ -1241,13 +1560,25 @@ namespace
 				log_skip(line_source(ini, section, key), section, key, "missing value");
 				continue;
 			}
-			if (add_key(key))
+			if (add_key(key) || smart_cover_key(*object, key))
 				continue;
 			if (apply_object_key(ini, section, key, value, *object, nullptr) < 0)
 				log_skip(line_source(ini, section, key), section, key, "unknown key");
 		}
 
 		string256 reason;
+		if (auto* cover = smart_cast<CSE_SmartCover*>(object))
+		{
+			if (!required_value(ini, section, "description"))
+				return refuse();
+			if (apply_smart_cover(ini, section, *cover, key, reason) < 0)
+			{
+				xr_strcat(reason, ", section skipped");
+				log_skip(line_source(ini, section, key), section, key, reason);
+				return refuse();
+			}
+		}
+
 		if (const int result = add_template(templates, object, graph, level->id(), source, reason); result != 1)
 		{
 			if (result < 0)
@@ -1257,20 +1588,22 @@ namespace
 			return refuse();
 		}
 
-		string256 destination = "";
+		string256 detail = "";
 		if (const auto* changer = smart_cast<CSE_ALifeLevelChanger*>(object))
-			xr_sprintf(destination, " leads to %s(%d) [%.1f,%.1f,%.1f]", *changer->m_caLevelToChange, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
-		Msg("* [spawn_overlays] spawn_add: %s (%s) on %s(%d) [%.1f,%.1f,%.1f]%s (%s)", name, object_section, level_name, smart_cast<CSE_ALifeObject*>(object)->m_tGraphID, VPUSH(position), destination, source);
+			xr_sprintf(detail, " leads to %s(%d) [%.1f,%.1f,%.1f]", *changer->m_caLevelToChange, changer->m_tNextGraphID, VPUSH(changer->m_tNextPosition));
+		else if (const auto* cover = smart_cast<CSE_SmartCover*>(object))
+			xr_sprintf(detail, " as %s", *cover->m_description);
+		Msg("* [spawn_overlays] spawn_add: %s (%s) on %s(%d) [%.1f,%.1f,%.1f]%s (%s)", name, object_section, level_name, smart_cast<CSE_ALifeObject*>(object)->m_tGraphID, VPUSH(position), detail, source);
 		return true;
 	}
 
 	void apply_adds(CInifile& ini, STemplates& templates, const CGameGraph& graph, u32& added)
 	{
 		const size_t prefix_length = xr_strlen(ADD_PREFIX);
-		for (const auto& [Name, Data] : ini.sections())
+		for (const CInifile::Sect& sect : ini.sections())
 		{
-			const LPCSTR section = Name.c_str();
-			if (0 == strncmp(section, ADD_PREFIX, prefix_length) && apply_add(ini, section, section + prefix_length, templates, graph))
+			const LPCSTR section = sect.Name.c_str();
+			if (0 == strncmp(section, ADD_PREFIX, prefix_length) && !long_section(sect) && apply_add(ini, section, section + prefix_length, templates, graph))
 				++added;
 		}
 	}
@@ -1422,13 +1755,20 @@ CSpawnOverlays::CSpawnOverlays(const LPCSTR base_spawn_name)
 	string_path file_name;
 	m_ini = overlay_file(file_name) ? xr_new<CInifile>(file_name, TRUE) : nullptr;
 
-	m_sync_offsets = true;
+	BOOL sync_offsets = TRUE;
 	if (m_ini && setting_set(*m_ini, "sync_level_offsets"))
-		m_sync_offsets = !!m_ini->r_bool(SECTION_SETTINGS, "sync_level_offsets");
+		read_bool(*m_ini, SECTION_SETTINGS, "sync_level_offsets", sync_offsets);
+	m_sync_offsets = !!sync_offsets;
 
 	m_link_tolerance = DEFAULT_LINK_TOLERANCE;
 	if (m_ini && setting_set(*m_ini, "link_tolerance"))
-		m_link_tolerance = m_ini->r_float(SECTION_SETTINGS, "link_tolerance");
+	{
+		float tolerance;
+		if (parse_floats(m_ini->r_string(SECTION_SETTINGS, "link_tolerance"), &tolerance, 1, POSITION_LIMIT) && tolerance >= 0.f)
+			m_link_tolerance = tolerance;
+		else
+			log_skip(line_source(*m_ini, SECTION_SETTINGS, "link_tolerance"), SECTION_SETTINGS, "link_tolerance", "must be a distance from 0 to 100000, kept the default");
+	}
 
 	m_packs.open(base_spawn_name);
 }
@@ -1480,9 +1820,10 @@ CGameGraph* CSpawnOverlays::apply_graph(const CGameGraph& base, void*& buffer)
 	return builder.build(buffer);
 }
 
-void CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph)
+ALife::_SPAWN_ID CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph)
 {
 	STemplates templates(spawns);
+	const ALife::_SPAWN_ID first_added = templates.ids.next_spawn_id;
 
 	u32 removed = 0, patched = 0, added = 0;
 	const xr_vector<GameGraph::_LEVEL_ID> rebuilt = m_packs.rebuilt_object_levels();
@@ -1512,6 +1853,7 @@ void CSpawnOverlays::apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, con
 
 	if (removed || patched || added)
 		Msg("* [spawn_overlays] objects: -%d templates, %d patched, +%d added, %d remaining", removed, patched, added, spawns.vertex_count());
+	return first_added;
 }
 
 void CSpawnOverlays::add_paths(CPatrolPathStorage& storage, const CGameGraph& graph)

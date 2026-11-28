@@ -92,6 +92,14 @@ public:
 			std::reverse(m_tppBlocks[j].m_tpIDs, m_tppBlocks[j].m_tpIDs + m_tppBlocks[j].m_tCount);
 	}
 
+	IC u32 free_count() const
+	{
+		u32 result = 0;
+		for (u32 j = 0; j < m_tBlockCount; ++j)
+			result += m_tppBlocks[j].m_tCount;
+		return (result);
+	}
+
 	IC VALUE_ID tfGetID(VALUE_ID tValueID = tInvalidValueID)
 	{
 		if (tInvalidValueID != tValueID)
